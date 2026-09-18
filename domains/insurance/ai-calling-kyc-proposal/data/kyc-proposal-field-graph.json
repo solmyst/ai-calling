@@ -1,0 +1,372 @@
+{
+  "version": "2026-09-18.1",
+  "schema_version": 1,
+  "graph_id": "ai-calling-kyc-proposal-fields",
+  "service": "insurance",
+  "purpose": "Runtime knowledge graph for the post-payment AI voice calling agent that completes KYC and proposal data collection.",
+  "status": "draft",
+  "evidence": {
+    "evidence_type": "internal-ops-matrix-screenshot",
+    "recorded_date": "2026-09-18",
+    "canonical_doc": "insurance/operations/ai-calling/insurer-kyc-proposal-field-matrix.md",
+    "source_note": "Derived from the insurer user-field requirement matrix shared for AI calling context. Not yet verified against live insurer adapters.",
+    "limitations": [
+      "Kotak has no numeric insurer_id in the current backend registry (1-9).",
+      "United in the matrix maps operationally to UIIC / insurer_id 6 pending string-code confirmation.",
+      "NIC and Digit each have multiple backend routes; field requirements here are label-level, not adapter-level.",
+      "Collection scripts, consent wording, and recording policy remain TBD."
+    ]
+  },
+  "insurers": [
+    {
+      "id": "aig",
+      "label": "AIG",
+      "aliases": ["Tata AIG", "TATA_AIG"],
+      "insurer_ids": [1],
+      "runtime_routes": ["direct:aig"]
+    },
+    {
+      "id": "icici",
+      "label": "ICICI",
+      "aliases": ["ICICI Lombard"],
+      "insurer_ids": [2],
+      "runtime_routes": ["direct:icici"]
+    },
+    {
+      "id": "hdfc",
+      "label": "HDFC",
+      "aliases": ["HDFC ERGO", "HDFC Ergo"],
+      "insurer_ids": [3],
+      "runtime_routes": ["direct:hdfc"]
+    },
+    {
+      "id": "united",
+      "label": "United",
+      "aliases": ["UIIC", "United India", "UNTD"],
+      "insurer_ids": [6],
+      "runtime_routes": ["turtlefin:uiic"],
+      "mapping_confidence": "operational-label-pending-string-code-confirm"
+    },
+    {
+      "id": "bajaj",
+      "label": "Bajaj",
+      "aliases": ["Bajaj Allianz"],
+      "insurer_ids": [7],
+      "runtime_routes": ["turtlefin:bajaj"]
+    },
+    {
+      "id": "digit",
+      "label": "Digit",
+      "aliases": ["GoDigit", "Go Digit"],
+      "insurer_ids": [5, 8],
+      "runtime_routes": ["insuremo:godigit", "direct:digit"],
+      "note": "Resolve adapter from live case evidence; do not assume from label alone."
+    },
+    {
+      "id": "nic",
+      "label": "NIC",
+      "aliases": ["National Insurance", "NIC Direct"],
+      "insurer_ids": [4, 9],
+      "runtime_routes": ["insuremo:national", "direct:nic_direct"],
+      "note": "Resolve adapter from live case evidence; do not assume from label alone."
+    },
+    {
+      "id": "kotak",
+      "label": "Kotak",
+      "aliases": ["Kotak Mahindra General Insurance"],
+      "insurer_ids": [],
+      "runtime_routes": [],
+      "mapping_confidence": "unmapped",
+      "note": "Not present in insurer-id-registry 1-9. Keep label only until backend mapping is confirmed."
+    }
+  ],
+  "fields": [
+    {
+      "id": "name",
+      "label": "Name",
+      "category": "identity",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Ask for full name as on ID / proposal.",
+      "validation": "non_empty_person_name"
+    },
+    {
+      "id": "mobile",
+      "label": "Mobile",
+      "category": "contact",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed_confirm_existing",
+      "ask_hint": "Prefer confirming the number already on the case; update only if customer corrects it.",
+      "validation": "indian_mobile_10_digit"
+    },
+    {
+      "id": "email",
+      "label": "Email",
+      "category": "contact",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Spell-back the email address.",
+      "validation": "email"
+    },
+    {
+      "id": "dob",
+      "label": "DOB",
+      "category": "identity",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Collect date of birth as day-month-year and repeat it back.",
+      "validation": "date_dd_mm_yyyy"
+    },
+    {
+      "id": "gender",
+      "label": "Gender",
+      "category": "identity",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Ask gender as required by the insurer form options.",
+      "validation": "insurer_gender_enum"
+    },
+    {
+      "id": "correspondence_address",
+      "label": "Correspondence address",
+      "category": "address",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Collect full correspondence address line by line.",
+      "validation": "non_empty_address"
+    },
+    {
+      "id": "correspondence_pincode",
+      "label": "Correspondence pincode",
+      "category": "address",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Collect 6-digit pincode and repeat digits.",
+      "validation": "indian_pincode_6_digit"
+    },
+    {
+      "id": "correspondence_city_state",
+      "label": "Correspondence city/state",
+      "category": "address",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "HDFC only: capture city and state as shown in UI / form.",
+      "validation": "city_state_pair",
+      "ui_derived": true
+    },
+    {
+      "id": "permanent_address",
+      "label": "Permanent address",
+      "category": "address",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "HDFC only: collect permanent address; confirm if same as correspondence.",
+      "validation": "non_empty_address"
+    },
+    {
+      "id": "pan",
+      "label": "PAN",
+      "category": "kyc_id",
+      "sensitivity": "sensitive_id",
+      "collection_channel": "voice_allowed_recorded_only",
+      "ask_hint": "Collect PAN letter-by-letter and digit-by-digit; never ask customer to WhatsApp/email PAN.",
+      "validation": "pan_format",
+      "never_log_raw": true
+    },
+    {
+      "id": "aadhaar_number",
+      "label": "Aadhaar number",
+      "category": "kyc_id",
+      "sensitivity": "sensitive_id",
+      "collection_channel": "voice_allowed_recorded_only",
+      "ask_hint": "ICICI only: collect Aadhaar number carefully; prefer guiding approved digital KYC path when available.",
+      "validation": "aadhaar_12_digit",
+      "never_log_raw": true
+    },
+    {
+      "id": "aadhaar_images",
+      "label": "Aadhaar images",
+      "category": "kyc_document",
+      "sensitivity": "sensitive_document",
+      "collection_channel": "approved_upload_only",
+      "ask_hint": "Never collect images on the call. Guide customer to the approved KYC/WhatsApp/app upload path.",
+      "validation": "upload_status_confirmed_in_system",
+      "never_collect_on_voice": true
+    },
+    {
+      "id": "gstin",
+      "label": "GSTIN",
+      "category": "business",
+      "sensitivity": "business_id",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Collect GSTIN when the proposal is business/GST applicable.",
+      "validation": "gstin_format"
+    },
+    {
+      "id": "pep",
+      "label": "PEP",
+      "category": "compliance",
+      "sensitivity": "compliance",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Ask whether the customer or related party is a Politically Exposed Person; record yes/no as required.",
+      "validation": "boolean_or_insurer_enum"
+    },
+    {
+      "id": "indian",
+      "label": "Indian",
+      "category": "nationality",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "HDFC only: confirm Indian nationality / residency status required by form.",
+      "validation": "boolean_or_insurer_enum"
+    },
+    {
+      "id": "profile_photo",
+      "label": "Profile photo",
+      "category": "kyc_document",
+      "sensitivity": "biometric_like",
+      "collection_channel": "approved_upload_only",
+      "ask_hint": "HDFC only: never collect photo on the call; guide approved upload path.",
+      "validation": "upload_status_confirmed_in_system",
+      "never_collect_on_voice": true
+    },
+    {
+      "id": "cin",
+      "label": "CIN",
+      "category": "business",
+      "sensitivity": "business_id",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "AIG only: collect Corporate Identification Number when applicable.",
+      "validation": "cin_format"
+    },
+    {
+      "id": "nominee",
+      "label": "Nominee",
+      "category": "nominee",
+      "sensitivity": "pii",
+      "collection_channel": "voice_allowed",
+      "ask_hint": "Collect nominee name and any required relationship/share fields supported by the form.",
+      "validation": "nominee_block",
+      "subfields_suggested": ["nominee_name", "nominee_relationship", "nominee_share"]
+    }
+  ],
+  "requirement_matrix": {
+    "name": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "nic", "kotak"],
+    "mobile": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "nic", "kotak"],
+    "email": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "nic", "kotak"],
+    "dob": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "kotak"],
+    "gender": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "kotak"],
+    "correspondence_address": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "kotak"],
+    "correspondence_pincode": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "kotak"],
+    "correspondence_city_state": ["hdfc"],
+    "permanent_address": ["hdfc"],
+    "pan": ["aig", "icici", "hdfc", "kotak"],
+    "aadhaar_number": ["icici"],
+    "aadhaar_images": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "nic", "kotak"],
+    "gstin": ["icici", "hdfc", "kotak"],
+    "pep": ["hdfc", "kotak"],
+    "indian": ["hdfc"],
+    "profile_photo": ["hdfc"],
+    "cin": ["aig"],
+    "nominee": ["aig", "icici", "hdfc", "united", "bajaj", "digit", "nic", "kotak"]
+  },
+  "field_groups": {
+    "universal": ["name", "mobile", "email", "aadhaar_images", "nominee"],
+    "almost_universal_except_nic": ["dob", "gender", "correspondence_address", "correspondence_pincode"],
+    "hdfc_only": ["correspondence_city_state", "permanent_address", "indian", "profile_photo"],
+    "sensitive_id_voice": ["pan", "aadhaar_number"],
+    "upload_only": ["aadhaar_images", "profile_photo"]
+  },
+  "edges": [
+    {"from": "insurer", "to": "field", "type": "requires", "via": "requirement_matrix"},
+    {"from": "field", "to": "collection_channel", "type": "collected_via"},
+    {"from": "missing_required_field", "to": "proposal_submit", "type": "blocks"},
+    {"from": "aadhaar_images_pending", "to": "kyc_complete", "type": "blocks"},
+    {"from": "profile_photo_pending", "to": "hdfc_kyc_complete", "type": "blocks"},
+    {"from": "kyc_incomplete", "to": "policy_issuance", "type": "blocks"}
+  ],
+  "call_phases": [
+    {
+      "id": "boot",
+      "goal": "Load case context: proposal_id, insurer_id/label, payment state, KYC/proposal status, already-known fields.",
+      "required_inputs": ["proposal_id", "insurer_label_or_id", "journey_status"]
+    },
+    {
+      "id": "consent_and_purpose",
+      "goal": "State who is calling, why (post-payment KYC/proposal completion), and get consent to continue.",
+      "next_on_success": "resolve_missing_fields"
+    },
+    {
+      "id": "resolve_missing_fields",
+      "goal": "Compute required field set for insurer minus already-present verified fields.",
+      "runtime_rule": "required = requirement_matrix fields for insurer_id; skip fields marked present+verified in live case payload."
+    },
+    {
+      "id": "collect_voice_fields",
+      "goal": "Collect voice-allowed missing fields in recommended order; confirm by read-back.",
+      "recommended_order": [
+        "name",
+        "mobile",
+        "email",
+        "dob",
+        "gender",
+        "correspondence_address",
+        "correspondence_pincode",
+        "correspondence_city_state",
+        "permanent_address",
+        "indian",
+        "pep",
+        "pan",
+        "aadhaar_number",
+        "gstin",
+        "cin",
+        "nominee"
+      ]
+    },
+    {
+      "id": "hand_off_uploads",
+      "goal": "For upload-only fields, send/remind approved digital path; do not accept media on the call.",
+      "fields": ["aadhaar_images", "profile_photo"]
+    },
+    {
+      "id": "verify_system_state",
+      "goal": "Do not close from verbal confirmation alone; confirm KYC/proposal progression from live system evidence.",
+      "related_docs": [
+        "insurance/operations/calling-dashboard/ckyc-log.md",
+        "insurance/operations/calling-dashboard/proposal-log.md",
+        "insurance/operations/calling-dashboard/journey-status-state-machine.md"
+      ]
+    },
+    {
+      "id": "disposition_and_next_action",
+      "goal": "Record privacy-safe disposition, missing fields remaining, upload pending, callback needed, or escalation.",
+      "related_docs": [
+        "insurance/operations/insurance-calling/insurance-calling-reasons-and-dispositions.md"
+      ]
+    }
+  ],
+  "runtime_api": {
+    "resolve_required_fields": {
+      "input": ["insurer_id_or_label", "already_present_field_ids"],
+      "output": {
+        "required": "field ids still needed",
+        "voice_collect_now": "subset with voice_allowed*",
+        "upload_only": "subset with approved_upload_only",
+        "unknown_insurer": "true when label/id cannot be mapped"
+      }
+    },
+    "insurer_lookup": {
+      "prefer": "numeric insurer_id via insurance/data/insurer-id-registry.md",
+      "fallback": "matrix label match with mapping_confidence flag"
+    }
+  },
+  "safety_rules": [
+    "Never invent insurer requirements not present in this graph.",
+    "Never ask for OTP on the call.",
+    "Never ask customer to send Aadhaar/PAN/profile images over general WhatsApp/email/chat unless that channel is the approved KYC path for the case.",
+    "Never store raw Aadhaar/PAN/full address payloads in wiki notes, training dumps, or unrestricted logs.",
+    "Never mark KYC/proposal complete from verbal confirmation alone.",
+    "If insurer is Kotak or otherwise unmapped, collect only universal fields after stating mapping is incomplete, then escalate for confirmed field list.",
+    "If live case evidence conflicts with this matrix, prefer live owning-system evidence and flag the conflict."
+  ]
+}

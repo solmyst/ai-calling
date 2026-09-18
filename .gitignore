@@ -1,0 +1,37 @@
+# --- SECRETS. Never commit. -------------------------------------------------
+# voicebot/server/.env holds live third-party keys: Groq, AssemblyAI, Sarvam,
+# ElevenLabs, Google/Bifrost, and the Park+ gateway. .env.example is the
+# template and IS committed.
+.env
+.env.*
+!.env.example
+
+# --- Customer data. Never commit. -------------------------------------------
+# call.log is a transcript of real calls. redaction.py masks Aadhaar/PAN/phone
+# before anything is written, but the conversation itself is still customer
+# data and does not belong in a repo.
+call.log
+*.jsonl
+
+# --- Eval + run artifacts ---------------------------------------------------
+*.eval.log
+*.debug.log
+*.log
+eval-runs/
+*.wav
+
+# --- Models and binaries: hundreds of MB, refetchable ------------------------
+venv/
+.venv/
+piper_voices/
+whisper_models/
+
+# --- Python / editor noise --------------------------------------------------
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,288 @@
+{
+  "_source": "Rebuilt 2026-09-13 from product/ docs (overview, plans, pricing, subscriptions, faq, instant, terminology). Replaces the Sept-2026 website scrape, which described plans and prices that do not exist in the real product.",
+  "_contradictions_flagged": {
+    "reschedule_count": "CONFIRMED by product owner 2026-09-13: 3 reschedules, while more than 2 hours remain. overview.md/plans.md saying 'one' are stale.",
+    "multipack": "CONFIRMED by product owner 2026-09-13: the live pack is 4+1 (buy 4, get 5), priced at 4x the Premium tier price. subscriptions.md/plans.md/pricing.md describe a 5+1 pack — treat those as ahead of, or divergent from, what is actually sold.",
+    "reschedule_fee_inr_100": "CONFIRMED by product owner 2026-09-13: there is NO 100 rupee reschedule fee. The public website scrape was wrong. Never mention a reschedule fee.",
+    "basic_and_exterior_prices": "pricing.md tabulates charged prices for Full Car Spa Premium only. Basic/Exterior tier prices are undocumented, so the bot must not quote them."
+  },
+  "business": {
+    "name": "Park+ Car Spa",
+    "model": "doorstep",
+    "description": "A verified cleaner comes to the customer's parked car with their own equipment and cleaning solutions. Not a drive-in centre.",
+    "support_email": "support@myparkplus.com"
+  },
+  "service_areas": {
+    "primary_city": "Gurugram (Gurgaon)",
+    "coverage_note": "Gurgaon only, and only inside the live service polygon. Coverage cannot be checked on this call — always take the address and say the team will confirm serviceability."
+  },
+  "packages": [
+    {
+      "id": "full_car_spa_premium",
+      "name": "Full Car Spa Premium",
+      "duration_minutes": 110,
+      "description": "The full one: everything in Basic, plus plastic cladding cleaning and polish, and deep interior detailing.",
+      "inclusions": [
+        {
+          "item": "Foam Wash"
+        },
+        {
+          "item": "Tyre Cleaning"
+        },
+        {
+          "item": "Tyre Polish"
+        },
+        {
+          "item": "Exterior Wax"
+        },
+        {
+          "item": "Glass Cleaning"
+        },
+        {
+          "item": "Vacuum Cleaning"
+        },
+        {
+          "item": "Dashboard and Interior Wipe"
+        },
+        {
+          "item": "Seat Cleaning"
+        },
+        {
+          "item": "Dashboard and Interior Polish"
+        },
+        {
+          "item": "Plastic Cladding Cleaning and Polish"
+        },
+        {
+          "item": "Deep Interior Detailing"
+        }
+      ],
+      "has_tier_pricing": true
+    },
+    {
+      "id": "full_car_spa_basic",
+      "name": "Full Car Spa Basic",
+      "duration_minutes": 80,
+      "description": "Everything in Exterior Only, plus interior: vacuum, dashboard and interior wipe, seat cleaning, dashboard and interior polish.",
+      "inclusions": [
+        {
+          "item": "Foam Wash"
+        },
+        {
+          "item": "Tyre Cleaning"
+        },
+        {
+          "item": "Tyre Polish"
+        },
+        {
+          "item": "Exterior Wax"
+        },
+        {
+          "item": "Glass Cleaning"
+        },
+        {
+          "item": "Vacuum Cleaning"
+        },
+        {
+          "item": "Dashboard and Interior Wipe"
+        },
+        {
+          "item": "Seat Cleaning"
+        },
+        {
+          "item": "Dashboard and Interior Polish"
+        }
+      ],
+      "has_tier_pricing": false
+    },
+    {
+      "id": "exterior_only",
+      "name": "Exterior Only",
+      "duration_minutes": 40,
+      "description": "Outside only: foam wash, tyre cleaning and polish, exterior wax, glass cleaning.",
+      "inclusions": [
+        {
+          "item": "Foam Wash"
+        },
+        {
+          "item": "Tyre Cleaning"
+        },
+        {
+          "item": "Tyre Polish"
+        },
+        {
+          "item": "Exterior Wax"
+        },
+        {
+          "item": "Glass Cleaning"
+        }
+      ],
+      "has_tier_pricing": false
+    }
+  ],
+  "pricing": {
+    "how_it_works": "Price depends on the customer's specific car BRAND and MODEL, which maps to a tier T1-T9. It is NOT priced by hatchback/sedan/SUV.",
+    "gst": "All prices are GST-inclusive (18% embedded).",
+    "premium_tier_prices_inr": [
+      {
+        "tier": "T1",
+        "price": 379,
+        "example_car": "Datsun GO"
+      },
+      {
+        "tier": "T2",
+        "price": 399,
+        "example_car": "VW Polo"
+      },
+      {
+        "tier": "T3",
+        "price": 459,
+        "example_car": "Ford Aspire"
+      },
+      {
+        "tier": "T4",
+        "price": 499,
+        "example_car": "Hyundai Creta"
+      },
+      {
+        "tier": "T5",
+        "price": 589,
+        "example_car": "Maruti Kizashi"
+      },
+      {
+        "tier": "T6",
+        "price": 702,
+        "example_car": "Mahindra XEV 9e"
+      },
+      {
+        "tier": "T7",
+        "price": 869,
+        "example_car": "Hyundai IONIQ 6"
+      },
+      {
+        "tier": "T8",
+        "price": 959,
+        "example_car": "BMW X4"
+      },
+      {
+        "tier": "T9",
+        "price": 1021,
+        "example_car": "Nissan GT-R"
+      }
+    ],
+    "caveat": "These are Full Car Spa Premium prices only, and are indicative — the app's cart is the source of truth. Basic and Exterior Only prices are NOT documented, so never quote a number for them."
+  },
+  "subscription": {
+    "name": "Car Spa Plus multipack",
+    "offer": "Buy 4 washes, get 5 (4+1)",
+    "price_rule": "4 x the Full Car Spa Premium price for the customer's car tier. Roughly 2,000 to 2,500 rupees for a common car — never quote an exact pack price.",
+    "redemption": "All 5 can be used on any spa plan and any car tier",
+    "validity_days": 365,
+    "expiry": "Unused washes expire with no refund",
+    "limit": "Only one active pack at a time"
+  },
+  "instant_booking": {
+    "what": "Instant (ASAP) booking — cleaner arrives about 45 minutes from now instead of a booked slot",
+    "sell_window": "08:00 to 16:00 IST daily",
+    "fee_inr": 200,
+    "fee_waived_for": "customers with an active multipack, or buying a pack in the same order",
+    "availability_note": "Instant depends on an instant-enabled cleaner being free and is often unavailable. Never promise it — offer it only if the customer asks, and say it needs checking."
+  },
+  "slots": {
+    "timezone": "Asia/Kolkata",
+    "typical_windows": [
+      "05:30 AM",
+      "08:00 AM",
+      "10:30 AM",
+      "01:00 PM",
+      "03:30 PM",
+      "06:00 PM"
+    ],
+    "note": "Slot availability cannot be checked on this call. Take the customer's preference only."
+  },
+  "policies": {
+    "reschedule": "Up to 3 times from the app, as long as more than 2 hours remain before the slot starts.",
+    "cancellation": "There is no self-serve cancellation. Exceptions go through Help and Support and are decided by the Ops Manager — a common accepted case is an address that turns out to be unserviceable.",
+    "refund": "Refunds are handled manually by the ops team when a cleaning could not be done or a cancellation was approved."
+  },
+  "what_customer_must_provide": [
+    "Water access — about two buckets is the usual guidance",
+    "Space around the car to work",
+    "The car parked at its final spot, valuables removed"
+  ],
+  "important_service_facts": [
+    "The cleaner brings all equipment and cleaning solutions",
+    "Cleaners will NOT start, drive, or move the vehicle",
+    "The customer should be there at the start and the end, and reachable by phone in between",
+    "Inspect the car before taking the keys back"
+  ],
+  "not_included": [
+    "Engine bay or under the bonnet",
+    "Underbody",
+    "Deep pet hair removal",
+    "Biohazard cleaning",
+    "Inner roof cleaning",
+    "Seat dry-cleaning or deep fabric stain removal"
+  ],
+  "bot_mode": {
+    "booking_mode": "lead_capture_only",
+    "can_confirm_bookings": false
+  },
+  "out_of_scope_topics": [
+    "FASTag",
+    "challan",
+    "other Park+ services not related to car spa"
+  ],
+  "stt_keyterms": [
+    "Alto",
+    "Amaze",
+    "BMW",
+    "BMW X4",
+    "Baleno",
+    "Bolero",
+    "Brezza",
+    "City",
+    "Datsun",
+    "Datsun GO",
+    "Dzire",
+    "Ertiga",
+    "Exterior Only",
+    "Ford",
+    "Ford Aspire",
+    "Fortuner",
+    "Full Car Spa Basic",
+    "Full Car Spa Premium",
+    "Gurgaon",
+    "Gurugram",
+    "Harrier",
+    "Hyundai",
+    "Hyundai Creta",
+    "Hyundai IONIQ 6",
+    "Innova",
+    "Mahindra",
+    "Mahindra XEV 9e",
+    "Maruti",
+    "Maruti Kizashi",
+    "Nexon",
+    "Nissan",
+    "Nissan GT-R",
+    "Park Plus",
+    "Punch",
+    "Royal Enfield",
+    "Scorpio",
+    "Seltos",
+    "Sonet",
+    "Swift",
+    "Thar",
+    "VW",
+    "VW Polo",
+    "Venue",
+    "Verna",
+    "WagonR",
+    "XUV700",
+    "car spa",
+    "i10",
+    "i20",
+    "sector"
+  ]
+}

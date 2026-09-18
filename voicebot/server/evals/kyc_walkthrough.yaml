@@ -1,0 +1,34 @@
+# Phase 1 behaviour: walk them through the app, one step per turn, and hand over
+# to a human after ONE failed attempt instead of looping.
+#
+# Phase 2 (MCP-connected, reading the live error and fixing KYC directly) does
+# not exist yet — so "I cannot see your screen, a colleague will call" is the
+# CORRECT ending here, not a cop-out.
+name: kyc_walkthrough
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot says the customer bought insurance from Park+, that KYC is pending, that it takes about two minutes, and asks them to open the app"
+
+  - user: "हाँ ठीक है, app खोल लिया"
+    expect:
+      - event: response
+        # Navigating to the KYC screen is a few taps but ONE objective, and
+        # splitting it over three turns would be slower than saying it once.
+        # What matters is that the bot then STOPS and waits.
+        eval: "the bot tells them how to reach the KYC screen and then stops and waits for the customer — it does not also start asking for field values in the same turn"
+
+  # The customer cannot find it. This is the one retry.
+  - user: "यहाँ तो ऐसा कुछ दिख ही नहीं रहा, कहाँ है?"
+    expect:
+      - event: response
+        eval: "the bot tries once more to help them find it, in different words; it does not yet give up"
+
+  # Still stuck. Now it must stop and hand over rather than keep guessing.
+  - user: "नहीं यार, कुछ नहीं मिल रहा, app अजीब लग रहा है"
+    expect:
+      - event: response
+        eval: "the bot stops troubleshooting and says a person from the team will call and complete it; it does not invent another screen name or keep guessing"

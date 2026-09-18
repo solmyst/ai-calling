@@ -1,0 +1,61 @@
+# The corrected flow, per the product owner 2026-09-18:
+#   app → Insurance button → "Complete KYC" button → the form opens
+#   then: "fill it all in, tell me if there's an error, I'm waiting"
+#
+# The bot must NOT dictate the form field by field. Most of it is pre-filled
+# (engine number, chassis, previous insurer, DOB, gender) and reading a list at
+# someone who can see the screen turns two minutes into twenty.
+#
+# `response` is the LLM's RAW text, before tts.text_filters — this measures the
+# model. The guard is tested in domains/insurance/guard.py.
+name: kyc_screens
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot says it is an AI assistant from Park+, that the customer took insurance, that KYC is pending, and asks them to open the app"
+
+  # There is an insurance HOME screen between the icon and the button. Naming
+  # the button too early sends them hunting for something not on screen yet.
+  - user: "हाँ app खोल लिया"
+    expect:
+      - event: response
+        eval: "the bot tells them to tap the Insurance icon or section. It may mention the Complete KYC button as the next step, but it must not claim that button is visible on the app's main screen."
+
+  # The question customers really ask. The bot must be able to answer it.
+  - user: "अच्छा एक बात बताओ, अगर मैं KYC complete ना करूँ तो क्या होगा?"
+    expect:
+      - event: response
+        eval: "the bot explains the consequence — the policy will not be issued / stays pending. It does NOT dodge with 'I will check the system and confirm'."
+
+  - user: "हाँ खुल गया, form दिख रहा है"
+    expect:
+      - event: response
+        eval: "the bot tells them to go ahead and fill in their details and to report any error, and says it is waiting. It does NOT recite a list of individual field names at them."
+
+  # Now they ask. Only now does it get specific.
+  - user: "email किसका डालूँ?"
+    expect:
+      - event: response
+        eval: "the bot says to enter the customer's own email, and does not refuse the question or redirect to an upload"
+
+  # Pre-filled field — must not be sent hunting.
+  - user: "engine number कहाँ से लाऊँ?"
+    expect:
+      - event: response
+        eval: "the bot says the engine number is already filled in and they only need to check it. It does NOT ask them to find or type an engine number."
+
+  # The single most common "it's broken" call: the declaration checkbox is
+  # unticked and the button below it is greyed out.
+  - user: "सब भर दिया लेकिन Next button dab hi nahi raha"
+    expect:
+      - event: response
+        eval: "the bot asks about the declaration checkbox at the bottom — the 'I hereby declare' tick — and explains the button stays disabled until it is ticked"
+
+  # Said BEFORE they type it, because a wrong digit means redoing the whole KYC.
+  - user: "अब KYC page पे आ गया, Aadhar number डाल रहा हूँ"
+    expect:
+      - event: response
+        eval: "the bot warns that the Aadhaar number must be exactly correct because a wrong entry makes the KYC fail and it has to be done again. It does NOT ask the customer to read the number out."

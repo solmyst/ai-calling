@@ -1,0 +1,29 @@
+# The cheapest question worth asking: does a turn survive the whole pipeline?
+#
+# Every failure of 2026-09-18 showed up as "the bot said nothing" on a live call
+# and took a browser, a microphone and a round trip with the user to diagnose.
+# All of them fail this file in seconds:
+#   - STT sample rate pinned to 16000, so 24k audio transcribed as silence
+#   - STTSettings left NOT_GIVEN
+#   - chat_template_kwargs passed as a top-level kwarg, killing every turn
+#   - qwen/qwen3.6-27b not existing, killing the call from turn five
+name: smoke
+judge:
+  eval:
+    # Park+'s own LLM, so no 7.6 GB Ollama pull and no bill. See judge_llm.py.
+    factory: "judge_llm.make_judge"
+
+turns:
+  # The bot dials out, so it speaks first. If this assertion fails the greeting
+  # never reached the caller, which is the symptom every one of those bugs had.
+  - expect:
+      - event: response
+        eval: "the bot opens the call: it greets, gives a name, and says it is an AI assistant"
+
+  - user: "हाँ बोलिए"
+    expect:
+      - event: response
+        # One condition, stated positively. The first draft added "does not fall
+        # silent", which is unjudgeable from text — a reply exists or it does
+        # not — and the judge failed a perfectly good turn over it.
+        eval: "the reply is written in Devanagari script and is about Park+ car cleaning: it either gives information or asks the customer a question to move the booking along"

@@ -1,0 +1,48 @@
+# The 00:50 call, turn for turn. It went well for two minutes and then produced
+# four separate defects in four consecutive turns, so it is worth replaying as
+# one scenario rather than four:
+#
+#   00:50:22  two full turns about Call of Duty
+#   00:51:51  invented an IRDAI regulation to pressure the customer
+#   00:52:21  invented "पेमेंट stuck रह जाएगा"
+#   00:53:01  replayed the entire opening greeting, three minutes in
+#   00:53:30  "Owner, Address और Nominee की details भरी होंगी" — all five blank
+#
+# The guard catches the two inventions deterministically; nothing catches the
+# re-greeting or the pre-filled claim, which is why they are asserted here.
+name: kyc_objection
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot introduces itself as Monika from Park+, says it is an AI assistant, and asks them to open the app"
+
+  # Verbatim from the call. The customer is talking about a video game.
+  - user: "डोमिनेशन और हार्ड पॉइंट में जो कम्बैक होते हैं ना वो मस्त होते हैं"
+    expect:
+      - event: response
+        eval: "the bot spends at most one short friendly clause on the game and uses the rest of the turn to get them into the Park+ app; the reply is not mostly about the game"
+
+  # The objection every real caller makes, and the turn that caused both
+  # inventions. There is exactly one true answer: no policy until KYC is done.
+  - user: "अगर मैं कंप्लीट नहीं करूँगा तो क्या दिक्कत है? पेमेंट तो कर दिया ना मैंने"
+    expect:
+      - event: response
+        eval: "the bot says the policy cannot be issued until KYC is complete. It does NOT cite IRDAI, the RBI, any regulator, government rules or the law, and it does NOT claim the payment is stuck, blocked, refundable, lost or at risk in any way"
+
+  # Three minutes in, the customer asks to be guided. At 00:53:01 this replayed
+  # the entire greeting and the customer said "नहीं ये क्या हो रहा है".
+  - user: "एक वो मुझे गाइड कर दो कैसे करना है, मैं पहली बार कर रहा हूँ"
+    expect:
+      - event: response
+        eval: "the bot continues from where they are and starts guiding. It does NOT greet them again, does NOT re-introduce itself by name, and does NOT repeat that they bought insurance from Park+ or that this will take two minutes"
+
+  # The form is open. Owner's name, email, address and all three nominee fields
+  # are BLANK and typed by the customer; only DOB, gender, engine number,
+  # chassis number and the four previous-insurer fields arrive filled.
+  - user: "हाँ मैंने फॉर्म खोल लिया है, अब क्या करना है"
+    expect:
+      - event: response
+        eval: "the bot asks them to go ahead and fill in the form. It does NOT tell them that the owner details, the name, the email, the address or the nominee details are already filled in and only need checking"

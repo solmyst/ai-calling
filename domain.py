@@ -1,0 +1,97 @@
+"""Which business the bot is selling today.
+
+One voice pipeline, several businesses. Everything that is specific to a business
+— its facts, its prices, its script — lives in `domains/<name>/`, and everything
+that is not — the transport, the failover, the logging, the STT and TTS services —
+lives in `voicebot/`. This module is the seam between them.
+
+    DOMAIN=car_spa     (default)
+    DOMAIN=insurance
+
+Adding a business means adding a folder, not editing the pipeline. See
+`domains/insurance/README.md` for exactly what a folder has to contain.
+"""
+
+import importlib
+import os
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent
+DOMAINS_DIR = _ROOT / "domains"
+
+# Load the bot's .env HERE, so every entry point agrees on which domain is
+# active: bot.py, the prompt and guard self-checks, and anything else that
+# imports this module. Previously only bot.py loaded it — and it did so AFTER
+# importing this module, so DOMAIN=insurance sat in .env while every call ran
+# car_spa, and the standalone guard check read the wrong context.json.
+# An already-set shell variable still wins, so `DOMAIN=car_spa python ...` works.
+_ENV_FILE = _ROOT / "voicebot" / "server" / ".env"
+if _ENV_FILE.is_file():
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(_ENV_FILE, override=False)
+    except ImportError:  # dotenv is optional for the pure-python self-checks
+        pass
+
+#: The business this process is running. Read once, at import.
+ACTIVE = os.getenv("DOMAIN") or "car_spa"
+
+DOMAIN_DIR = DOMAINS_DIR / ACTIVE
+
+#: The facts the bot is allowed to state. Guardrails check against this file and
+#: the prompt is built from it, so it is the single source of truth for a domain.
+CONTEXT_FILE = DOMAIN_DIR / "context.json"
+
+#: Source documents the context was built from. Not read at runtime — the bot
+#: never sees them — but kept beside the domain so the numbers can be re-checked.
+KNOWLEDGE_DIR = DOMAIN_DIR / "knowledge"
+
+
+def _fail(reason: str) -> "NoReturn":  # noqa: F821
+    available = sorted(
+        p.name
+        for p in (DOMAINS_DIR.iterdir() if DOMAINS_DIR.exists() else ())
+        if p.is_dir() and not p.name.startswith(("_", "."))
+    )
+    raise RuntimeError(
+        f"DOMAIN={ACTIVE!r}: {reason}\n"
+        f"  looked in: {DOMAIN_DIR}\n"
+        f"  available: {', '.join(available) or 'none'}\n"
+        f"  a domain needs context.json and prompt.py — see domains/insurance/README.md"
+    )
+
+
+if not DOMAIN_DIR.is_dir():
+    _fail("no such domain folder")
+if not CONTEXT_FILE.is_file():
+    _fail("missing context.json")
+
+
+def build_guard():
+    """The active domain's deterministic output guard.
+
+    Falls back to the car spa's PriceGuard when a domain ships no guard.py, but
+    a domain that handles money or identity should NEVER rely on that fallback —
+    it checks car wash prices and slot times and will pass almost anything else.
+    domains/insurance/README.md spells out why.
+    """
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.guard")
+    except ModuleNotFoundError:
+        from guardrails import PriceGuard
+        return PriceGuard()
+    return module.build_guard() if hasattr(module, "build_guard") else module.GUARD()
+
+
+def build_system_prompt(mode: str = "outbound") -> str:
+    """The active domain's system prompt, for "outbound" or "inbound".
+
+    Imported lazily so that a broken or half-finished domain fails here, with the
+    message above, instead of at some unrelated import site.
+    """
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.prompt")
+    except ModuleNotFoundError:
+        _fail("missing prompt.py")
+    return module.build_system_prompt(mode)

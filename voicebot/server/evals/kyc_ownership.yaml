@@ -1,0 +1,33 @@
+# Two rules from the product owner, 2026-09-19:
+#
+# 1. NEVER recite the document list. Tell them to complete everything, say you
+#    are on the line, and wait. Answer only when asked.
+# 2. The KYC document set depends on who owns the car:
+#      individual  -> PAN number, Aadhaar number, Aadhaar front + back images
+#      company     -> PAN number, PAN photo, GST certificate. NO Aadhaar at all.
+name: kyc_ownership
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot opens the call as a Park+ AI assistant about pending KYC"
+
+  # Reaching the KYC page must NOT trigger a list of documents.
+  - user: "अच्छा अब KYC वाला page आ गया है"
+    expect:
+      - event: response
+        eval: "the bot tells them to complete the details and says it is on the line to help. It does NOT recite a list of required documents such as PAN, Aadhaar number, front image and back image."
+
+  # Only now, on request.
+  - user: "अच्छा ये बताओ इसमें क्या क्या लगेगा? गाड़ी मेरे नाम पे है, personal use"
+    expect:
+      - event: response
+        eval: "for a personal / individual car the bot names PAN and Aadhaar — the Aadhaar number and the front and back images. It does not mention a GST certificate."
+
+  # The branch that is easy to get wrong.
+  - user: "और अगर गाड़ी company के नाम पे हो तो? मेरे दोस्त की company car है"
+    expect:
+      - event: response
+        eval: "for a company-owned car the bot says PAN and GST certificate are needed, and that Aadhaar is NOT required for a company car"

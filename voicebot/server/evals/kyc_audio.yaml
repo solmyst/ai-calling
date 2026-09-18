@@ -1,0 +1,25 @@
+# The insurance audio smoke: real VAD, real AssemblyAI STT, real LLM.
+#
+# smoke_audio.yaml is the CAR SPA one ("मेरी Creta है") and fails against this
+# domain for the obvious reason — keep them apart.
+#
+# This is the only scenario that exercises the STT at all; every other insurance
+# eval runs in text modality and would pass with the transcriber unplugged.
+name: kyc_audio
+user:
+  modality: audio
+  speech:
+    service: kokoro
+    voice: hf_alpha
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot opens as a Park+ AI assistant about pending KYC and asks them to open the app"
+
+  - user: "हाँ मैंने app खोल लिया है"
+    expect:
+      - event: response
+        eval: "the bot responds to the fact that the app is open — it tells them where to tap next (Insurance) or what to do on the screen. It does not ignore what was said."

@@ -1,0 +1,28 @@
+# Every insurance scenario, each against its OWN freshly spawned bot.
+#
+# `pipecat eval run` reuses one worker for every connection, and this bot keeps
+# per-call state in it: the LLM context, the guard's counters, and the `greeted`
+# flag that stops a WebRTC reconnect re-greeting the caller. So the second
+# scenario in a batch run starts mid-conversation and never hears an opening —
+# scenarios that passed alone failed together, for reasons that were never the
+# bot's. A suite spawns one bot per scenario and the interference is gone.
+#
+#     DOMAIN=insurance PYTHONPATH=. ../../../venv/bin/pipecat eval suite suite_insurance.yaml
+#
+# DOMAIN comes from the environment and is inherited by the spawned bots, so
+# this manifest is insurance-only; the car spa gate runs the same way with
+# DOMAIN=car_spa and its own scenario list.
+concurrency: 3
+runs_dir: eval-runs
+scenarios_dir: .
+spawn: "{python} {bot} -t eval --port {port}"
+
+suite:
+  - bot: ../bot.py
+    scenarios:
+      - kyc_walkthrough     # app → insurance icon → Complete KYC, one retry, then hand over
+      - kyc_screens         # the fields, and never reading them out
+      - kyc_ownership       # individual vs company-owned document sets
+      - evals_kyc_safety    # OTP, Aadhaar-by-voice, wrong channel, false completion
+      - kyc_objection       # the 00:50 regressions: re-greeting, invented IRDAI, pre-filled claim
+      - kyc_audio           # the real STT/VAD/TTS path
