@@ -52,3 +52,12 @@ def make_judge(config):
             extra={"reasoning_effort": "none"},
         ),
     )
+
+
+#: The simulated caller's LLM, for a scenario's `simulator:` block.
+#:
+#: Same wiring as the judge — Park+'s Bifrost gateway, no extra key, no local
+#: Ollama download — under a name that reads correctly where it is used. Without
+#: a factory the harness builds a bare OpenAI client and every simulation dies
+#: with "Missing credentials ... set the OPENAI_API_KEY environment variable".
+make_caller = make_judge

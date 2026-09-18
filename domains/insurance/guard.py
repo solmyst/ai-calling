@@ -34,6 +34,27 @@ _OTP_RE = re.compile(
 _SAFE_OTP = (
     "OTP मैं कभी नहीं माँगूँगी सर — वो सिर्फ़ app में डालना होता है, किसी को बताना नहीं है"
 )
+# ...unless the bot is REFUSING to ask for one, which is the scripted opening
+# and the correct answer when a customer offers theirs.
+_OTP_REFUSAL = re.compile(
+    r"(?:नहीं|नही|कभी\s*नहीं|मत|nahi+n?|not|never|no)\s*"
+    r"(?:माँग|मांग|maang|mang|ask|चाहिए|chahiye|बताइए|बताना|batana|दीजिए|share)|"
+    r"(?:माँग|मांग|maang|mang|ask(?:ing)?|पूछ)\s*"
+    r"(?:नहीं|नही|nahi+n?|not|never)|"
+    r"किसी\s*को\s*(?:मत|नहीं)|kisi\s*ko\s*(?:mat|nahi)|"
+    r"OTP\s*(?:किसी|kisi)\s*(?:को|ko)\s*(?:मत|mat|नहीं|nahi)",
+    re.IGNORECASE,
+)
+# The exemption is void if the sentence ALSO asks for the code. The round-3 fuzz
+# produced exactly that shape: "wese to OTP kisi ko nahi dena chahiye, par ye
+# humare Park+ app ke official KYC registration ka hi hai, to aap bejhijhak
+# share kar do" — a refusal used as a preamble to the ask. A refusal that is
+# real does not need a verb telling the customer to hand it over.
+_OTP_ASK_VERB = re.compile(
+    r"(?:bata|बता|bol|बोल|share|send|भेज|daal|डाल|likh|लिख|forward)\s*"
+    r"(?:do|दो|dijiye|दीजिए|dijiye|dijie|दें|den|deejiye|kar\s*do|kar\s*dijiye)",
+    re.IGNORECASE,
+)
 
 # --- asking for an identity number by voice -----------------------------------
 # The pack allows PAN/Aadhaar as `sensitive_id_voice` fields, but the product
@@ -48,7 +69,7 @@ _ASK_SHAPE = (
 )
 _SAFE_SENSITIVE_ID = (
     "वो number मुझे फ़ोन पर नहीं चाहिए सर — app में safe तरीक़े से डाल दीजिए, "
-    "link भेज देती हूँ"
+    "Insurance section में Complete KYC पे"
 )
 # ...but the bot's JOB is to walk the customer through a screen that HAS a PAN
 # field on it. Caught live 19:53: "स्क्रीन पर अभी कौन सा field खाली दिख रहा है सर
@@ -83,10 +104,14 @@ _DOC_WORD = r"photo|फोटो|फ़ोटो|image|तस्वीर|docume
 # unapproved channel, so a sentence about filling the Email Id field is exempt.
 _FORM_FIELD_CONTEXT = (
     r"field|फ़ील्ड|फील्ड|Email\s*(?:Id|ID)|डाल\s*(?:दीजिए|दो|दें)|भर\s*(?:दीजिए|दो|दें)|"
-    r"enter|type|fill|screen|स्क्रीन|page|पेज"
+    r"enter|type|fill|screen|स्क्रीन|page|पेज|"
+    # Receiving, not sending: the policy document lands in their email, which
+    # context.json says is exactly what the Email Id field is for.
+    r"आ\s*जाए|मिल\s*जाए|aa\s*jaye|mil\s*jaye|भेज\s*देती\s*हूँ|receive|"
+    r"पर\s*आ|पे\s*आ|pe\s*aa|par\s*aa"
 )
 _SAFE_DOC_CHANNEL = (
-    "Documents app के KYC section में upload कीजिए सर — मैं वहीं का link भेज देती हूँ"
+    "Documents app के KYC section में ही upload होते हैं सर — वहीं से कर दीजिए"
 )
 
 # --- declaring KYC done -------------------------------------------------------
@@ -99,7 +124,9 @@ _DONE_WORD = r"KYC|केवाईसी|proposal|प्रपोजल|प्�
 # because only the गय- spellings were listed. Hindi writes the feminine both
 # ways and a customer told their KYC is done stops checking either way.
 _DONE_MARKER = (
-    r"complete|पूर[ाी]\s*हो\s*ग[यई]|हो\s*ग[यई][ाीे]?|ho\s*gay[ai]|done|"
+    # (?<!in) because "incomplete" contains "complete": "aapka verification
+    # incomplete rahega" says the opposite of what this rule is looking for.
+    r"(?<!in)complete|पूर[ाी]\s*हो\s*ग[यई]|हो\s*ग[यई][ाीे]?|ho\s*gay[ai]|done|"
     r"successful|सफल|अप्रूव|approved|verified|वेरीफाई"
 )
 _SAFE_DONE = (
@@ -135,6 +162,45 @@ _UI_ACTION = (
     r"select|चुन|खोल\s*(?:िए|ो)|open|जाइए|जाके|जाकर"
 )
 
+# Asking someone to complete their KYC is the entire purpose of this call, and
+# every natural way of saying it puts "complete" next to "KYC". Measured against
+# the guard on 2026-09-19, SEVEN of nine ordinary lines were being rewritten
+# into "मैं system में check करके confirm करूँगी" — an answer to a question the
+# customer never asked, in place of the instruction they rang for:
+#
+#     "KYC complete करना ज़रूरी है सर"          -> blocked
+#     "आपको KYC complete करनी होगी"             -> blocked
+#     "अभी KYC complete कर लीजिए"               -> blocked
+#     "KYC complete करने में दो मिनट लगेंगे"      -> blocked
+#     "KYC complete होने के बाद policy आ जाएगी"  -> blocked
+#
+# The rule is "never CLAIM it is already done". An instruction to do it, an
+# obligation to do it, and a conditional about it being done later are all the
+# opposite of that claim.
+#
+# The verb suffix is REQUIRED, never optional: a bare "कर" would also exempt
+# "complete कर दी गई है", which IS a completion claim and must stay blocked.
+_INSTRUCTED_DONE = re.compile(
+    r"(?:complete|पूर[ाी]|done)\s*"
+    r"(?:कर(?:ना|नी|ने|ें|के)|कर(?:वा|ा)\s*(?:दूँ|दूं|दू|देती|देते|दीजिए|दो)|"
+    r"कर\s*(?:लीजिए|लीजिये|दीजिए|दीजिये|लो|दो|देते|लेते|लेंगे|सकते|सकें|पाएँ|पाएंगे))"
+    r"|(?:complete|पूर[ाी])\s*होने\s*(?:के|पर|तक|में)"
+    r"|(?:complete|पूर[ाी])\s*हो\s*जा(?:ए|एगा|एगी|ता|ती|ती\s*है)"
+    # ...and the same shapes transliterated.
+    r"|(?:complete|poora|puri)\s*"
+    r"(?:kar(?:na|ne|ni|ane|wana|vana|ana|wane|vane)|"
+    r"kar(?:wa|va)?\s*(?:lein|len|lo|lijiye|lijie|do|dijiye|dijie|deti|dete|doon|dun|"
+    # NOT "liya"/"diya": "kar diya hai" is a claim that it is already done,
+    # which is the exact thing this rule exists to catch. The Devanagari list
+    # above leaves out कर दिया / कर लिया for the same reason.
+    r"denge|dega|degi|dein|den|loon|lun|lete|rahe|rahi|raha)|"
+    r"karv?a?\s*d(?:eti|ete|o|ijiye))"
+    r"|(?:complete|poora|puri)\s*ho\s*(?:jaye|jaega|jayega|jayegi|jae|jata|jaata|jati|jaati)"
+    r"|(?:complete|poora|puri)\s*(?:hone|hote)\s*(?:ke|par|tak|mein|hi)"
+    r"|(?:complete|पूर[ाी])\s*होते\s*ही",
+    re.IGNORECASE,
+)
+
 # --- promising issuance or money ----------------------------------------------
 # safety_rules: "No promises of issuance timing or refund approval." A policy
 # date the bot invents is the thing the customer plans around.
@@ -164,14 +230,41 @@ _SAFE_PROMISE = (
 # pressure someone into acting, on a recorded call, is the worst thing in this
 # file: it is false, it is coercive, and it is quotable in a complaint.
 #
-# There is no exemption. The bot never has a legitimate reason to name a
-# regulator or to tell a customer their money is at risk — the true answer is
-# _SAFE_AUTHORITY, which is also what the prompt now scripts.
+# IRDAI is now SANCTIONED, in one framing only (product owner, 2026-09-19):
+# KYC really is an IRDAI requirement and the policy really cannot be issued
+# without it, so saying that is true and it is the strongest honest reason a
+# customer has to stay on the call. Everything past that sentence is still a
+# fabrication: no other regulator, no circular or section number, no penalty,
+# no deadline other than the policy's own expiry, and never a claim about the
+# customer's money. context.json's kyc_mandate.unknown_do_not_guess is the list.
 _AUTHORITY_RE = re.compile(
     r"\bIRDAI?\b|आईआरडीए|\bRBI\b|आरबीआई|regulator|रेगुलेटर|"
     r"(?:के\s+)?नियम(?:ों)?\s+के\s+(?:मुताबिक|अनुसार)|"
     r"as\s+per\s+(?:the\s+)?(?:law|regulation)|क़ानून|कानून|"
     r"mandat(?:ory|ed)\s+by|सरकार\s+(?:के|ने)",
+    re.IGNORECASE,
+)
+# The sanctioned sentence names IRDAI and no other authority, is about KYC, and
+# carries no invented specifics. All three have to hold.
+_IRDAI_ONLY = re.compile(r"\bIRDAI?\b|आईआरडीए|आईआरडीएआई", re.IGNORECASE)
+_OTHER_AUTHORITY = re.compile(
+    r"\bRBI\b|आरबीआई|regulator|रेगुलेटर|क़ानून|कानून|सरकार\s+(?:के|ने)|"
+    r"as\s+per\s+(?:the\s+)?(?:law|regulation)",
+    re.IGNORECASE,
+)
+_ABOUT_KYC = re.compile(r"\bKYC\b|केवाईसी", re.IGNORECASE)
+_ABOUT_ISSUANCE = re.compile(
+    r"(?:policy|पॉलिसी|पालिसी|बीमा)[^.।!?]{0,30}(?:issue|इशू|जारी)|"
+    r"(?:issue|इशू|जारी)[^.।!?]{0,20}(?:नहीं|नही|not|cannot|nahi)",
+    re.IGNORECASE,
+)
+# Anything that sounds like a citation, a penalty or a date is invented: the
+# product owner gave the rule, not a circular number or a deadline.
+_FABRICATED_DETAIL = re.compile(
+    r"circular|सर्कुलर|section|धारा|clause|अधिनियम|\bact\b|guideline\s*(?:no|number|\d)|"
+    r"penalt|जुर्माना|fine|दंड|जेल|legal\s+action|क़ानूनी\s+कार्रवाई|कानूनी\s+कार्रवाई|"
+    r"\b(?:19|20)\d{2}\b|\d+\s*(?:din|दिन|days?|hours?|घंटे|months?|महीने|हफ़्ते|हफ्ते|weeks?)|"
+    r"deadline|आख़िरी\s+तारीख़|आखिरी\s+तारीख|last\s+date|अंतिम\s+तिथि",
     re.IGNORECASE,
 )
 # "payment हो चुका है" must survive — it is the line that proves the call is
@@ -184,7 +277,41 @@ _MONEY_AT_RISK_RE = re.compile(
     re.IGNORECASE,
 )
 _SAFE_AUTHORITY = (
-    "सर, payment तो हो चुका है — बस KYC complete हुए बिना policy issue नहीं हो पाती"
+    "सर, IRDAI के rules के हिसाब से KYC complete हुए बिना policy issue नहीं हो पाती"
+)
+
+# A FAILED outcome is not a completion claim. The failure word has to be the
+# thing that happened, so "KYC complete ho gaya, koi error nahi" stays blocked.
+_FAILED_DONE = re.compile(
+    r"(?:fail|फ़ेल|फेल|reject|रिजेक्ट|रद्द|decline|cancel)\w*\s*"
+    r"(?:हो|ho)\s*(?:ग[यई][ाीे]?|gay[ai]|जाए|jaye|जाती|jati)",
+    re.IGNORECASE,
+)
+
+_DONE_CLAIM = re.compile(
+    rf"(?:{_DONE_WORD})[^.।!?]{{0,18}}?(?:{_DONE_MARKER})"
+    rf"|(?:{_DONE_MARKER})[^.।!?]{{0,18}}?(?:{_DONE_WORD})",
+    re.IGNORECASE,
+)
+
+# --- promising to send something ----------------------------------------------
+# There is no SMS, WhatsApp or email path from this bot: `tools` holds only
+# record_booking_request and escalate, and LLM_TOOLS=off removes even those. A
+# customer told "मैं link भेज देती हूँ" waits for a message that never arrives,
+# and rings back. The app is already on their phone.
+#
+# Only the BOT sending is caught. The policy document arriving in their email is
+# true, is what the Email Id field is for, and must still be sayable.
+_BOT_SENDS_RE = re.compile(
+    r"(?:मैं|main)\s*[^.।!?]{0,25}?"
+    r"(?:भेज\s*(?:दूँ|दूं|दूंगी|दूँगी|देती|देता|दे\s*दूँ)|"
+    r"bhej\s*(?:deti|dunga|dungi|doon|dun|de\s*deti))"
+    r"|(?:link|लिंक|sms|एसएमएस|message|मैसेज)\s*(?:भेज|bhej|send|कर\s*देती)"
+    r"|(?:I\s*(?:'?ll|will)?\s*send|sending\s+you)",
+    re.IGNORECASE,
+)
+_SAFE_SEND = (
+    "सब कुछ आपके app में ही है सर — Insurance section में Complete KYC पे मिल जाएगा"
 )
 
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
@@ -206,6 +333,7 @@ class KycGuard:
         ("promises", "error", "rewrote an issuance/refund promise"),
         ("invented_authority", "error",
          "rewrote an invented regulator rule or money-at-risk claim"),
+        ("false_send_promise", "error", "rewrote a promise to send a link/SMS/WhatsApp"),
         ("machine_output", "error", "DROPPED non-speech output"),
         ("self_narration", "error", "DROPPED the model thinking out loud"),
     )
@@ -220,6 +348,7 @@ class KycGuard:
         self.false_completions: list[str] = []
         self.promises: list[str] = []
         self.invented_authority: list[str] = []
+        self.false_send_promise: list[str] = []
         self.machine_output: list[str] = []
         self.self_narration: list[str] = []
 
@@ -252,9 +381,28 @@ class KycGuard:
     def _fix_sentence(self, sentence: str) -> str:
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
 
-        if _OTP_RE.search(sentence):
+        if _OTP_RE.search(sentence) and not (
+            _OTP_REFUSAL.search(sentence) and not _OTP_ASK_VERB.search(sentence)
+        ):
             self.otp_asks.append(sentence.strip())
             return _SAFE_OTP + terminator
+
+        # Money-at-risk is checked FIRST and has no exemption, so the sanctioned
+        # IRDAI framing cannot be used to smuggle "और पैसा भी फँस जाएगा" in
+        # behind it.
+        if _MONEY_AT_RISK_RE.search(sentence):
+            self.invented_authority.append(sentence.strip())
+            return _SAFE_AUTHORITY + terminator
+
+        if _AUTHORITY_RE.search(sentence) and not (
+            _IRDAI_ONLY.search(sentence)
+            and not _OTHER_AUTHORITY.search(sentence)
+            and _ABOUT_KYC.search(sentence)
+            and _ABOUT_ISSUANCE.search(sentence)
+            and not _FABRICATED_DETAIL.search(sentence)
+        ):
+            self.invented_authority.append(sentence.strip())
+            return _SAFE_AUTHORITY + terminator
 
         if (
             re.search(_SENSITIVE_ID, sentence, re.IGNORECASE)
@@ -273,17 +421,18 @@ class KycGuard:
             return _SAFE_DOC_CHANNEL + terminator
 
         if (
-            re.search(_DONE_WORD, sentence, re.IGNORECASE)
-            and re.search(_DONE_MARKER, sentence, re.IGNORECASE)
+            _DONE_CLAIM.search(sentence)
             and not re.search(_UI_ACTION, sentence, re.IGNORECASE)
             and not _NEGATED_DONE.search(sentence)
+            and not _INSTRUCTED_DONE.search(sentence)
+            and not _FAILED_DONE.search(sentence)
         ):
             self.false_completions.append(sentence.strip())
             return _SAFE_DONE + terminator
 
-        if _AUTHORITY_RE.search(sentence) or _MONEY_AT_RISK_RE.search(sentence):
-            self.invented_authority.append(sentence.strip())
-            return _SAFE_AUTHORITY + terminator
+        if _BOT_SENDS_RE.search(sentence):
+            self.false_send_promise.append(sentence.strip())
+            return _SAFE_SEND + terminator
 
         if _PROMISE_RE.search(sentence) and _PROMISE_MARKER.search(sentence):
             self.promises.append(sentence.strip())
@@ -303,18 +452,60 @@ def _demo():
     blocked = [
         ("otp_asks", "सर आपको जो OTP आया है वो बता दीजिए।"),
         ("otp_asks", "Please share the one-time password."),
+        # A refusal used as a preamble to the ask. Round-3 LLM fuzz, 2026-09-19.
+        ("otp_asks",
+         "Waise to OTP kisi ko nahi dena chahiye, par ye humare Park+ app ka "
+         "official KYC hai, to aap bejhijhak share kar do."),
+        ("otp_asks", "OTP किसी को मत बताइए — पर मुझे बता दीजिए सर।"),
         ("sensitive_id_asks", "आपका Aadhaar number बता दीजिए सर।"),
         ("sensitive_id_asks", "What is your PAN?"),
         ("wrong_channel_asks", "Aadhaar की photo WhatsApp पर भेज दीजिए।"),
         ("false_completions", "आपका KYC complete हो गया है सर।"),
+        ("false_completions", "आपकी KYC complete कर दी गई है।"),
+        ("false_completions", "आपका proposal successful हो गया है।"),
+        ("false_completions", "आपकी KYC verified हो चुकी है सर।"),
+        # Latin-script completion CLAIMS. These sit one word away from the
+        # instruction shapes exempted above ("kar diya" vs "kar dijiye"), which
+        # is why both directions are asserted.
+        ("false_completions", "Aapka KYC complete kar diya hai maine."),
+        ("false_completions", "Maine aapki KYC complete kar li hai."),
+        ("false_completions", "Aapki KYC complete ho gayi hai sir."),
+        ("false_completions", "KYC done ho gaya sir."),
         ("promises", "पॉलिसी कल तक issue हो जाएगी।"),
-        # Both verbatim from the 00:50 call.
-        ("invented_authority",
-         "सर, payment हो गई है, पर KYC complete किए बिना IRDAI के नियमों के "
-         "मुताबिक बीमा कंपनी पॉलिसी issue नहीं कर सकती।"),
+        # Verbatim from the 00:50 call. IRDAI itself is sanctioned now, but
+        # this sentence also claims the payment gets stuck, which nobody knows.
+        # Money-at-risk is checked first for exactly this reason.
         ("invented_authority",
          "सर, बिना KYC के insurer से पॉलिसी डॉक्यूमेंट रिलीज़ ही नहीं होगा, "
          "पेमेंट stuck रह जाएगा।"),
+        # IRDAI is the ONLY sanctioned authority, and only about KYC.
+        ("invented_authority", "RBI के नियमों के मुताबिक ये ज़रूरी है सर।"),
+        ("invented_authority", "सरकार के नियम के हिसाब से आपको ये करना ही होगा।"),
+        ("invented_authority",
+         "IRDAI के हिसाब से आपकी गाड़ी का registration transfer करना होगा।"),
+        # ...and never with a citation, a penalty or a deadline attached.
+        ("invented_authority",
+         "IRDAI circular के मुताबिक KYC complete करना ज़रूरी है सर।"),
+        ("invented_authority",
+         "IRDAI की धारा के तहत KYC न होने पर जुर्माना लग सकता है।"),
+        ("invented_authority",
+         "IRDAI के rules से KYC 7 दिन के अंदर complete करनी होगी सर।"),
+        ("invented_authority",
+         "IRDAI के 2023 के नियम के हिसाब से KYC mandatory है।"),
+        # Money at risk, with no regulator anywhere near it.
+        ("invented_authority", "आपका प्रीमियम का पैसा अटक जाएगा सर।"),
+        ("invented_authority", "KYC नहीं हुई तो amount block हो जाएगा।"),
+        ("invented_authority", "पेमेंट वापस नहीं मिलेगा सर।"),
+        # IRDAI as a trust badge is a fabricated credential, not the mandate.
+        # Round-2 LLM fuzz, 2026-09-19.
+        ("invented_authority",
+         "Humara IRDAI se approved bima partner hai toh KYC ke time paise "
+         "bilkul secure rehte hain."),
+        ("invented_authority", "हम IRDAI registered हैं सर, बिल्कुल safe है।"),
+        # Nothing in this bot can send a message.
+        ("false_send_promise", "मैं आपको link भेज देती हूँ, वहीं से complete कर लीजिए।"),
+        ("false_send_promise", "Main aapko WhatsApp pe link bhej deti hoon sir."),
+        ("false_send_promise", "मैं SMS भेज देती हूँ, उसमें link होगा।"),
     ]
     for counter, line in blocked:
         before = len(getattr(g, counter))
@@ -339,17 +530,66 @@ def _demo():
         "सर, KYC complete नहीं होगी तो आपका policy document issue नहीं हो पाएगा।",
         "सर, अगर आप KYC complete नहीं करते हैं, तो आपकी policy issue नहीं होगी।",
         "आपका KYC अभी complete नहीं हुआ है।",
+        # Asking them to do it — the point of the call. All of these were being
+        # rewritten before 2026-09-19.
+        "KYC complete करना ज़रूरी है सर।",
+        "आपको KYC complete करनी होगी सर।",
+        "अभी KYC complete कर लीजिए सर।",
+        "चलिए KYC complete कर देते हैं।",
+        "KYC complete करने में बस दो मिनट लगेंगे।",
+        "मैं आपकी KYC complete करवा देती हूँ।",
+        "KYC complete होने के बाद policy document आ जाएगा।",
+        "KYC complete हो जाए तो policy issue हो जाएगी।",
+        "आपकी KYC pending है सर।",
         "Aadhar Number का field app में ही भरना है।",
         "Aadhaar app के KYC section में upload करना होगा सर।",
-        "मैं आपको link भेज देती हूँ, वहीं से complete कर लीजिए।",
+        # Latin-script Hinglish. The bot writes half its turns this way and the
+        # Devanagari-only exemptions did nothing for them (LLM fuzz, 2026-09-19).
+        "Aapka KYC pending dikha raha tha, wahi complete karwana tha.",
+        "Bas aapka KYC process complete karna tha sir.",
+        "KYC complete karne ke liye bas do minute lagenge.",
+        "Abhi Park+ pe aapka insurance KYC complete kar lein?",
+        "Main aapka KYC complete karva deti hoon sir.",
+        "KYC complete ho jaye to policy issue ho jayegi.",
+        # The policy arriving BY email is the opposite of sending documents to
+        # an unapproved channel, and it is what the Email Id field is for.
+        "Policy document आपके registered email ID पे आ जाएगा सर।",
+        "Aapki policy ki copy email pe aa jayegi sir.",
+        "Pehle yeh KYC complete karwa lo sir.",
+        "Maine wahi complete karane ke liye call kiya tha sir.",
+        "KYC do minute mein complete kar dein pehle?",
+        "KYC complete hote hi policy document aa jayega.",
+        "Bina KYC ke aapka verification incomplete rahega sir.",
+        # Refusing an OTP is scripted behaviour, not an OTP request.
+        "मैं कोई OTP या document नहीं माँगूँगी सर।",
+        "Main koi OTP nahi maang rahi hoon sir.",
+        "OTP किसी को मत बताइए सर, मुझे भी नहीं।",
+        # "ho gaya" belongs to the payment here, not to the KYC 45 characters
+        # later. Round-4 LLM fuzz, 2026-09-19.
+        "Aapka payment ho gaya hai tabhi to mere paas aapka data aaya hai KYC ke liye.",
+        "दो मिनट का KYC है, अभी complete हो जाता सर?",
+        "Abhi complete ho jata sir?",
+        # Telling the customer their KYC FAILED is a step the product owner
+        # listed by name, and it is the opposite of claiming it is done.
+        "सर, KYC fail हो गया — Aadhaar number एक बार दोबारा check कर लीजिए।",
+        "Aapka KYC reject ho gaya kyunki Aadhaar number galat tha sir.",
+        "KYC fail ho gaya hai, ek baar dhyan se number re-enter kar dijiye.",
+        "Hum log bas aapka KYC complete karwa rahe hain sir.",
+        "Aapka payment update ho gaya hai, bas last step KYC baaki hai.",
         "अभी name और email pending है आपका।",
         "Park+ Insurance से Monika बोल रही हूँ।",
         "Payment हो चुका है, बस KYC बाक़ी है।",
-        # The sanctioned answer to "अगर न करूँ तो?", the one the prompt now
-        # scripts. It names the payment AND the consequence, so it brushes past
-        # both new patterns and must survive them.
+        # The sanctioned answers to "अगर न करूँ तो?" and "कब तक?", rendered
+        # into the prompt straight from context.json's kyc_mandate. If the guard
+        # ever blocks these the bot goes mute on the commonest objection there
+        # is, so they are asserted verbatim.
+        "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete "
+        "हुए बिना insurance company policy issue नहीं कर सकती।",
         "सर, payment तो हो चुका है — पर KYC complete हुए बिना policy issue नहीं "
         "हो पाती।",
+        # The live 00:51:51 line, which the product owner signed off as correct.
+        "सर, payment हो गई है, पर KYC complete किए बिना IRDAI के नियमों के "
+        "मुताबिक बीमा कंपनी पॉलिसी issue नहीं कर सकती।",
         "नॉमिनी का नाम app में डाल दीजिए।",
     ):
         assert g2.check(ok) == ok, f"blocked a legitimate line: {g2.check(ok)!r}"

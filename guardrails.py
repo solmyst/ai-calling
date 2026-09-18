@@ -442,6 +442,18 @@ class PriceGuard:
 
 
 def _demo():
+    # This file is the CAR SPA's guard and its context.json is the only one with
+    # a "pricing" block. .env pins DOMAIN=insurance for live calls, so a bare
+    # `python guardrails.py` died on `KeyError: 'pricing'` — a confusing way to
+    # learn you needed an env var, especially at the start of a launch day.
+    import domain
+    if domain.ACTIVE != "car_spa":
+        raise SystemExit(
+            f"guardrails.py is the car spa's guard, but DOMAIN={domain.ACTIVE!r}.\n"
+            f"  run:  DOMAIN=car_spa python guardrails.py\n"
+            f"  the insurance guard is:  DOMAIN=insurance python -m domains.insurance.guard"
+        )
+
     ctx = json.loads(CONTEXT_FILE.read_text())
 
     def guard_mid_call():

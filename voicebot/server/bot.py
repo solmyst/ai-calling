@@ -1098,6 +1098,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # finish_reason=length with 140 tokens used and NOTHING said.
                 # Real turns measure 23-73 tokens, so this only clips a runaway.
                 max_completion_tokens=int(os.getenv("MAX_REPLY_TOKENS") or 200),
+                # This is a compliance-scripted call, not creative writing. At
+                # the provider default (1.0) the model followed a written rule
+                # most of the time and sampled a hedge the rest: the suite's
+                # remaining failures on 2026-09-19 were all one scenario passing
+                # and then failing on the same turn with no change in between —
+                # "already filled" becoming "already filled, या RC से देख के डाल
+                # दीजिए". Wobble on a rule is a defect, not variety.
+                temperature=float(os.getenv("LLM_TEMPERATURE") or 0.3),
                 # qwen3.8 reasons before answering. On a hard/garbled turn it spent
                 # the whole budget reasoning and returned an empty reply
                 # (completion_tokens: 1), so the bot just went silent on the call.

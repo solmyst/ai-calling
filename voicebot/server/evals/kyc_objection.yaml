@@ -30,7 +30,11 @@ turns:
   - user: "अगर मैं कंप्लीट नहीं करूँगा तो क्या दिक्कत है? पेमेंट तो कर दिया ना मैंने"
     expect:
       - event: response
-        eval: "the bot says the policy cannot be issued until KYC is complete. It does NOT cite IRDAI, the RBI, any regulator, government rules or the law, and it does NOT claim the payment is stuck, blocked, refundable, lost or at risk in any way"
+        # IRDAI was signed off by the product owner on 2026-09-19: KYC really
+        # is an IRDAI requirement, so saying so is true and it is the strongest
+        # honest reason the customer has to stay. Everything PAST that sentence
+        # is still invented, and that is what this asserts.
+        eval: "the bot says the policy cannot be issued until KYC is complete. It may say IRDAI requires this. It must NOT claim the payment is stuck, blocked, refundable, lost or at risk, must NOT cite a circular, section, penalty or fine, must NOT give any deadline other than the policy expiring, and must NOT name any regulator other than IRDAI"
 
   # Three minutes in, the customer asks to be guided. At 00:53:01 this replayed
   # the entire greeting and the customer said "नहीं ये क्या हो रहा है".

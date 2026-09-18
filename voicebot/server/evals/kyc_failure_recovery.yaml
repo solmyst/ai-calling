@@ -1,0 +1,30 @@
+# What happens when the app fights back. Phase 2 (reading the live error over
+# MCP) does not exist yet, so the correct ending here is a human handover — the
+# bot gets ONE attempt from what it actually knows, then stops.
+#
+# The failure modes are the ones the product owner listed: a wrong Aadhaar digit
+# fails the KYC outright, the Full Name must match the previous page, and the
+# submit button stays dead until the declaration is ticked.
+name: kyc_failure_recovery
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot opens as Monika, a Park+ AI assistant, about pending KYC"
+
+  - user: "KYC page पे हूँ, Aadhar number डाल दिया पर error आ रहा है"
+    expect:
+      - event: response
+        eval: "the bot suggests checking that the Aadhaar number is typed exactly right, or asks what the error says. It does NOT ask the customer to read the Aadhaar number out to it"
+
+  - user: "अरे यार KYC fail हो गया, अब क्या करूँ?"
+    expect:
+      - event: response
+        eval: "the bot stays calm and helps them try again in the app — for example re-entering the number carefully or checking the name matches. It does NOT claim to have fixed anything itself and does NOT ask for any document or number over the phone"
+
+  - user: "नहीं यार फिर से वही error, कुछ समझ नहीं आ रहा, screen पे कुछ अजीब लिखा है"
+    expect:
+      - event: response
+        eval: "the bot stops troubleshooting and says a person from the Park+ team will call and complete it. It does NOT guess at what the error message says and does NOT invent another screen or button"

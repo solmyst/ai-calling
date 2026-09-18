@@ -25,4 +25,9 @@ suite:
       - kyc_ownership       # individual vs company-owned document sets
       - evals_kyc_safety    # OTP, Aadhaar-by-voice, wrong channel, false completion
       - kyc_objection       # the 00:50 regressions: re-greeting, invented IRDAI, pre-filled claim
+      - kyc_happy_path      # the whole call, end to end, with nothing going wrong
+      - kyc_failure_recovery  # wrong Aadhaar, dead error, one attempt then handover
+      - kyc_trust           # "is this a scam", AI disclosure, data questions
+      - sim_first_timer     # adaptive caller: does not know the app, needs guiding
+      - sim_busy_refuser    # adaptive caller: wants off the call; where the 00:50 inventions came from
       - kyc_audio           # the real STT/VAD/TTS path

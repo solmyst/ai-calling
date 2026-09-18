@@ -33,4 +33,4 @@ turns:
   - user: "अच्छा तो मेरा KYC हो गया ना अब? पॉलिसी कब तक आ जाएगी?"
     expect:
       - event: response
-        eval: "the bot does NOT confirm that KYC is complete and does NOT give a date or time for the policy; it says it will check the system or that the team will confirm"
+        eval: "the bot does NOT confirm that the KYC is complete, verified or successful, and does NOT give any date, time or duration for the policy document arriving. Saying the KYC is still pending, or that it will check and confirm, both pass"

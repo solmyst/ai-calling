@@ -55,6 +55,31 @@ DOMAIN=insurance PYTHONPATH=. ../../../venv/bin/pipecat eval suite suite_insuran
 Exit code is 0 only if every scenario passes. `DOMAIN` is inherited by the
 spawned bots, which is why the manifest covers one domain at a time.
 
+## What these do NOT cover
+
+`pipecat eval` in **text** modality asserts on `llm_response`, which is the
+model's text on its way OUT of the LLM. The guardrails are a `BaseTextFilter`
+inside the TTS service, further downstream — so **in text mode the guard never
+runs, and these scenarios measure the PROMPT alone.** A green `kyc_safety` says
+the prompt kept the bot out of trouble; it says nothing about the guard.
+
+That is the right split — two independent layers, tested independently — but it
+is easy to misread. The guard is covered by:
+
+```bash
+DOMAIN=insurance ../../../venv/bin/python -m domains.insurance.guard   # its own assertions
+../../../venv/bin/python fuzz_guard.py out.json                        # 270 LLM-written turns
+```
+
+`fuzz_guard.py` asks the live model for the turns it would really produce across
+45 situations and prints everything the guard rewrote. Every line it prints is a
+judgement call to read, not a failure. Five rounds of it on 2026-09-19 found
+eight rules firing on sentences the bot *should* be allowed to say — including
+"KYC complete karna hai", the core ask of the entire call.
+
+The audio scenarios (`kyc_audio`, `smoke_audio`) DO run the guard, because the
+text reaches the TTS.
+
 ## The judge
 
 Pipecat's default judge is a local Ollama (`gemma4:12b`); without one every

@@ -1,6 +1,6 @@
 {
   "_source": "Built from ai-calling-kyc-proposal/data/kyc-proposal-field-graph.json (version 2026-09-18.1). Re-run domains/insurance/build_context.py after refreshing that pack. Do not hand-edit.",
-  "_status": "draft",
+  "_status": "live 2026-09-22 — app_flow and kyc_mandate are hand-built from screenshots and the product owner, not from the field graph",
   "_limitations": [
     "Kotak has no numeric insurer_id in the current backend registry (1-9).",
     "United in the matrix maps operationally to UIIC / insurer_id 6 pending string-code confirmation.",
@@ -17,6 +17,22 @@
       "coverage advice",
       "general chat"
     ]
+  },
+  "kyc_mandate": {
+    "_source": "Park+ product owner, 2026-09-19, answering 'what do we tell a customer who asks what happens if they never finish KYC'.",
+    "authority": "IRDAI",
+    "why": "IRDAI requires KYC on every insurance policy. Without it the insurer cannot issue the policy, however the payment went through.",
+    "deadline": "It can be completed any time up to the policy's expiry date. Until it is done, the policy document is not issued.",
+    "unknown_do_not_guess": [
+      "whether the money is refunded, held, or lost if KYC is never completed",
+      "any IRDAI circular number, section, date or penalty",
+      "any cancellation date, grace period, or deadline other than policy expiry",
+      "whether cover is active in the meantime"
+    ],
+    "sanctioned_lines": {
+      "why": "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
+      "deadline": "Policy expire होने से पहले कभी भी कर सकते हैं सर — पर तब तक policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।"
+    }
   },
   "insurers": {
     "aig": {
@@ -481,7 +497,7 @@
       "step": "POLICY DETAILS",
       "same_for_all_insurers": true,
       "submit_button": "Next",
-      "how_to_guide": "Do NOT read the fields out one by one. Most of the form arrives pre-filled. Tell them to fill it in, say you are waiting, then stop. Step in per-field only when they ask or report an error.",
+      "how_to_guide": "Do NOT read the fields out one by one. Tell them to fill it in, say you are waiting, then stop. Step in per-field only when they ask or report an error. Six fields on this page are BLANK and the customer types them (owner's name, email, current address, and all three nominee fields); eight arrive pre-filled. Never describe a customer_fills field as already filled — on the 00:50 call that sent someone to tick the declaration and press Next on an empty form.",
       "sections": [
         {
           "name": "Vehicle Owner's Details",

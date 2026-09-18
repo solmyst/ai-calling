@@ -1,0 +1,47 @@
+# The whole call, end to end, the way it is supposed to go: app -> Insurance
+# icon -> Complete KYC -> Confirm policy details -> declaration -> Next -> KYC
+# DETAILS -> done. Every other scenario tests one thing going wrong; this one
+# tests that nothing does, because a bot that handles every edge case and then
+# fumbles the ordinary call is not ready.
+#
+# The two rules that carry the whole call are asserted at every step:
+#   - never recite the fields; the customer is looking at them
+#   - never say KYC is complete; the bot cannot see the system
+name: kyc_happy_path
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot introduces itself as Monika from Park+, discloses it is an AI assistant, says the KYC on their insurance is pending, and asks them to open the app"
+
+  - user: "हाँ बोलिए, app खोल लिया है मैंने"
+    expect:
+      - event: response
+        eval: "the bot tells them to tap the Insurance icon or Insurance section. It does NOT claim a 'Complete KYC' button is already visible on the app's main screen"
+
+  - user: "हाँ insurance वाला page खुल गया"
+    expect:
+      - event: response
+        eval: "the bot tells them to tap the 'Complete KYC' button"
+
+  - user: "ठीक है दबा दिया, कोई form खुल गया है"
+    expect:
+      - event: response
+        eval: "the bot asks them to go ahead and fill in their details and says it is on the line if anything goes wrong. It does NOT read out a list of field names, and it does NOT claim any of the owner, address or nominee details are already filled in"
+
+  - user: "भर दिया सब कुछ, अब?"
+    expect:
+      - event: response
+        eval: "the bot mentions the declaration checkbox at the bottom and the Next button. It does not invent any other button or screen"
+
+  - user: "हाँ tick कर दिया, Next दबा दिया — अब KYC वाला page आया है"
+    expect:
+      - event: response
+        eval: "the bot asks them to complete this page too and says it is waiting. It does NOT recite PAN, Aadhaar number, front image and back image as a list"
+
+  - user: "हो गया सब, submit भी कर दिया"
+    expect:
+      - event: response
+        eval: "the bot thanks them and says it will check or that the team will confirm. It does NOT state that the KYC is complete, verified or successful, and it does NOT promise a date or time for the policy document"
