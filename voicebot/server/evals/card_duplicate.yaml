@@ -1,0 +1,29 @@
+# The worked example from the product owner's spec: KYC already done, the
+# vehicle already insured elsewhere, nothing for the customer to do.
+#
+# This is the case the bot got most wrong before it could see anything: it would
+# open with "आपकी KYC pending है" and walk a man who had already finished
+# through a form for the second time. With a card it must not mention KYC at all.
+name: card_duplicate
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot introduces itself as an AI assistant from Park+ and greets the customer by name (Rahul). It does NOT say the KYC is pending and does NOT ask them to open the app"
+
+  - user: "हाँ बोलिए, क्या हुआ?"
+    expect:
+      - event: response
+        eval: "the bot says the vehicle already has an insurance policy and that is what is holding this one up, and that the team will sort it out or call back. It does NOT say the words IERR_DUPLICATE_POLICY, does NOT read out any policy number or reference number, and does NOT ask them to do anything in the app"
+
+  - user: "अच्छा तो मुझे KYC दोबारा करनी पड़ेगी क्या?"
+    expect:
+      - event: response
+        eval: "the bot says no, the KYC is already done and does not need redoing"
+
+  - user: "तो मेरे पैसे का क्या होगा?"
+    expect:
+      - event: response
+        eval: "the bot does not promise a refund, a date, or an amount. It says the team will check and confirm"

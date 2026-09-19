@@ -314,6 +314,21 @@ _SAFE_SEND = (
     "सब कुछ आपके app में ही है सर — Insurance section में Complete KYC पे मिल जाएगा"
 )
 
+# --- the call card's own banned words -----------------------------------------
+# The dialer ships a per-call `do_not_say` list: insurer error codes, internal
+# jargon, whatever this particular case must not have read down the phone. The
+# prompt shows the list too, but the prompt is advice and this is not.
+#
+# A term here replaces the whole sentence, the same as every other rule, because
+# deleting "IERR_DUPLICATE_POLICY" out of the middle of a sentence leaves a
+# sentence that no longer says anything.
+#
+# It is dialer-controlled, so an over-broad entry ("policy") would silence
+# perfectly good turns. Keep it to codes and identifiers.
+_SAFE_DO_NOT_SAY = (
+    "उसकी detail मैं यहाँ से नहीं बता सकती सर — team आपको confirm कर देगी"
+)
+
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
 
 
@@ -334,12 +349,30 @@ class KycGuard:
         ("invented_authority", "error",
          "rewrote an invented regulator rule or money-at-risk claim"),
         ("false_send_promise", "error", "rewrote a promise to send a link/SMS/WhatsApp"),
+        ("banned_terms", "error", "rewrote a term the call card forbids"),
         ("machine_output", "error", "DROPPED non-speech output"),
         ("self_narration", "error", "DROPPED the model thinking out loud"),
     )
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, card: dict | None = None):
         ctx = ctx or json.loads(CONTEXT_FILE.read_text())
+        self.card = card or {}
+        # "Never mark KYC/proposal complete from VERBAL confirmation alone" is
+        # the safety rule, and a prefetched card is not verbal confirmation — it
+        # is what our own system says. So when the card states KYC succeeded, or
+        # carries a policy number, the bot is allowed to say so; without a card
+        # it still cannot, because then it genuinely does not know.
+        #
+        # This is the whole reason the card exists: the bot spent every call
+        # unable to answer "so is it done?" because it could not see anything.
+        self.system_confirms_done = bool(
+            str(self.card.get("kyc_status") or "").strip().upper() == "SUCCESS"
+            or self.card.get("policy_number")
+        )
+        terms = [re.escape(t) for t in self.card.get("do_not_say") or [] if t]
+        self._do_not_say = (
+            re.compile("|".join(terms), re.IGNORECASE) if terms else None
+        )
         self.insurers = ctx["insurers"]
         self.upload_only = set(ctx["field_groups"]["upload_only"])
         self.otp_asks: list[str] = []
@@ -349,6 +382,7 @@ class KycGuard:
         self.promises: list[str] = []
         self.invented_authority: list[str] = []
         self.false_send_promise: list[str] = []
+        self.banned_terms: list[str] = []
         self.machine_output: list[str] = []
         self.self_narration: list[str] = []
 
@@ -380,6 +414,10 @@ class KycGuard:
 
     def _fix_sentence(self, sentence: str) -> str:
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
+
+        if self._do_not_say is not None and self._do_not_say.search(sentence):
+            self.banned_terms.append(sentence.strip())
+            return _SAFE_DO_NOT_SAY + terminator
 
         if _OTP_RE.search(sentence) and not (
             _OTP_REFUSAL.search(sentence) and not _OTP_ASK_VERB.search(sentence)
@@ -426,6 +464,7 @@ class KycGuard:
             and not _NEGATED_DONE.search(sentence)
             and not _INSTRUCTED_DONE.search(sentence)
             and not _FAILED_DONE.search(sentence)
+            and not self.system_confirms_done
         ):
             self.false_completions.append(sentence.strip())
             return _SAFE_DONE + terminator
@@ -599,6 +638,32 @@ def _demo():
     g3 = KycGuard()
     mixed = g3.check("जी सर। आपका OTP बता दीजिए। और कुछ?")
     assert "जी सर।" in mixed and "और कुछ?" in mixed and "OTP बता" not in mixed, mixed
+
+    # --- with a call card -----------------------------------------------------
+    # A card's do_not_say list is a hard stop, whatever the sentence is doing.
+    g4 = KycGuard(card={"do_not_say": ["IERR_DUPLICATE_POLICY", "audit log"]})
+    for banned in ("आपका case IERR_DUPLICATE_POLICY की वजह से रुका है।",
+                   "Audit log में दिख रहा है सर।"):
+        assert g4.check(banned) != banned, f"banned term spoken: {banned!r}"
+    assert len(g4.banned_terms) == 2
+    # ...and it must not silence ordinary turns.
+    assert g4.check("App खोल लीजिए सर।") == "App खोल लीजिए सर।"
+
+    # Without a card the bot cannot see the system, so it may not say it is done.
+    blind = KycGuard()
+    assert blind.check("आपकी KYC complete हो गई है सर।") != "आपकी KYC complete हो गई है सर।"
+    # With a card that says SUCCESS, the same sentence is our own system talking,
+    # not the customer's word for it — which is what the safety rule turns on.
+    seeing = KycGuard(card={"kyc_status": "SUCCESS"})
+    assert seeing.check("आपकी KYC complete हो गई है सर।") == "आपकी KYC complete हो गई है सर।"
+    issued = KycGuard(card={"policy_number": "P9001"})
+    assert issued.check("आपकी policy issue हो चुकी है सर।") == "आपकी policy issue हो चुकी है सर।"
+    # A card that says PENDING changes nothing: still blind, still blocked.
+    pending = KycGuard(card={"kyc_status": "PENDING"})
+    assert pending.check("आपकी KYC complete हो गई है सर।") != "आपकी KYC complete हो गई है सर।"
+    # Everything else stays on, card or no card.
+    assert seeing.check("आपका OTP बता दीजिए।") != "आपका OTP बता दीजिए।"
+    assert seeing.check("मैं आपको link भेज देती हूँ।") != "मैं आपको link भेज देती हूँ।"
 
     print(f"insurance guard ok — {len(KycGuard.COUNTERS)} rules, "
           f"{len(g.insurers)} insurers, upload-only: {sorted(g.upload_only)}")

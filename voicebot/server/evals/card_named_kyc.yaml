@@ -1,0 +1,26 @@
+# The ordinary case, but now the bot knows who picked up. It should use the name
+# and the insurer, and still run the full app walkthrough — the card narrows what
+# it says about THIS customer, it does not change the job.
+name: card_named_kyc
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot greets Vikram by name, says it is an AI assistant from Park+, says the KYC on his insurance is pending, and asks him to open the app"
+
+  - user: "हाँ खोल लिया app"
+    expect:
+      - event: response
+        eval: "the bot tells him to tap the Insurance icon or section"
+
+  - user: "मेरी गाड़ी कौन सी है इसमें? confirm कर दो"
+    expect:
+      - event: response
+        eval: "the bot says the registration number HR26DQ4411, or reads it back in some form. It does not claim to be unable to see which vehicle this is"
+
+  - user: "किस company का insurance है मेरा?"
+    expect:
+      - event: response
+        eval: "the bot says Bajaj. It does not say it does not know the insurer"

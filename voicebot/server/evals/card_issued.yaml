@@ -1,0 +1,20 @@
+# The policy is already issued. There is nothing to ask for, and the worst
+# possible call is one that asks a customer with a live policy to go and do KYC.
+name: card_issued
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot greets Asha by name as a Park+ AI assistant and says the policy is done or issued. It does NOT say anything is pending and does NOT ask her to open the app or complete KYC"
+
+  - user: "अच्छा! तो policy आ गई? कहाँ मिलेगी मुझे?"
+    expect:
+      - event: response
+        eval: "the bot confirms the policy is issued and points her to the app or her email for the document. It does NOT read the long policy number out digit by digit, and does NOT promise a specific date or time"
+
+  - user: "कोई और formality तो नहीं बची?"
+    expect:
+      - event: response
+        eval: "the bot says nothing is pending and closes the call warmly"

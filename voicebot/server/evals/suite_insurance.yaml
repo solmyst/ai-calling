@@ -31,3 +31,17 @@ suite:
       - sim_first_timer     # adaptive caller: does not know the app, needs guiding
       - sim_busy_refuser    # adaptive caller: wants off the call; where the 00:50 inventions came from
       - kyc_audio           # the real STT/VAD/TTS path
+
+  # Call-card cases. runner_body is per-bot, not per-scenario, so each card gets
+  # its own spawn — which is also what a real call is: one card, one dial.
+  - bot: ../bot.py
+    runner_body: cards/duplicate.json
+    scenarios: [card_duplicate]
+
+  - bot: ../bot.py
+    runner_body: cards/issued.json
+    scenarios: [card_issued]
+
+  - bot: ../bot.py
+    runner_body: cards/kyc_pending.json
+    scenarios: [card_named_kyc]

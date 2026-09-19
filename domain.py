@@ -68,7 +68,22 @@ if not CONTEXT_FILE.is_file():
     _fail("missing context.json")
 
 
-def build_guard():
+def build_call_card(body):
+    """This session's per-case card, or None if the domain has no such notion.
+
+    The dialer prefetches one row before the phone rings and hands it over as the
+    Pipecat runner body. A domain that does not use one (the car spa) just has no
+    call_card module, and everything downstream treats that the same as a failed
+    fetch: no card, full generic prompt, bot still works.
+    """
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.call_card")
+    except ModuleNotFoundError:
+        return None
+    return module.from_body(body)
+
+
+def build_guard(card=None):
     """The active domain's deterministic output guard.
 
     Falls back to the car spa's PriceGuard when a domain ships no guard.py, but
@@ -81,10 +96,16 @@ def build_guard():
     except ModuleNotFoundError:
         from guardrails import PriceGuard
         return PriceGuard()
-    return module.build_guard() if hasattr(module, "build_guard") else module.GUARD()
+    if hasattr(module, "build_guard"):
+        return module.build_guard(card)
+    try:
+        return module.GUARD(card=card)
+    except TypeError:
+        # A domain whose guard predates call cards.
+        return module.GUARD()
 
 
-def build_system_prompt(mode: str = "outbound") -> str:
+def build_system_prompt(mode: str = "outbound", card=None) -> str:
     """The active domain's system prompt, for "outbound" or "inbound".
 
     Imported lazily so that a broken or half-finished domain fails here, with the
@@ -94,4 +115,7 @@ def build_system_prompt(mode: str = "outbound") -> str:
         module = importlib.import_module(f"domains.{ACTIVE}.prompt")
     except ModuleNotFoundError:
         _fail("missing prompt.py")
-    return module.build_system_prompt(mode)
+    try:
+        return module.build_system_prompt(mode, card)
+    except TypeError:
+        return module.build_system_prompt(mode)

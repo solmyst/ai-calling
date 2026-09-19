@@ -1,0 +1,14 @@
+{
+  "call_card": {
+    "proposal_id": 901233,
+    "customer_name": "Asha Menon",
+    "insurer": "HDFC",
+    "policy_type": "COMPREHENSIVE",
+    "vehicle_reg": "KA05MJ2210",
+    "proposal_status": "PROPOSAL_SUCCESS",
+    "kyc_status": "SUCCESS",
+    "fulfillment_status": "ORDER_FULFILLED",
+    "policy_number": "2311100123456789",
+    "do_not_say": ["engine number", "chassis number"]
+  }
+}

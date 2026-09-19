@@ -55,6 +55,21 @@ DOMAIN=insurance PYTHONPATH=. ../../../venv/bin/pipecat eval suite suite_insuran
 Exit code is 0 only if every scenario passes. `DOMAIN` is inherited by the
 spawned bots, which is why the manifest covers one domain at a time.
 
+## Call-card scenarios
+
+`cards/*.json` are prefetched call cards, the JSON the dialer hands the bot
+before it rings. `runner_body:` in the manifest is per-BOT, not per-scenario —
+which is also what a real call is: one card, one dial — so each card gets its
+own spawn entry. To drive one by hand:
+
+```bash
+python bot.py -t eval --runner-body evals/cards/duplicate.json   # a PATH, not inline JSON
+```
+
+`cards/duplicate.json` is the product owner's worked example: KYC already done,
+vehicle already insured elsewhere. The bot must not mention KYC at all. See
+`domains/insurance/CALL_CARD.md` for the contract.
+
 ## What these do NOT cover
 
 `pipecat eval` in **text** modality asserts on `llm_response`, which is the

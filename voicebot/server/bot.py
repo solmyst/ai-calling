@@ -47,6 +47,7 @@ load_dotenv(Path(__file__).parent / ".env", override=False)
 from domain import (
     ACTIVE as ACTIVE_DOMAIN,
     CONTEXT_FILE,
+    build_call_card,
     build_guard,
     build_system_prompt,
 )
@@ -933,6 +934,27 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     _setup_logging()
     logger.info("Starting bot")
 
+    # What we know about the person we just dialled, prefetched by the dialer and
+    # handed over as the runner body (`--runner-body`, or `runner_body:` in an
+    # eval manifest). One fixed query before the call — never a database
+    # connection during it, and never free-form SQL the model composes while
+    # somebody listens to silence.
+    #
+    # No card is a fully supported state. If the prefetch fails, times out, or
+    # the dialer has not been updated yet, the bot falls back to exactly the
+    # generic call it ran before any of this existed.
+    card = build_call_card(getattr(runner_args, "body", None))
+    if card:
+        # Names and registration numbers are customer data; call.log gets the
+        # shape of the card, not its contents.
+        logger.info(
+            f"CALL CARD goal={card['goal']} insurer={card.get('insurer') or '?'} "
+            f"kyc={card.get('kyc_status') or '?'} "
+            f"fields={sorted(k for k in card if k != 'goal')}"
+        )
+    else:
+        logger.info("No call card — running the generic KYC call")
+
     groq_key = os.getenv("GROQ_API_KEY")
     # STT and the LLM can run on separate Groq keys so one key isn't carrying both
     # call legs. Note this only spreads real load if the keys belong to DIFFERENT
@@ -997,7 +1019,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # ONE guard for the whole call, shared by the TTS filter (what the bot says)
     # and the observer (what the caller says). Two instances would mean the filter
     # never learns that a car was named, and every price would be blocked.
-    guard = build_guard()
+    guard = build_guard(card)
 
     sarvam_key = os.getenv("SARVAM_API_KEY")
     elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
@@ -1063,7 +1085,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # other opening: asking "दो मिनट हैं?" of someone who just rang you is the
     # tell of a script. The dial-out flows can set CALL_MODE per session.
     call_mode = os.getenv("CALL_MODE") or "outbound"
-    system_instruction = build_system_prompt(call_mode) + voice_mode_addendum
+    system_instruction = build_system_prompt(call_mode, card) + voice_mode_addendum
     logger.info(f"Call mode: {call_mode} | domain: {ACTIVE_DOMAIN}")
     if groq_key:
         # Benchmarked on five real call turns 2026-09-13: qwen answered all five

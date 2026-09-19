@@ -17,6 +17,8 @@ Run it::
 import json
 from pathlib import Path
 
+from . import call_card
+
 CONTEXT_FILE = Path(__file__).parent / "context.json"
 
 OPENINGS = {
@@ -61,7 +63,7 @@ encrypted and auditable — say so, it is why the call is worth trusting.
 You are not a claims agent, not a refund authority, and not a general chatbot.
 Off-topic — cricket, games, the weather, what you are — gets at most a warm half
 sentence, then straight back to the app. Never a second turn on it.
-
+{call_card}
 # THE OPENING
 
 {opening}
@@ -162,8 +164,9 @@ the set depends on who owns the car:
 - company-owned car → PAN number, PAN photo, GST certificate. NO Aadhaar at
   all — not the number, not the images
 
-If you do not know which one this customer is, ask them that one question
-rather than listing both sets at them.
+If THIS CALL states the ownership, you already know — use that set and never
+ask. Only when it does not do you ask that one question, and even then you ask
+it rather than listing both sets at them.
 
 The one thing worth saying unprompted, and only when they are actually at the
 Aadhaar number: it has to be typed exactly right. One wrong digit and the KYC
@@ -309,6 +312,53 @@ def _format_context(ctx: dict) -> str:
     return "\n".join(lines)
 
 
+#: For every goal EXCEPT complete_kyc. No screens, no walkthrough, no forms.
+SHORT_CALL_TEMPLATE = """\
+You are Monika, the Park+ Insurance AI calling assistant, calling a customer
+about the motor insurance they already paid for.
+
+Say you are an AI assistant in your very first line. Required, every call.
+{call_card}
+# THIS IS NOT A KYC WALKTHROUGH
+
+Their KYC is not what you are ringing about. Do NOT ask them to open the app, do
+NOT walk them through any form, do NOT ask for a single document. There is
+nothing on this call for them to do.
+
+Your whole job is three sentences, and the FIRST turn carries all three:
+  1. who you are and which vehicle this is about
+  2. what the position actually is, from THIS CALL above, in plain Hindi
+  3. what happens next — our team is handling it, or nothing at all if the
+     policy is already issued
+
+Then thank them and let them go. A minute is plenty.
+
+Do not ask whether you may speak, do not ask if this is a good time, do not ask
+how they are. You rang with news that takes twenty seconds; open with it. If the
+policy is issued, that is good news — say so in the first breath.
+
+If they ask something the card does not answer — why, how long, how much, what
+about the money — you do not know it. Say so and say the team will confirm:
+मुझे इसका exact जवाब पता नहीं है सर, team check करके आपको बता देगी।
+
+# THINGS YOU MUST NEVER SAY
+
+- Never ask for an OTP, a PAN, an Aadhaar, a GSTIN or any document. Nothing on
+  this call needs them.
+- Never read out an error code, a policy number, a proposal id or any reference.
+- Never promise when the policy will be issued, or that a refund is approved.
+- Never invent a reason. If the card does not say why, you do not know why.
+- Never say a status the card does not state.
+
+# HOW YOU SOUND
+
+Gurgaon Hindi with English words left in English — KYC, app, policy, payment
+stay English. Short turns. You are calling about someone's money, so be calm and
+exact, never breezy. If they are annoyed, apologise once, say the team is on it,
+and close.
+"""
+
+
 def _format_mandate(ctx: dict) -> str:
     """The only two sentences the bot may say about WHY KYC is mandatory.
 
@@ -322,14 +372,30 @@ def _format_mandate(ctx: dict) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(mode: str = "outbound") -> str:
+def build_system_prompt(mode: str = "outbound", card: dict | None = None) -> str:
+    """The system prompt, optionally narrowed to one customer's case.
+
+    With no card this is exactly what it has always been — the full walkthrough,
+    for a bot that knows the product and nothing about who picked up. That is the
+    degraded mode when the prefetch fails, and it still works.
+
+    With a card, the goal picks the playbook: complete_kyc keeps the walkthrough,
+    and every other goal gets SHORT_CALL_TEMPLATE, which has no screens in it at
+    all because there is nothing for the customer to do.
+    """
     if mode not in OPENINGS:
         raise ValueError(f"mode must be one of {sorted(OPENINGS)}, got {mode!r}")
+    block = f"\n{call_card.render(card)}\n" if card else ""
+
+    if card and card["goal"] != "complete_kyc":
+        return SHORT_CALL_TEMPLATE.format(call_card=block)
+
     ctx = json.loads(CONTEXT_FILE.read_text())
     return SYSTEM_PROMPT_TEMPLATE.format(
         opening=OPENINGS[mode],
         mandate=_format_mandate(ctx),
         context=_format_context(ctx),
+        call_card=block,
     )
 
 
@@ -390,6 +456,45 @@ def _demo():
         assert "IRDAI" in p, "the sanctioned mandate line went missing"
         assert "expire" in p, "the deadline line went missing"
         assert "FAILS" in p, "the wrong-Aadhaar-digit warning must survive"
+
+    # --- with a call card -----------------------------------------------------
+    no_card = build_system_prompt("outbound")
+    assert "{call_card}" not in no_card and "# THIS CALL" not in no_card, \
+        "no card must render exactly the prompt it always did"
+
+    kyc = call_card.build({
+        "customer_name": "Rahul Suresh Singh", "insurer": "United India",
+        "vehicle_reg": "DL6CP8915", "kyc_status": "PENDING",
+    })
+    p_kyc = build_system_prompt("outbound", kyc)
+    assert "Rahul Suresh Singh" in p_kyc and "DL6CP8915" in p_kyc
+    # complete_kyc still gets the whole walkthrough — the screens are the job.
+    assert "Complete KYC" in p_kyc and "hereby declare" in p_kyc
+    assert "Aadhar Front Image" in p_kyc
+
+    dup = call_card.build({
+        "customer_name": "Rahul", "insurer": "United India", "vehicle_reg": "DL6CP8915",
+        "kyc_status": "SUCCESS", "proposal_status": "PROPOSAL_PENDING",
+        "error_code": "IERR_DUPLICATE_POLICY",
+        "blocker": "Duplicate policy — already insured under TP 0407033126P108547203",
+        "do_not_say": ["IERR_DUPLICATE_POLICY"],
+    })
+    p_dup = build_system_prompt("outbound", dup)
+    # A call with nothing for the customer to do must not carry a form guide.
+    # Shipping the walkthrough here is how the bot starts hunting for a screen
+    # to send someone to on a call that needed one honest sentence.
+    for screen in ("hereby declare", "Aadhar Front Image", "Complete KYC button",
+                   "Engine Number", "Nominee Details"):
+        assert screen not in p_dup, f"the short call must not carry {screen!r}"
+    assert "Rahul" in p_dup and "already insured" in p_dup
+    assert "AI assistant" in p_dup, "the disclosure is required on every call"
+    assert "OTP" in p_dup, "the OTP rule is required on every call"
+    assert "0407033126P108547203" not in p_dup, "identifiers must never reach the model"
+    assert len(p_dup) < len(p_kyc) / 2, "the short call should be much shorter"
+
+    issued = call_card.build({"customer_name": "Asha", "policy_number": "P9001",
+                              "kyc_status": "SUCCESS"})
+    assert "ISSUED" in build_system_prompt("outbound", issued)
 
     assert build_system_prompt("outbound") != build_system_prompt("inbound")
     try:

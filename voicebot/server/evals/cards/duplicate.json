@@ -1,0 +1,15 @@
+{
+  "call_card": {
+    "proposal_id": 845671,
+    "customer_name": "Rahul Suresh Singh",
+    "insurer": "United India",
+    "policy_type": "COMPREHENSIVE",
+    "vehicle_reg": "DL6CP8915",
+    "proposal_status": "PROPOSAL_PENDING",
+    "kyc_status": "SUCCESS",
+    "fulfillment_status": "ORDER_FULFILLED",
+    "error_code": "IERR_DUPLICATE_POLICY",
+    "blocker": "Duplicate policy - vehicle already insured under TP 0407033126P108547203",
+    "do_not_say": ["IERR_DUPLICATE_POLICY", "engine number", "chassis number", "audit log"]
+  }
+}
