@@ -95,6 +95,27 @@ eight rules firing on sentences the bot *should* be allowed to say — including
 The audio scenarios (`kyc_audio`, `smoke_audio`) DO run the guard, because the
 text reaches the TTS.
 
+## Keys, and not taking production down
+
+The judge and the simulated caller are LLM traffic too, and by default they bill
+to the same Bifrost virtual key the bot calls on. On 2026-09-19 that key hit its
+cap mid-session — 2,043 bot turns and 2,037 judge calls, 9.7M input tokens — and
+the **bot** was the thing left with nothing to answer with.
+
+Set `BIFROST_EVAL_VK` to a second key so the harness cannot starve the phone
+line. Unset, the judge warns once per run. `JUDGE_BACKEND=parkplus` forces the
+judge off Bifrost entirely, which is how you tell "the key is spent" apart from
+"the bot is broken" — they look identical otherwise.
+
+`probe_cache.py` (repo root) answers the other half: 75% of that spend was one
+byte-identical prefix, the system prompt, re-sent every turn. It sends the real
+prompt several times and prints whatever the provider says about prefix caching.
+
+```bash
+python probe_cache.py                    # the bot's chain
+python probe_cache.py --provider parkplus
+```
+
 ## The judge
 
 Pipecat's default judge is a local Ollama (`gemma4:12b`); without one every

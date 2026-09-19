@@ -17,6 +17,9 @@ import os
 
 from pipecat.services.openai.llm import OpenAILLMService
 
+#: One warning per process, not one per scenario.
+_WARNED: list[bool] = []
+
 
 def make_judge(config):
     """Build the judge LLM from a scenario's `judge.eval.factory` block.
@@ -32,7 +35,30 @@ def make_judge(config):
     # every scenario fails with "judge call failed: APIStatusError" while the
     # BOT is perfectly healthy on its own Park+ fallback. That reads exactly
     # like a broken bot and is not, so it needs to be one env var to rule out.
-    vk = os.getenv("BIFROST_VK")
+    # BIFROST_EVAL_VK is a SECOND virtual key, for the harness only. The judge
+    # and the simulated caller are not the product — they are test traffic — and
+    # on 2026-09-19 they shared the bot's key and helped spend it:
+    #
+    #     2,043 bot turns and 2,037 judge calls in one day, 9.7M input tokens,
+    #     until "402 budget_exceeded: 10.0045 >= 10.0000 dollars"
+    #
+    # The bot then had nothing to answer with. That is the real problem, not the
+    # money: a test run must never be able to take the phone line down. Give the
+    # harness its own key and its own cap, and the worst an eval binge can do is
+    # stop the evals.
+    #
+    # Unset, it still uses the production key so nothing breaks — but it says so
+    # once, loudly, because that is the state that caused the outage.
+    eval_vk = os.getenv("BIFROST_EVAL_VK")
+    vk = eval_vk or os.getenv("BIFROST_VK")
+    if vk and not eval_vk and not _WARNED:
+        _WARNED.append(True)
+        print(
+            "  ! judge is billing to BIFROST_VK, the same key the bot calls on.\n"
+            "    Evals can exhaust it and take live calls mute — that is what\n"
+            "    happened on 2026-09-19. Set BIFROST_EVAL_VK to a separate key.",
+            flush=True,
+        )
     if vk and os.getenv("JUDGE_BACKEND", "bifrost").lower() != "parkplus":
         return OpenAILLMService(
             api_key="not-needed",
