@@ -440,7 +440,17 @@ def _is_dead_endpoint(error: Exception) -> bool:
     so it stayed selected and every LATER turn 404'd too: one wrong string in a
     list took out the whole call rather than one turn.
     """
-    if isinstance(error, APIStatusError) and error.status_code in (401, 403, 404):
+    # 402 is Bifrost's virtual-key budget cap:
+    #   "Model-level budget exceeded (virtual key scope) ... 10.0045 >= 10.0000"
+    # It is spent, not busy — no amount of waiting refills it, and the whole
+    # point of holding Groq and Park+ behind Bifrost is that a spent key costs
+    # nothing. Before this it was classified as neither retryable (429/5xx) nor
+    # dead (401/403/404), so the rotation never moved: the endpoint stayed
+    # selected and the bot answered NOTHING, on every turn, for the rest of the
+    # process. Found on 2026-09-19 when the key hit its cap and all 17 eval
+    # scenarios timed out at once, each waiting 60s for a reply that could never
+    # come. On a live call that is the caller hearing silence until they hang up.
+    if isinstance(error, APIStatusError) and error.status_code in (401, 402, 403, 404):
         return True
     # vLLM answers every tools request with 400 when the server was launched
     # without them: `"auto" tool choice requires --enable-auto-tool-choice and
@@ -510,9 +520,21 @@ class FailoverLLMService(GroqLLMService):
         # Model-major: every key on the best model before any key on the second.
         # A weaker model is a real quality cost, so it is only reached once the
         # good one is spent everywhere.
-        self._endpoints = [Endpoint(k, m, None, "groq") for m in models for k in keys]
-        # Park+'s own server has no quota at all, so it leads and everything
-        # below it becomes failover rather than capacity.
+        # Park+ runs its own LLM, so when it is configured it is the LAST stop:
+        # Bifrost for speed, Park+ when Bifrost is spent, and nothing after that.
+        # The free Groq and Gemini tiers are deliberately NOT behind it — they
+        # are rate-limited, they are not ours, and the bot runs LLM_TOOLS=off
+        # precisely because Park+'s vLLM has no tool support, so sliding onto a
+        # different provider mid-call would quietly change what the bot can do
+        # while a customer is on the line.
+        #
+        # Blank PARKPLUS_LLM_URL and the old Groq/Gemini chain comes back, which
+        # is the escape hatch if Park+ is ever down: it is an env var an operator
+        # already controls, not a new flag.
+        if parkplus_url:
+            self._endpoints = []
+        else:
+            self._endpoints = [Endpoint(k, m, None, "groq") for m in models for k in keys]
         if parkplus_url:
             self._endpoints.insert(
                 0, Endpoint(parkplus_api_key or "not-needed", parkplus_model,
@@ -532,7 +554,7 @@ class FailoverLLMService(GroqLLMService):
         # 3-16s against Groq's sub-second, so it is what stands between the caller
         # and dead air, not what serves a normal turn.
 
-        if gemini_api_key:
+        if gemini_api_key and not parkplus_url:
             self._endpoints += [
                 Endpoint(gemini_api_key, m, GEMINI_BASE_URL, "gemini") for m in gemini_models
             ]

@@ -34,6 +34,9 @@ FIRST turn, near enough word for word — it is a script, not an example:
     insurance लिया था — उसकी KYC pending है। बस दो मिनट लगेंगे, मैं अभी करवा
     देती हूँ। App खोल लीजिए?
 
+If THIS CALL gives you their name, that replaces "सर" in the line above — open
+with "नमस्ते <name> जी" instead.
+
 You say it ONCE, at the start of the call, and never again. Not when they ask
 you to guide them, not when they are confused, not after a silence — by then
 they know who you are, so pick up from wherever they actually are.
@@ -165,8 +168,8 @@ the set depends on who owns the car:
   all — not the number, not the images
 
 If THIS CALL states the ownership, you already know — use that set and never
-ask. Only when it does not do you ask that one question, and even then you ask
-it rather than listing both sets at them.
+ask. If it does not, that means UNKNOWN, never individual: ask that one
+question rather than listing both sets at them.
 
 The one thing worth saying unprompted, and only when they are actually at the
 Aadhaar number: it has to be typed exactly right. One wrong digit and the KYC
@@ -232,9 +235,8 @@ promise nobody can keep.
 - Never describe an app screen, button, field or error message that is not in
   THE SCREENS below. Guessing wrong sends them hunting and costs the call.
   Hand over instead.
-- Never ask the customer to read a field value back to you unless it is one the
-  screen asks them to type and is not sensitive. Their PAN and Aadhaar number go
-  into the app, never into this call.
+- Never ask the customer to read a field value back to you unless the screen
+  asks them to type it and it is not sensitive.
 
 # HOW YOU SOUND
 
@@ -248,7 +250,7 @@ their documents: calm and exact, never breezy.
 """
 
 
-def _format_context(ctx: dict) -> str:
+def _format_context(ctx: dict, ownership: str | None = None) -> str:
     """The facts the bot may state, rendered from context.json.
 
     Rendering the screens from data rather than hard-coding them into the
@@ -257,6 +259,14 @@ def _format_context(ctx: dict) -> str:
     The four field states are kept DISTINCT on purpose. Collapsing them is what
     makes the bot ask someone to retype a chassis number that is already on their
     screen, or tell them the form needs nothing when three fields are blank.
+
+    `ownership` comes from the call card when the dialer knows it. The KYC page
+    is the one screen that genuinely differs: a company-owned car needs a PAN
+    photo and a GST certificate and NO Aadhaar at all. Rendering the Aadhaar
+    fields to a company case put them in front of the model as the fields on
+    this customer's screen, and it read them out — the wrong document set, to
+    someone who cannot supply it. So when ownership is known, only that set is
+    rendered.
     """
     app = ctx["app_flow"]
     STATE = {
@@ -284,7 +294,17 @@ def _format_context(ctx: dict) -> str:
                 else "DIFFERS by insurer")
         lines += ["", f'## Page: "{page["title"]}" — {same}',
                   f'   submit button: "{page["submit_button"]}"']
-        for section in page["sections"]:
+        sections = page["sections"]
+        if key == "kyc_page" and ownership == "company":
+            company = app["kyc_page"]["ownership_types"]["company_owned_car"]
+            lines.append("  THIS customer's car is COMPANY-OWNED, so this page asks for:")
+            lines += [f"    - {doc}" for doc in company["documents"]]
+            lines.append(f'  {company["note"]}')
+            sections = []
+        elif key == "kyc_page" and ownership == "individual":
+            lines.append("  THIS customer's car is INDIVIDUALLY owned — the fields below "
+                         "are the ones on their screen. No GST certificate, no PAN photo.")
+        for section in sections:
             lines.append(f"  {section['name']}:")
             for f in section["fields"]:
                 bits = [f"{STATE[f['state']]}: {f['label']}"]
@@ -394,7 +414,7 @@ def build_system_prompt(mode: str = "outbound", card: dict | None = None) -> str
     return SYSTEM_PROMPT_TEMPLATE.format(
         opening=OPENINGS[mode],
         mandate=_format_mandate(ctx),
-        context=_format_context(ctx),
+        context=_format_context(ctx, (card or {}).get("ownership_type")),
         call_card=block,
     )
 
@@ -454,7 +474,8 @@ def _demo():
         # context.json, so a bad edit there silently muted the bot on the one
         # question every customer asks — until this caught it.
         assert "IRDAI" in p, "the sanctioned mandate line went missing"
-        assert "expire" in p, "the deadline line went missing"
+        for line in ctx["kyc_mandate"]["sanctioned_lines"].values():
+            assert line in p, f"a sanctioned mandate line went missing: {line[:40]}"
         assert "FAILS" in p, "the wrong-Aadhaar-digit warning must survive"
 
     # --- with a call card -----------------------------------------------------
@@ -491,6 +512,29 @@ def _demo():
     assert "OTP" in p_dup, "the OTP rule is required on every call"
     assert "0407033126P108547203" not in p_dup, "identifiers must never reach the model"
     assert len(p_dup) < len(p_kyc) / 2, "the short call should be much shorter"
+
+    # A company-owned car must not have the Aadhaar fields rendered as "the
+    # fields on their screen" — that set is not on their screen at all.
+    company = call_card.build({"customer_name": "Neha Bhatia", "kyc_status": "PENDING",
+                               "ownership_type": "Company"})
+    p_co = build_system_prompt("outbound", company)
+    screens = p_co.split("# THE SCREENS", 1)[1]
+    for aadhaar_field in ("Aadhar Number", "Aadhar Front Image", "Aadhar Back Image"):
+        assert aadhaar_field not in screens, f"{aadhaar_field} rendered for a company car"
+    assert "GST certificate" in p_co and "PAN photo" in p_co
+    assert "Neha जी" in p_co, "a name replaces सर, and जी carries no gender"
+
+    individual = call_card.build({"customer_name": "Rahul", "kyc_status": "PENDING",
+                                  "ownership_type": "Individual"})
+    p_ind = build_system_prompt("outbound", individual)
+    ind_screens = p_ind.split("# THE SCREENS", 1)[1]
+    assert "Aadhar Front Image" in ind_screens
+    assert "COMPANY-OWNED" not in ind_screens
+
+    # Unknown ownership still renders the common case AND lets the bot ask.
+    unknown = call_card.build({"customer_name": "Rahul", "kyc_status": "PENDING"})
+    assert "ownership_type" not in unknown
+    assert "Aadhar Front Image" in build_system_prompt("outbound", unknown)
 
     issued = call_card.build({"customer_name": "Asha", "policy_number": "P9001",
                               "kyc_status": "SUCCESS"})

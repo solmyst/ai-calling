@@ -1,0 +1,37 @@
+# A company-owned car, stated on the card. Two things are being tested and both
+# came out of the product owner's own numbers: roughly 5.2k company cars against
+# 795k individual ones.
+#
+# 1. The bot must NOT ask which kind it is — the card says. Asking is a wasted
+#    turn on a call that is supposed to take two minutes.
+# 2. It must never mention Aadhaar. A company car's KYC is PAN, a PAN photo and
+#    a GST certificate; there is no Aadhaar in it at all. Assuming individual
+#    because it is 150x more common is how this customer gets told to photograph
+#    a document that is not part of their KYC, and the upload fails in front of
+#    them.
+#
+# The date on the card is when their EXISTING cover lapses. It is the one honest
+# piece of urgency on this call, and it is not a KYC deadline.
+name: card_company
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot greets Neha by name as a Park+ AI assistant and says the KYC is pending"
+
+  - user: "हाँ KYC page खोल लिया है"
+    expect:
+      - event: response
+        eval: "the bot asks her to complete the details and says it is on the line. It does NOT recite a document list"
+
+  - user: "इसमें क्या क्या चाहिए होगा?"
+    expect:
+      - event: response
+        eval: "the bot names PAN and the GST certificate for a company-owned car. It must NOT ask her for an Aadhaar number or an Aadhaar photo, and must NOT list Aadhaar among the things she needs — saying Aadhaar is NOT required is fine and good. It must NOT ask whether the car is individually or company owned, because it already knows"
+
+  - user: "अभी टाइम नहीं है, अगले हफ्ते कर लूँगी"
+    expect:
+      - event: response
+        eval: "if the bot mentions a date at all, it says her existing cover runs out on 15 October and does not call that a KYC deadline or a policy end date. It must NOT read out a date in digits-and-dashes form like 2026-10-15"

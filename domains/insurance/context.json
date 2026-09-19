@@ -22,7 +22,7 @@
     "_source": "Park+ product owner, 2026-09-19, answering 'what do we tell a customer who asks what happens if they never finish KYC'.",
     "authority": "IRDAI",
     "why": "IRDAI requires KYC on every insurance policy. Without it the insurer cannot issue the policy, however the payment went through.",
-    "deadline": "It can be completed any time up to the policy's expiry date. Until it is done, the policy document is not issued.",
+    "deadline": "There is no separate KYC deadline to quote. Until it is done the policy document is not issued, so sooner is better. The only date worth saying out loud is when the customer's EXISTING cover lapses, and that arrives on the call card as kyc_deadline_hint — never the new policy's end date, which is about a year out.",
     "unknown_do_not_guess": [
       "whether the money is refunded, held, or lost if KYC is never completed",
       "any IRDAI circular number, section, date or penalty",
@@ -31,7 +31,7 @@
     ],
     "sanctioned_lines": {
       "why": "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
-      "deadline": "Policy expire होने से पहले कभी भी कर सकते हैं सर — पर तब तक policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।"
+      "deadline": "कोई last date तो नहीं है सर — पर जब तक KYC नहीं होती, policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।"
     }
   },
   "insurers": {

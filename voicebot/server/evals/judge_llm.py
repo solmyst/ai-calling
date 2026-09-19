@@ -27,8 +27,13 @@ def make_judge(config):
     price" is the pass condition for that assertion, returned as a non-verdict.
     A judge that cannot commit fails good turns, which is worse than no judge.
     """
+    # JUDGE_BACKEND=parkplus forces the judge off Bifrost. Not a style
+    # preference: Bifrost's virtual key is budget-capped, and when it runs out
+    # every scenario fails with "judge call failed: APIStatusError" while the
+    # BOT is perfectly healthy on its own Park+ fallback. That reads exactly
+    # like a broken bot and is not, so it needs to be one env var to rule out.
     vk = os.getenv("BIFROST_VK")
-    if vk:
+    if vk and os.getenv("JUDGE_BACKEND", "bifrost").lower() != "parkplus":
         return OpenAILLMService(
             api_key="not-needed",
             base_url=os.getenv("BIFROST_URL") or "https://bifrost.parkplus.io/v1",

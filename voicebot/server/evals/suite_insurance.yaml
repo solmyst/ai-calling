@@ -45,3 +45,7 @@ suite:
   - bot: ../bot.py
     runner_body: cards/kyc_pending.json
     scenarios: [card_named_kyc]
+
+  - bot: ../bot.py
+    runner_body: cards/company.json
+    scenarios: [card_company]

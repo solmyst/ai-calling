@@ -61,10 +61,21 @@ FIELDS = (
     "fulfillment_status",
     "policy_number",
     "ownership_type",
+    "kyc_deadline_hint",
     "blocker",
     "call_goal",
     "do_not_say",
 )
+
+#: `metadata.owner_type` as the DB writes it, mapped to what the prompt branches
+#: on. Roughly 795k Individual to 5.2k Company in DB 258.
+#:
+#: An unmappable or missing value stays MISSING — never "individual", however
+#: lopsided that ratio is. Guessing wrong on the 5.2k means telling a company car
+#: owner to photograph an Aadhaar that is not part of their KYC at all, and the
+#: upload fails in front of them. Unknown means the bot asks one question, which
+#: costs a turn; guessing costs the call.
+_OWNERSHIP = {"individual": "individual", "company": "company"}
 
 #: What the call is FOR, decided before dialling. The prompt branches on this.
 GOALS = {
@@ -100,6 +111,29 @@ _BLOCKING_ERRORS = {
 _IDENTIFIER_RE = re.compile(r"\b(?=[A-Za-z0-9/-]*\d)[A-Za-z0-9/-]{6,}\b")
 
 _MAX_BLOCKER_CHARS = 160
+
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December")
+
+
+def _speakable_date(value) -> str | None:
+    """An ISO date as something a voice can say, or None.
+
+    The DB hands over "2026-10-15" and a TTS reads that as digits and dashes.
+    Formatting here rather than asking the prompt to do it means the model never
+    sees the raw string, so it cannot read one out on a bad turn — and an
+    unparseable value becomes no date at all, which is the safe end of the
+    trade: a missing urgency line costs nothing, a wrong lapse date is a lie
+    about someone's cover.
+    """
+    text = str(value or "").strip()[:10]
+    try:
+        year, month, day = (int(part) for part in text.split("-"))
+        if not (1 <= month <= 12 and 1 <= day <= 31 and 2000 <= year <= 2100):
+            return None
+    except (ValueError, TypeError):
+        return None
+    return f"{day} {_MONTHS[month - 1]} {year}"
 
 
 def _strip_identifiers(text: str) -> str:
@@ -152,6 +186,19 @@ def build(row: dict | None) -> dict | None:
     card = {k: row[k] for k in FIELDS if row.get(k) not in (None, "", [])}
     card["goal"] = row.get("goal") if row.get("goal") in GOALS else derive_goal(row)
 
+    ownership = _OWNERSHIP.get(str(card.get("ownership_type", "")).strip().lower())
+    if ownership:
+        card["ownership_type"] = ownership
+    else:
+        card.pop("ownership_type", None)
+
+    for key in ("kyc_deadline_hint", "prev_policy_expiry"):
+        spoken = _speakable_date(card.get(key))
+        if spoken:
+            card[key] = spoken
+        else:
+            card.pop(key, None)
+
     if "blocker" in card:
         blocker = _strip_identifiers(str(card["blocker"]))[:_MAX_BLOCKER_CHARS]
         if blocker:
@@ -194,6 +241,7 @@ def render(card: dict) -> str:
         ("vehicle_reg", "Vehicle"),
         ("policy_type", "Cover"),
         ("ownership_type", "Ownership"),
+        ("kyc_deadline_hint", "Their current cover runs out"),
         ("kyc_status", "KYC status"),
         ("proposal_status", "Proposal status"),
         ("policy_number", "Policy number"),
@@ -208,8 +256,26 @@ def render(card: dict) -> str:
                   "Say that in your own plain words. Never read it out verbatim, "
                   "never read a code or a number out of it."]
 
+    if card.get("kyc_deadline_hint"):
+        lines += ["", "That date is when their EXISTING cover lapses, and it is the "
+                  "one honest reason to do this today rather than next week. Use it "
+                  "if they stall. It is not a KYC deadline and not the new policy's "
+                  "end date — do not call it either of those."]
+
     if card.get("customer_name"):
-        lines += ["", f'Greet them as {card["customer_name"]} — use the first name only.']
+        # The prompt's scripts all say "सर", which is fine when the bot knows
+        # nothing about who picked up. Once it has a name it is not fine: the
+        # eval caught it opening "नमस्ते सर" to a Neha. Nothing in the card says
+        # whether this is a man or a woman, and a name is not evidence — so the
+        # bot uses "जी", which is respectful and carries no gender at all.
+        first = str(card["customer_name"]).split()[0]
+        lines += [
+            "",
+            f'Their name is {first}. Say "{first} जी" wherever the scripts below '
+            f'say "सर", including in the opening line.',
+            "Never say सर or मैडम to them, and never guess whether they are a man "
+            "or a woman — not from the name, not from the voice. जी fits everyone.",
+        ]
 
     if card.get("do_not_say"):
         lines += ["", "NEVER say these out loud: " + ", ".join(card["do_not_say"]) + "."]
@@ -289,8 +355,33 @@ def _demo():
     assert from_body({"kyc_status": "PENDING"})["goal"] == "complete_kyc", \
         "an un-nested body must work too"
 
+    # --- ownership: mapped, or absent. Never guessed. -------------------------
+    assert build({"kyc_status": "PENDING", "ownership_type": "Individual"})[
+        "ownership_type"] == "individual"
+    assert build({"kyc_status": "PENDING", "ownership_type": "Company"})[
+        "ownership_type"] == "company"
+    assert build({"kyc_status": "PENDING", "ownership_type": "  company "})[
+        "ownership_type"] == "company"
+    for unknown in ("Proprietorship", "HUF", "", None, "individual_llp", 7):
+        got = build({"kyc_status": "PENDING", "ownership_type": unknown})
+        assert "ownership_type" not in got, \
+            f"{unknown!r} became {got.get('ownership_type')!r} — never guess ownership"
+
+    # --- dates: speakable, or absent. Never an ISO string. --------------------
+    dated = build({"kyc_status": "PENDING", "kyc_deadline_hint": "2026-10-15",
+                   "prev_policy_expiry": "2026-10-15T00:00:00"})
+    assert dated["kyc_deadline_hint"] == "15 October 2026", dated["kyc_deadline_hint"]
+    assert dated["prev_policy_expiry"] == "15 October 2026"
+    assert "2026-10-15" not in render(dated), "a TTS would read that as digits"
+    for bad in ("0000-00-00", "not a date", "15/10/2026", None, "2026-13-01"):
+        assert "kyc_deadline_hint" not in build(
+            {"kyc_status": "PENDING", "kyc_deadline_hint": bad}), bad
+
     rendered = render(duplicate)
-    assert "Rahul Suresh Singh" in rendered and "United India" in rendered
+    assert "United India" in rendered
+    # First name only, and the gender-free honorific — "Rahul जी", never "सर".
+    assert "Rahul जी" in rendered, rendered
+    assert "Suresh Singh जी" not in rendered, "address them by first name"
     assert "IERR_DUPLICATE_POLICY" in rendered, "the do-not-say list must reach the model"
     assert "already insured" in rendered
 

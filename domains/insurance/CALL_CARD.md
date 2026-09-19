@@ -40,8 +40,9 @@ says down a phone line.
 | `insurer` | Which KYC path, and it can answer "किस company का insurance है?" |
 | `policy_type` | Wording only. |
 | `vehicle_reg` | Confirms the right case out loud. |
-| `ownership_type` | **`individual` or `company`.** See below — this one matters. |
-| `prev_policy_expiry` | Urgency. |
+| `ownership_type` | `Individual` / `Company` from `metadata.owner_type`. Normalised in the card layer; anything else becomes absent. |
+| `prev_policy_expiry` | Urgency — when their existing cover ends. |
+| `kyc_deadline_hint` | The one date the bot may say out loud. Formatted for speech ("15 October 2026"); an unparseable value becomes absent. |
 | `proposal_status`, `kyc_status`, `fulfillment_status` | Goal derivation. |
 | `policy_number` | Present ⇒ issued ⇒ nothing is pending. |
 | `blocker` | One short human sentence. Identifiers are stripped, then capped at 160 chars. |
@@ -92,22 +93,47 @@ our own system. So when the card says `kyc_status: SUCCESS` or carries a
 still cannot. Every other rule — OTP, Aadhaar by voice, WhatsApp, invented
 regulators, promising to send a link — is unaffected.
 
-## Still open
+## Add to the prefetch
 
-- **`ownership_type` has no source yet.** Individual/private ⇒ PAN + Aadhaar
-  number + Aadhaar front and back. Company-owned ⇒ PAN + PAN photo + GST
-  certificate, and **no Aadhaar at all**. The card carries the field and the
-  prompt renders it; the prefetch query does not select it. Until it does, the
-  bot has to ask the customer which it is — which is the field-recitation this
-  whole design exists to avoid. Likely somewhere in `p.car_ownership_details`.
+```sql
+JSON_UNQUOTE(JSON_EXTRACT(p.metadata, '$.owner_type')) AS ownership_type,
+COALESCE(
+  JSON_UNQUOTE(JSON_EXTRACT(p.previous_insurance_details, '$.previous_policy_end_date')),
+  DATE(p.policy_start_date)   -- risk/start is usually the day after prev expiry
+) AS kyc_deadline_hint
+```
+
+### Ownership decides the whole document set
+
+| `owner_type` | rows (DB 258) | KYC page asks for |
+|---|---|---|
+| `Individual` | ~795k | PAN, Aadhaar number, Aadhaar front, Aadhaar back |
+| `Company` | ~5.2k | PAN, PAN photo, GST certificate — **no Aadhaar at all** |
+
+Anything else, including null, becomes **absent**, never `individual`. The 150:1
+ratio is exactly why: guessing right 795k times is worth nothing next to telling
+one company-car owner to photograph an Aadhaar that is not part of their KYC,
+and watching the upload fail while they are on the phone. Absent means the bot
+asks one question, which costs a turn.
+
+When ownership IS known, the KYC page renders only that set — the other one is
+not on the customer's screen and so is not in the prompt at all. That was not
+cosmetic: with the Aadhaar fields rendered, the bot read them out to a company
+case.
+
+### The date
+
+`kyc_deadline_hint` is when their EXISTING cover lapses, and it is the only date
+the bot may say. It is **not** a KYC deadline and **not** the new policy's end
+date (about a year out, and wrong for this copy). The card layer formats it for
+speech — "15 October 2026" — because a TTS reads `2026-10-15` as digits and
+dashes. Null, or anything unparseable, means the bot says no date at all, which
+is the safe default.
+
+## Still open
 
 - **The card is fetched once, before dialling, and the customer completes KYC
   *during* the call.** Harmless today: the bot never claims completion, so a
   stale `PENDING` costs nothing. It matters the day you want the closing turn to
   confirm. That is the `get_call_card(proposal_id)` refresh tool — one fixed
   tool, never free-form SQL.
-
-- **`prev_policy_expiry` is the PREVIOUS policy's date.** `context.json`'s
-  `kyc_mandate.deadline` says KYC can be done any time before *the policy*
-  expires. Confirm which policy that means before the bot says a date out loud;
-  right now it says no date at all, which is safe.

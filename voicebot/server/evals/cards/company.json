@@ -1,0 +1,16 @@
+{
+  "call_card": {
+    "proposal_id": 846100,
+    "customer_name": "Neha Bhatia",
+    "insurer": "ICICI",
+    "policy_type": "COMPREHENSIVE",
+    "vehicle_reg": "MH12QR7788",
+    "ownership_type": "Company",
+    "proposal_status": "PROPOSAL_PENDING",
+    "kyc_status": "PENDING",
+    "fulfillment_status": "ORDER_FULFILLED",
+    "prev_policy_expiry": "2026-10-15",
+    "kyc_deadline_hint": "2026-10-15",
+    "do_not_say": ["engine number", "chassis number"]
+  }
+}
