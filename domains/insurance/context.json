@@ -34,6 +34,23 @@
       "deadline": "कोई last date तो नहीं है सर — पर जब तक KYC नहीं होती, policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।"
     }
   },
+  "policy_delivery": {
+    "_source": "Park+ product owner, 2026-09-20. Replaces the bot's previous answer to 'policy कब आएगी?', which was 'मुझे इसका exact जवाब पता नहीं है' three times in one call.",
+    "answer": "Once the insurer's side verifies all the details, the policy arrives on WhatsApp and on email, and the app sends a notification too.",
+    "still_unknown": "How long that verification takes. Never give a date, a time or a number of days.",
+    "sanctioned_line": "सर, insurer की side से सारी details verify हो जाएँगी, फिर policy आपको WhatsApp और mail दोनों पे आ जाएगी — app में भी notification आ जाएगा।"
+  },
+  "button_not_found": {
+    "_source": "Park+ product owner, 2026-09-20. The 14:55 call spent four turns on 'Complete KYC नहीं दिख रहा' with no ladder to climb.",
+    "_warning": "NOTHING IN THIS REPO SENDS THE WHATSAPP LINK. LLM_TOOLS=off and there is no messaging tool, so step 4 is a promise a human keeps afterwards. Wire a real sender before dialling at scale.",
+    "ladder": [
+      "Insurance page पे देखिए सर, वहीं मिल जाएगा।",
+      "हाँ सर, insurance वाले page पे ही देखिए — 'Complete KYC' का button वहीं होता है।",
+      "एक काम कीजिए सर — app बंद करके दोबारा खोलिए, फिर insurance page पे देखिए।",
+      "कोई बात नहीं सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ — वहीं से कर लीजिए।"
+    ],
+    "rule": "Work down the ladder one step per turn. Offer the WhatsApp link only after the app has been reopened and it is still not there."
+  },
   "insurers": {
     "aig": {
       "label": "AIG",
@@ -524,7 +541,8 @@
             },
             {
               "label": "Current Address",
-              "state": "customer_fills"
+              "state": "customer_fills",
+              "help": "special characters are rejected — no comma, no slash, no dash, no hash. Words and numbers separated by spaces only. This is the commonest reason the address 'looks right' but will not submit."
             }
           ]
         },
@@ -613,6 +631,7 @@
       "how_to_guide": "Do NOT recite the document list. The customer can see the page. Tell them to complete everything and that you are on the line to help. Answer WHICH documents are needed only if they ask, and then answer for their ownership type only.",
       "on_screen_warning": "The name on your Aadhar must match the one submitted on the previous page",
       "failure_warnings": [
+        "A full-size or folded Aadhaar printout is photographed in two shots: the side with the photo and name goes in Aadhar Front Image, the side with the address goes in Aadhar Back Image. NEVER tell a customer to cut, tear or damage the card — the 14:55 call told someone to cut theirs in half.",
         "The Aadhaar number must be typed exactly right. One wrong digit and the KYC FAILS and the whole thing has to be done again — this is the most common reason a customer ends up on a second call.",
         "The Full Name here must match the name entered on the previous page, or the upload is rejected."
       ],
@@ -658,6 +677,22 @@
           ]
         }
       ],
+      "insurer_flows": {
+        "_note": "The KYC page above is the normal path. United does not use it.",
+        "united": {
+          "_source": "Park+ product owner, 2026-09-20.",
+          "label": "United (UIIC)",
+          "how": "United's KYC runs on our own platform. When the proposal page is submitted it redirects to HyperVerge, and everything happens there.",
+          "steps": [
+            "fill the proposal page and submit it as usual",
+            "the app redirects to HyperVerge on its own — they do not go looking for it",
+            "take a LIVE photo of the Aadhaar card, front",
+            "take a LIVE photo of the Aadhaar card, back",
+            "take a LIVE selfie"
+          ],
+          "note": "Live capture, not an upload from the gallery — there is no Browse button in this flow. Same as the normal page otherwise: no number is read out on the call."
+        }
+      },
       "ownership_types": {
         "_note": "Which set applies is decided by the ownership the customer selected for the policy. It changes WHICH documents the KYC page asks for. The bot does not choose it and does not ask the customer to choose it — it only needs to know both sets so it can answer a question.",
         "individual_private_car": {

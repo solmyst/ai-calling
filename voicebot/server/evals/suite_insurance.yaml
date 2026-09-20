@@ -49,3 +49,7 @@ suite:
   - bot: ../bot.py
     runner_body: cards/company.json
     scenarios: [card_company]
+
+  - bot: ../bot.py
+    runner_body: cards/united.json
+    scenarios: [card_united]

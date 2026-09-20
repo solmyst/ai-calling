@@ -42,6 +42,9 @@ _OTP_REFUSAL = re.compile(
     r"(?:माँग|मांग|maang|mang|ask(?:ing)?|पूछ)\s*"
     r"(?:नहीं|नही|nahi+n?|not|never)|"
     r"किसी\s*को\s*(?:मत|नहीं)|kisi\s*ko\s*(?:mat|nahi)|"
+    # ...and negation AFTER the verb: "माँगने की जगह नहीं", "माँगती नहीं हूँ".
+    r"(?:माँग|मांग|maang|mang)\w*[^.।!?]{0,18}(?:नहीं|नही|nahi+n?)|"
+    r"(?:ask|need)\w*[^.।!?]{0,18}(?:not|never|no\b)|"
     r"OTP\s*(?:किसी|kisi)\s*(?:को|ko)\s*(?:मत|mat|नहीं|nahi)",
     re.IGNORECASE,
 )
@@ -310,6 +313,17 @@ _BOT_SENDS_RE = re.compile(
     r"|(?:I\s*(?:'?ll|will)?\s*send|sending\s+you)",
     re.IGNORECASE,
 )
+# Sending a case to our own team, and the sanctioned WhatsApp KYC link, are the
+# two "भेज" sentences that are real. Everything else is still a promise of a
+# message that never arrives.
+_SEND_EXEMPT = re.compile(
+    r"team\s*(?:को|ko)\s*(?:भेज|bhej|assign|forward)|"
+    r"(?:भेज|bhej)[^.।!?]{0,12}(?:team|टीम)|"
+    r"(?:WhatsApp|व्हाट्सएप|वॉट्सऐप)[^.।!?]{0,40}(?:KYC|link|लिंक)|"
+    r"(?:KYC|link|लिंक)[^.।!?]{0,40}(?:WhatsApp|व्हाट्सएप|वॉट्सऐप)",
+    re.IGNORECASE,
+)
+
 _SAFE_SEND = (
     "सब कुछ आपके app में ही है सर — Insurance section में Complete KYC पे मिल जाएगा"
 )
@@ -469,7 +483,7 @@ class KycGuard:
             self.false_completions.append(sentence.strip())
             return _SAFE_DONE + terminator
 
-        if _BOT_SENDS_RE.search(sentence):
+        if _BOT_SENDS_RE.search(sentence) and not _SEND_EXEMPT.search(sentence):
             self.false_send_promise.append(sentence.strip())
             return _SAFE_SEND + terminator
 
@@ -543,7 +557,6 @@ def _demo():
         ("invented_authority", "हम IRDAI registered हैं सर, बिल्कुल safe है।"),
         # Nothing in this bot can send a message.
         ("false_send_promise", "मैं आपको link भेज देती हूँ, वहीं से complete कर लीजिए।"),
-        ("false_send_promise", "Main aapko WhatsApp pe link bhej deti hoon sir."),
         ("false_send_promise", "मैं SMS भेज देती हूँ, उसमें link होगा।"),
     ]
     for counter, line in blocked:
@@ -603,6 +616,32 @@ def _demo():
         "मैं कोई OTP या document नहीं माँगूँगी सर।",
         "Main koi OTP nahi maang rahi hoon sir.",
         "OTP किसी को मत बताइए सर, मुझे भी नहीं।",
+        # Both verbatim from the 14:55 call, both rewritten into non-sequiturs.
+        "सर, मैं आपकी policy नहीं भर सकती — यह सब कुछ आपके app में ही होगा, "
+        "क्योंकि यहाँ मुझे कोई document या OTP माँगने की जगह नहीं है।",
+        "सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, "
+        "वो आपको call करके करवा देंगे।",
+        "मैं आपका case team को assign कर देती हूँ सर।",
+        # The WhatsApp KYC link, sanctioned by the product owner on 2026-09-20 as
+        # the LAST step of the button-not-found ladder. Note the channel is
+        # specific: WhatsApp + the KYC link. A bare "link भेज देती हूँ" or an SMS
+        # promise stays blocked below, because neither is a thing anyone built.
+        #
+        # WARNING: nothing in this repo actually sends it. LLM_TOOLS=off and
+        # there is no messaging tool, so today this is a promise kept by a human
+        # afterwards, not by the bot. Wire a real sender before dialling at scale.
+        "सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ, वहीं से कर लीजिए।",
+        "Main aapko WhatsApp pe KYC ka link bhej deti hoon sir.",
+        # The policy-delivery answer. It names WhatsApp and a policy in one
+        # sentence, which is one word away from three different rules, so it is
+        # asserted verbatim.
+        "सर, insurer की side से सारी details verify हो जाएँगी, फिर policy आपको "
+        "WhatsApp और mail दोनों पे आ जाएगी — app में भी notification आ जाएगा।",
+        # Refusing offered documents.
+        "आपके documents मुझे नहीं चाहिए सर — privacy की वजह से ये सब app में ही "
+        "होता है, मैं यहाँ से नहीं भर सकती।",
+        # The rest of the button-not-found ladder.
+        "एक काम कीजिए सर — app बंद करके दोबारा खोलिए, फिर insurance page पे देखिए।",
         # "ho gaya" belongs to the payment here, not to the KYC 45 characters
         # later. Round-4 LLM fuzz, 2026-09-19.
         "Aapka payment ho gaya hai tabhi to mere paas aapka data aaya hai KYC ke liye.",

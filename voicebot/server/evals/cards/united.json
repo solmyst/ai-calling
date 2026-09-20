@@ -1,0 +1,14 @@
+{
+  "call_card": {
+    "proposal_id": 845671,
+    "customer_name": "Sunita Rao",
+    "insurer": "United India",
+    "policy_type": "COMPREHENSIVE",
+    "vehicle_reg": "MH14FG2020",
+    "ownership_type": "Individual",
+    "proposal_status": "PROPOSAL_PENDING",
+    "kyc_status": "PENDING",
+    "fulfillment_status": "ORDER_FULFILLED",
+    "do_not_say": ["engine number", "chassis number"]
+  }
+}

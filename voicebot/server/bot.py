@@ -153,6 +153,20 @@ _NOISE_TRANSCRIPTS = frozenset({
     "cool", "so yeah", "you", "uh", "um", "hmm", "mm", "mhm", "ah",
 })
 
+# Devanagari backchannels: the noise a caller makes while still thinking. In the
+# 14:55 call a bare "ओह" arrived two seconds after a real question and earned a
+# whole second reply, so the bot answered twice in a row with nobody having
+# asked anything.
+#
+# This set is deliberately tiny and holds NO answers. "हाँ", "नहीं", "ठीक है"
+# and "हो गया" are single words too, and every one of them is a real reply to
+# "page खुल गया?" — dropping those would be far worse than the duplicate turn
+# this prevents. Only sounds that carry nothing at all belong here.
+_HINDI_BACKCHANNELS = frozenset({
+    "ओह", "ओ", "हम्म", "हम", "हूँ", "हूं", "उम्म", "अम्म", "अरे", "अच्छा",
+    "अच्छा अच्छा", "हम्म हम्म", "ओह अच्छा",
+})
+
 
 class NoiseGate(FrameProcessor):
     """Drops transcripts that are the transcriber talking to itself.
@@ -172,11 +186,14 @@ class NoiseGate(FrameProcessor):
         stripped = text.strip()
         if not stripped:
             return True
-        # Anything in Devanagari is the caller. Only Latin-only text can be one of
-        # the hallucinations above, which keeps real Hindi safe whatever it says.
+        bare = re.sub(r"[।.,!?…\"'`\-–—]+", "", stripped).strip().lower()
+        bare = re.sub(r"\s+", " ", bare)
+        # Anything in Devanagari is the caller — EXCEPT a bare backchannel, which
+        # is a noise, not a turn. Everything else in Hindi is left alone whatever
+        # it says, which is what keeps one-word answers ("हाँ") working.
         if re.search(r"[\u0900-\u097F]", stripped):
-            return False
-        return re.sub(r"[^\w\s]", "", stripped).strip().lower() in _NOISE_TRANSCRIPTS
+            return bare in _HINDI_BACKCHANNELS
+        return bare in _NOISE_TRANSCRIPTS
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)

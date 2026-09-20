@@ -15,6 +15,7 @@ Run it::
 """
 
 import json
+import re
 from pathlib import Path
 
 from . import call_card
@@ -85,12 +86,10 @@ also the strongest thing you can say — so say it, and then stop there.
 
 {mandate}
 
-Do not reach past those two lines for something more frightening. Whether their
-money is refunded or lost, which IRDAI circular says this, any cancellation date
-or grace period, whether they are covered right now — you do not know any of it,
-and a recorded call is exactly where inventing one becomes a complaint. Asked
-something outside those two lines: मुझे इसका exact जवाब पता नहीं है सर, team
-confirm करके बता देगी।
+Do not reach past those two lines for something more frightening. Refunds,
+circulars, cancellation dates, whether they are covered right now — you know
+none of it, and a recorded call is where a guess becomes a complaint. Anything
+outside them: मुझे इसका exact जवाब पता नहीं है सर, team confirm करके बता देगी।
 
 If they still say no: offer a callback, take a time, thank them, close.
 
@@ -180,28 +179,36 @@ is rejected.
 
 ## 5. When they say they are done
 
-Thank them and say you will check and confirm. You cannot see the system, so you
+Thank them and say you will check and confirm.
+
+Asked when the policy will arrive, say this and nothing more — no date, no
+number of days, no "24 to 48 hours":
+
+    {delivery} You cannot see the system, so you
 never call it complete — and you never answer this with the IRDAI line either.
 That one is for someone refusing, not for someone who has finished.
 
 ## When it does not work
 
-Two failures here are KNOWN and written down, and you fix those yourself —
-calmly, and more than once if they need it:
+THREE failures are known and written down. You fix these yourself, calmly, and
+more than once if they need it:
+
+- "Complete KYC का button दिख ही नहीं रहा" → work DOWN this ladder, one step per
+  turn, in order. Do not jump to the bottom because they sound annoyed, and do
+  not offer the link until they have actually reopened the app:
+
+{ladder}
 
 - KYC failed / Aadhaar rejected → almost always one wrong digit. Have them
   re-enter the Aadhaar number carefully, and check the Full Name matches the
   name on the previous page.
-- Next or Complete KYC does nothing → the declaration checkbox at the bottom is
-  not ticked. The button stays GREYED OUT until it is, on BOTH pages, and this
-  is the commonest reason someone says the app is broken. Ask about it before
-  assuming anything is.
+- Next or Complete KYC does nothing → the declaration checkbox is not ticked.
+  It stays GREYED OUT until it is, on BOTH pages, and it is the commonest
+  reason someone says the app is broken.
 
-Those TWO are the whole list. Anything else — a button they cannot find, a
-screen that looks wrong, an error you do not recognise — you get ONE try at,
-and then you stop and hand over. Not two tries, not a different way of saying
-it. "कुछ नहीं मिल रहा" after you have already helped once is a handover. Do not guess at error
-messages, do not invent a screen or a button that is not listed below:
+Anything ELSE — a screen that looks wrong, an error you do not recognise — you
+get ONE try at, then you stop and hand over. Do not guess at error messages, do
+not invent a screen or a button that is not listed below:
 
 सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, वो आपको
 call करके करवा देंगे।
@@ -220,8 +227,10 @@ promise nobody can keep.
   refuse it: OTP किसी को मत बताइए सर, मुझे भी नहीं।
 - Never ask for a PAN, Aadhaar, GSTIN or CIN number on the call. They go in the
   app.
-- Never ask for documents or photos over WhatsApp, email or message. Only the
-  app's KYC section.
+- Never ask for documents or photos over WhatsApp, email or message, and never
+  ACCEPT them either. Offered documents, refuse plainly: आपके documents मुझे
+  नहीं चाहिए सर — privacy की वजह से ये सब app में ही होता है, मैं यहाँ से नहीं
+  भर सकती।
 - Never offer to SEND anything — no link, no SMS, no WhatsApp, no email. You
   have no way to send a message, so it is a promise that breaks on every call.
   The app is already on their phone. The handover is a person ringing them.
@@ -250,7 +259,8 @@ their documents: calm and exact, never breezy.
 """
 
 
-def _format_context(ctx: dict, ownership: str | None = None) -> str:
+def _format_context(ctx: dict, ownership: str | None = None,
+                    insurer: str | None = None) -> str:
     """The facts the bot may state, rendered from context.json.
 
     Rendering the screens from data rather than hard-coding them into the
@@ -295,7 +305,20 @@ def _format_context(ctx: dict, ownership: str | None = None) -> str:
         lines += ["", f'## Page: "{page["title"]}" — {same}',
                   f'   submit button: "{page["submit_button"]}"']
         sections = page["sections"]
-        if key == "kyc_page" and ownership == "company":
+        flows = page.get("insurer_flows") or {}
+        united = flows.get("united")
+        if key == "kyc_page" and united and insurer and "united" in insurer.lower():
+            # United does not use this page at all — submitting the proposal
+            # redirects to HyperVerge and everything happens there, with live
+            # capture rather than uploads. Rendering the normal Aadhaar upload
+            # fields to a United case would send them looking for a Browse
+            # button that is not on their screen.
+            lines.append(f'  THIS customer is with {united["label"]}, which does '
+                         f'NOT use this page. {united["how"]}')
+            lines += [f"    {i}. {step}" for i, step in enumerate(united["steps"], 1)]
+            lines.append(f'  {united["note"]}')
+            sections = []
+        elif key == "kyc_page" and ownership == "company":
             company = app["kyc_page"]["ownership_types"]["company_owned_car"]
             lines.append("  THIS customer's car is COMPANY-OWNED, so this page asks for:")
             lines += [f"    - {doc}" for doc in company["documents"]]
@@ -315,7 +338,16 @@ def _format_context(ctx: dict, ownership: str | None = None) -> str:
                 if f.get("help"):
                     bits.append(f["help"])
                 lines.append("    - " + " — ".join(bits))
+        # The KYC page's warnings are about ITS fields — typing the Aadhaar
+        # number, photographing the card. Whenever this customer's KYC does not
+        # use that page, those warnings name fields that are not on their
+        # screen: a company car has no Aadhaar at all, and United captures it
+        # live on HyperVerge with no Browse button anywhere. Both were caught by
+        # the same assertion, one after the other.
+        replaced = key == "kyc_page" and not sections and page.get("sections")
         for warning in page.get("failure_warnings", []):
+            if replaced and re.search("aadha?ar", warning, re.I):
+                continue
             lines.append(f"  WARN: {warning}")
         if page.get("on_screen_warning"):
             lines.append(f'  On screen: {page["on_screen_warning"]}')
@@ -379,6 +411,11 @@ and close.
 """
 
 
+def _format_ladder(ctx: dict) -> str:
+    return "\n".join(f"  {i}. {line}"
+                      for i, line in enumerate(ctx["button_not_found"]["ladder"], 1))
+
+
 def _format_mandate(ctx: dict) -> str:
     """The only two sentences the bot may say about WHY KYC is mandatory.
 
@@ -414,7 +451,10 @@ def build_system_prompt(mode: str = "outbound", card: dict | None = None) -> str
     return SYSTEM_PROMPT_TEMPLATE.format(
         opening=OPENINGS[mode],
         mandate=_format_mandate(ctx),
-        context=_format_context(ctx, (card or {}).get("ownership_type")),
+        ladder=_format_ladder(ctx),
+        delivery=ctx["policy_delivery"]["sanctioned_line"],
+        context=_format_context(ctx, (card or {}).get("ownership_type"),
+                                (card or {}).get("insurer")),
         call_card=block,
     )
 
@@ -440,13 +480,22 @@ def _demo():
         # engineering notes, and two sections that restated rules stated
         # elsewhere. What it bought: the IRDAI mandate answer, the pre-filled
         # rule, known-failure handling, and refusal counting.
-        # 3950, not 3903, on purpose. len/3.2 is a rough count and the last
-        # two edits landed 7 and 3 "tokens" over it, which bought nothing but
-        # an afternoon of rewording. The number is here to make growth a
-        # deliberate decision, so it wants enough slack to catch drift rather
-        # than rounding.
+        # 4300 as of 2026-09-20. The ceiling exists to make growth deliberate,
+        # not to hold a number: the prompt got bigger because the PRODUCT got
+        # bigger, and every addition came from a live call or the product owner.
+        # In this round: the button-not-found ladder (the 14:55 call spent four
+        # turns stuck there with nothing to climb), the policy-delivery answer
+        # (asked twice, answered "मुझे इसका exact जवाब पता नहीं है" three times),
+        # the refusal for offered documents, and the address field's
+        # no-special-characters rule.
+        #
+        # What keeps it from running away is that the biggest blocks are now
+        # CONDITIONAL — United's HyperVerge flow renders only for United, the
+        # company document set only for a company car, and a non-KYC goal drops
+        # the walkthrough entirely. Growth in the shared part still has to be
+        # paid for by a deletion.
         tokens = len(p) / 3.2
-        assert tokens < 3950, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
+        assert tokens < 4300, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
         assert "AI assistant" in p
         # Every hard rule must actually be stated, not just implied.
         for rule in ("OTP", "WhatsApp", "complete", "refund"):
@@ -484,7 +533,7 @@ def _demo():
         "no card must render exactly the prompt it always did"
 
     kyc = call_card.build({
-        "customer_name": "Rahul Suresh Singh", "insurer": "United India",
+        "customer_name": "Rahul Suresh Singh", "insurer": "Bajaj",
         "vehicle_reg": "DL6CP8915", "kyc_status": "PENDING",
     })
     p_kyc = build_system_prompt("outbound", kyc)
@@ -539,6 +588,32 @@ def _demo():
     issued = call_card.build({"customer_name": "Asha", "policy_number": "P9001",
                               "kyc_status": "SUCCESS"})
     assert "ISSUED" in build_system_prompt("outbound", issued)
+
+    # --- 2026-09-20: facts added after the 14:55 call --------------------------
+    for fact, why in (
+        ("app बंद करके दोबारा खोलिए", "the button-not-found ladder"),
+        ("WhatsApp पर KYC का link", "the ladder's last step"),
+        ("notification", "the policy-delivery answer"),
+        ("special characters are rejected", "the address field rule"),
+        ("NEVER tell a customer to cut", "the 14:55 call told someone to cut their Aadhaar in half"),
+        ("privacy की वजह से", "refusing offered documents"),
+    ):
+        assert fact in no_card, f"{why} went missing: {fact!r}"
+
+    # United does its KYC on HyperVerge, not on this page at all.
+    utd = call_card.build({"customer_name": "Asha", "kyc_status": "PENDING",
+                           "insurer": "United India"})
+    p_utd = build_system_prompt("outbound", utd)
+    assert "HyperVerge" in p_utd and "selfie" in p_utd
+    utd_screens = p_utd.split("# THE SCREENS", 1)[1]
+    for upload_field in ("Aadhar Front Image", "Aadhar Back Image"):
+        assert upload_field not in utd_screens, \
+            f"{upload_field} rendered for United, which has no Browse button"
+    # ...and nobody else gets sent to HyperVerge.
+    other = call_card.build({"customer_name": "Asha", "kyc_status": "PENDING",
+                             "insurer": "Bajaj"})
+    assert "HyperVerge" not in build_system_prompt("outbound", other)
+    assert "HyperVerge" not in no_card, "with no card the insurer is unknown"
 
     assert build_system_prompt("outbound") != build_system_prompt("inbound")
     try:

@@ -1,0 +1,30 @@
+# United does not use the KYC page at all. Submitting the proposal redirects to
+# HyperVerge, where the Aadhaar is captured LIVE — front, back, then a selfie —
+# with no Browse button and no upload from the gallery.
+#
+# NOT YET RUN: written 2026-09-20 while the Bifrost key was out of budget. The
+# rendering is covered offline by domains/insurance/prompt.py's own assertions;
+# this covers what the bot SAYS. Run it with the rest of the suite.
+name: card_united
+judge:
+  eval:
+    factory: "judge_llm.make_judge"
+turns:
+  - expect:
+      - event: response
+        eval: "the bot greets Sunita by name as a Park+ AI assistant and says the KYC is pending"
+
+  - user: "हाँ form भर दिया है, Next भी दबा दिया"
+    expect:
+      - event: response
+        eval: "the bot says the app will now take her to a different screen for the KYC, or asks what she can see. It does NOT tell her to upload or browse for an Aadhaar image file"
+
+  - user: "अब क्या करना है? कोई नया page खुल गया है"
+    expect:
+      - event: response
+        eval: "the bot walks her through live capture: a live photo of the Aadhaar front, then the back, then a selfie. It does NOT mention uploading a file, browsing, or a JPG/PNG"
+
+  - user: "सेल्फी क्यों चाहिए? मैं गैलरी से फोटो डाल दूँ?"
+    expect:
+      - event: response
+        eval: "the bot says the photos have to be taken live, not picked from the gallery. It does not invent a reason beyond what it was told"
