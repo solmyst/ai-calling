@@ -5,7 +5,10 @@
     "Kotak has no numeric insurer_id in the current backend registry (1-9).",
     "United in the matrix maps operationally to UIIC / insurer_id 6 pending string-code confirmation.",
     "NIC and Digit each have multiple backend routes; field requirements here are label-level, not adapter-level.",
-    "Collection scripts, consent wording, and recording policy remain TBD."
+    "Collection scripts, consent wording, and recording policy remain TBD.",
+    "Loan/lender field(s) shown when 'Was the car purchased on loan?' = Yes are not modelled here — per INSURANCE_KYC_KB.md 2026-09-21, exact fields must come from the backend/product spec, not be invented. The bot is scripted to defer to whatever the app screen shows.",
+    "Exact allowed nominee-relationship enumeration is not confirmed from backend/product spec (INSURANCE_KYC_KB.md open question #2) — prompt.py's existing 'family/trusted person' script stays the fallback until confirmed.",
+    "PEP definition text is a neutral standard explanation, not a Park+/product-owner-sanctioned line (unlike kyc_mandate/policy_delivery above) — confirm official wording before treating it as authoritative."
   ],
   "business": {
     "name": "Park+ Insurance",
@@ -30,7 +33,7 @@
       "whether cover is active in the meantime"
     ],
     "sanctioned_lines": {
-      "why": "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
+      "why": "सर, IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
       "deadline": "कोई last date तो नहीं है सर — पर जब तक KYC नहीं होती, policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।"
     }
   },
@@ -526,8 +529,8 @@
             },
             {
               "label": "Date of birth",
-              "state": "prefilled",
-              "help": "the car owner's own date of birth"
+              "state": "customer_fills",
+              "help": "the car owner's own date of birth, day/month/year — not prefilled, do not assume it is already there"
             },
             {
               "label": "Email Id",
@@ -536,7 +539,7 @@
             },
             {
               "label": "Gender",
-              "state": "prefilled",
+              "state": "customer_fills",
               "type": "Male / Female"
             },
             {

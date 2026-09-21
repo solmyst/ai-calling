@@ -27,6 +27,9 @@ NOISE = [
     # not Devanagari, so with PARKPLUS_STT_URL set these are the ONLY spellings
     # that ever arrive.
     "oh", "ohh", "achha", "acha", "arre", "umm", "oh achha",
+    # 15:53 browser room-bleed / ASR hallucinations.
+    "Marine Toy.", "marine toy", "music", "applause",
+    "It would be there.", "देखने के लिए",
 ]
 
 # Turns. Every one of these is a real reply and must reach the model.

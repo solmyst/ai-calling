@@ -4,12 +4,12 @@ A Pipecat AI voice agent built with a cascade pipeline (STT → LLM → TTS).
 
 ## Configuration
 
-- **Bot Type**: Web
-- **Transport(s)**: SmallWebRTC
+- **Bot Type**: Web + telephony
+- **Transport(s)**: SmallWebRTC (browser), Exotel / Plivo (PSTN), eval (headless)
 - **Pipeline**: Cascade
-  - **STT**: Whisper (Local)
-  - **LLM**: Ollama
-  - **TTS**: Piper
+  - **STT**: AssemblyAI (or Park+ / Groq / Whisper)
+  - **LLM**: Bifrost Gemini (Park+ / Groq / Ollama fallbacks)
+  - **TTS**: Sarvam (ElevenLabs / Piper fallbacks)
 
 ## Setup
 
@@ -37,12 +37,21 @@ A Pipecat AI voice agent built with a cascade pipeline (STT → LLM → TTS).
 4. **Run the bot**:
 
    ```bash
-   uv run bot.py
+   # Browser UI (default)
+   uv run bot.py -t webrtc
+
+   # Indian telephony — pick one; put ngrok (or similar) in front of :7860
+   uv run bot.py -t exotel
+   uv run bot.py -t plivo
+
+   # Headless behavioural suite
+   uv run bot.py -t eval
    ```
 
-   The runner serves every transport; the caller selects which one (a web/mobile
-   client picks its transport when it connects; a telephony provider connects to
-   `/ws`).
+   Exotel: point the App Bazaar Voicebot Applet WebSocket URL at your public
+   `wss://…` host. Plivo: the runner serves answer XML that opens a media
+   stream to the same host. There is no dialer in this repo — something else
+   must originate the call.
 
 ## Project Structure
 

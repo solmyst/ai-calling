@@ -22,6 +22,7 @@ Run the bot using::
 
 import asyncio
 import datetime
+import time
 import json
 import os
 import re
@@ -59,7 +60,9 @@ from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
+    BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
+    VADUserStoppedSpeakingFrame,
     EndWorkerFrame,
     LLMRunFrame,
     TranscriptionFrame,
@@ -82,7 +85,7 @@ from pipecat.evals.transport import EvalTransportParams
 from pipecat.runner.types import RunnerArguments
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat.services.stt_service import STTService
-from pipecat.services.tts_service import TTSService
+from pipecat.services.tts_service import TextAggregationMode, TTSService
 from pipecat.runner.utils import create_transport
 from pipecat.services.assemblyai.stt import AssemblyAISTTService
 from parkplus_stt import ParkPlusSTTService
@@ -91,6 +94,7 @@ from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.groq.stt import GroqSTTService
 from pipecat.services.ollama.llm import OLLamaLLMService
 from pipecat.services.piper.tts import PiperTTSService
+from pipecat.services.sarvam.stt import SarvamRealtimeSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.services.whisper.stt import WhisperSTTService
@@ -266,6 +270,23 @@ class CallLogObserver(BaseObserver):
     def __init__(self, guard: PriceGuard | None = None):
         super().__init__()
         self._said: list[str] = []
+        # Wall-clock from the caller's final transcript to the bot's first
+        # audio — the number that actually matters on a call, not a metrics
+        # frame nobody reads. Set on every CALLER line, consumed and cleared
+        # by the FIRST BotStartedSpeakingFrame after it, so a stray extra one
+        # (barge-in resume, a reconnect) never logs a second, meaningless
+        # latency for the same turn.
+        self._turn_start: float | None = None
+        # Silero's own acoustic stop (VAD_STOP_SECS, independent of AssemblyAI's
+        # turn model) vs the STT's COMMITTED transcript. The gap between them is
+        # AssemblyAI's own delay — its min_turn_silence/max_turn_silence wait
+        # plus its network round trip — which _turn_start above cannot see,
+        # because _turn_start is set only once the transcript already arrived.
+        # Overwritten on every VAD stop, not just the first, so a mid-sentence
+        # pause does not get mistaken for the real one; only the LAST stop
+        # before the transcript commits is what AssemblyAI was actually timed
+        # against.
+        self._vad_stop: float | None = None
         # The same PriceGuard the TTS filter uses. The filter only ever sees what
         # the BOT says, so on its own it cannot know whether the caller ever named
         # a car — and "₹499 (Hyundai Creta के लिए)" for a caller who never said
@@ -283,6 +304,12 @@ class CallLogObserver(BaseObserver):
                 # numbers landing in one. The bot still SEES the real value; only
                 # the log is masked.
                 logger.info(f"CALLER | {redact(frame.text.strip())}")
+                now = time.monotonic()
+                if self._vad_stop is not None:
+                    logger.info(f"STT LAG | {now - self._vad_stop:.2f}s silence -> "
+                                f"{type(data.source).__name__} committed the transcript")
+                    self._vad_stop = None
+                self._turn_start = now
                 # Just hand it to the guard. This used to read
                 # `self._guard.car_known` first — a car-spa-only attribute — and
                 # crashed every insurance call with
@@ -298,6 +325,11 @@ class CallLogObserver(BaseObserver):
             # printed doubled ("दो मिनट बात कर लें? दो मिनट बात कर लें?"). The
             # caller heard it once; only the log was wrong.
             self._said.append(frame.text)
+        elif isinstance(frame, VADUserStoppedSpeakingFrame):
+            self._vad_stop = time.monotonic()
+        elif isinstance(frame, BotStartedSpeakingFrame) and self._turn_start is not None:
+            logger.info(f"LATENCY | {time.monotonic() - self._turn_start:.2f}s caller -> first audio")
+            self._turn_start = None
         elif isinstance(frame, BotStoppedSpeakingFrame) and self._said:
             # Joined on flush: the LLM streams a turn as several sentences, and
             # one log line per turn is what makes the transcript readable.
@@ -337,6 +369,9 @@ def _estimate_tokens(text: str) -> int:
 def _reasoning_effort(model: str) -> str:
     """The lowest reasoning setting each model family will actually accept.
 
+    LLM_REASONING_EFFORT env overrides the per-family default when set
+    (low | medium | high | none). Use it to force a value without editing code.
+
     Three families now, and none of them agree:
       - Groq's gpt-oss rejects "none" outright — `400: reasoning_effort must be
         one of low, medium, or high` — minimum is "low".
@@ -361,14 +396,16 @@ def _reasoning_effort(model: str) -> str:
         both valid and fastest for Gemini 3 flash. It is not zero — reasoning
         cannot be zero on this model family — but it is real self-consistent
         input rather than a value the API has to guess how to handle.
-
-      Unverified: whether "low" measurably closes the gap to Park+, and whether
-      Bifrost's proxy even forwards this correctly (it may not be a straight
-      passthrough to Gemini's own API). BIFROST_VK was capped at the time this
-      was written, so this could not be timed live — re-run the same benchmark
-      as the 2026-09-18 note above once credit is back: TTFT and full-turn time
-      on an identical prompt, "low" vs the old "none".
     """
+    forced = (os.getenv("LLM_REASONING_EFFORT") or "").strip().lower()
+    if forced in ("none", "low", "medium", "high"):
+        # Gemini / gpt-oss reject "none" — bump to low so a global env of "none"
+        # cannot 400 the live call.
+        if forced == "none" and (
+            "gemini" in model.lower() or model.startswith("openai/gpt-oss")
+        ):
+            return "low"
+        return forced
     if model.startswith("openai/gpt-oss"):
         return "low"
     if "gemini" in model.lower():
@@ -704,6 +741,9 @@ class FailoverLLMService(GroqLLMService):
         # while the CLIENT still holds whatever super().__init__ configured, so
         # the preferred endpoint is only ever reached after a failure wraps the
         # rotation around to it — i.e. never, on a healthy call.
+        # Remember the Ornith-oriented frequency_penalty so Gemini can omit it
+        # without losing the Park+/Groq preference when we fail over.
+        self._frequency_penalty_pref = getattr(self._settings, "frequency_penalty", None)
         self._apply_endpoint(announce=False)
 
     def _trim_history(self, context) -> None:
@@ -769,7 +809,8 @@ class FailoverLLMService(GroqLLMService):
         shortest_wait: float | None = None
         for attempt in range(len(self._endpoints)):
             try:
-                return await super().get_chat_completions(context)
+                stream = await super().get_chat_completions(context)
+                return self._log_finish_reason(stream, self._endpoints[self._index])
             except Exception as e:
                 # A dead endpoint leaves the rotation entirely, so it cannot be
                 # selected again for the rest of the call.
@@ -797,6 +838,54 @@ class FailoverLLMService(GroqLLMService):
                     return await super().get_chat_completions(context)
                 raise
 
+    async def _log_finish_reason(self, stream, endpoint: "Endpoint"):
+        """Pass the stream through unchanged, but log HOW it ended.
+
+        RCA, 2026-09-21: replies keep cutting off mid-sentence regardless of
+        which STT is active (Sarvam, then AssemblyAI) — so the cause is not on
+        the caller's side of the pipeline. The one thing both STT swaps left
+        untouched is max_completion_tokens=280 (line ~1503). If the model hits
+        that cap, the API returns finish_reason="length" and the completion IS
+        the truncated text, not something TTS or turn-taking cut short. This
+        line makes that visible instead of guessed.
+        """
+        finish_reason = None
+        completion_tokens = None
+        reasoning_tokens = None
+        async for chunk in stream:
+            choice = chunk.choices[0] if chunk.choices else None
+            if choice and choice.finish_reason:
+                finish_reason = choice.finish_reason
+            usage = getattr(chunk, "usage", None)
+            if usage:
+                completion_tokens = usage.completion_tokens
+                # RCA, 2026-09-22: wall-clock LATENCY alone couldn't tell us
+                # whether reasoning={"effort": "low"} (bot.py's is_gemini
+                # branch) is actually reducing Gemini's thinking, or silently
+                # no-op'ing the same way the flat reasoning_effort field did
+                # before it — a live call after that fix showed LATENCY
+                # unchanged (2.6-3.75s) with no way to tell why. This is the
+                # direct measurement instead of another guess: OpenAI-style
+                # reasoning APIs report spend here, at
+                # usage.completion_tokens_details.reasoning_tokens.
+                details = getattr(usage, "completion_tokens_details", None)
+                if details is not None:
+                    reasoning_tokens = getattr(details, "reasoning_tokens", None)
+            yield chunk
+        if finish_reason == "length":
+            logger.warning(
+                f"LLM TRUNCATED | {endpoint.provider}:{endpoint.model} hit "
+                f"max_completion_tokens ({completion_tokens} tokens) — the reply "
+                f"was cut off by the token cap, not by STT/turn-taking"
+            )
+        elif finish_reason:
+            logger.info(f"LLM finish_reason={finish_reason} | {endpoint.provider}:{endpoint.model}")
+        if reasoning_tokens is not None:
+            logger.info(
+                f"LLM REASONING | {endpoint.provider}:{endpoint.model} spent "
+                f"{reasoning_tokens} reasoning tokens of {completion_tokens} total"
+            )
+
     def _retire_endpoint(self, error: Exception) -> None:
         """Drop the current endpoint for good and point the client at the next."""
         dead = self._endpoints.pop(self._index)
@@ -823,8 +912,25 @@ class FailoverLLMService(GroqLLMService):
             f"{endpoint.base_url}/" if endpoint.base_url else self._default_base_url
         )
         self._settings.model = endpoint.model
-        extra = {**self._settings.extra,
-                 "reasoning_effort": _reasoning_effort(endpoint.model)}
+        is_gemini = (
+            endpoint.provider in ("bifrost", "gemini") or "gemini" in endpoint.model.lower()
+        )
+        extra = dict(self._settings.extra)
+        if is_gemini:
+            # LATENCY + LEAK bug, 2026-09-22: this branch used to send the flat
+            # OpenAI-style "reasoning_effort" field, same as the Groq-native
+            # branch below. Bifrost's own docs (docs.getbifrost.ai/providers/
+            # reasoning) say that flat field is NOT accepted for Gemini — only
+            # the nested {"reasoning": {"effort"/"max_tokens": ...}} object is.
+            # It never errored, so this went unnoticed: Gemini has been running
+            # at its OWN default thinking level this whole time, not "low" —
+            # the real cause of the 2s+ latency AND of reasoning text leaking
+            # into what gets spoken (Bifrost's docs: include_thoughts is on by
+            # default whenever reasoning is active, and only goes false when
+            # max_tokens=0). Dropped the flat field; see extra_body below.
+            extra.pop("reasoning_effort", None)
+        else:
+            extra["reasoning_effort"] = _reasoning_effort(endpoint.model)
         if endpoint.provider == "parkplus":
             # Belt and braces. reasoning_effort alone silenced the thinking in
             # testing, but the failure it prevents is the bot reading its own
@@ -838,8 +944,39 @@ class FailoverLLMService(GroqLLMService):
             # a local TypeError is not an APIStatusError, so the failover could
             # not see it and the bot said nothing at all.
             extra["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+            # Ornith accepts frequency_penalty; restore it when we land here.
+            if getattr(self, "_frequency_penalty_pref", None) is not None:
+                self._settings.frequency_penalty = self._frequency_penalty_pref
+        elif is_gemini:
+            # CHANGED 2026-09-22, third pass — measured directly against
+            # Bifrost, not guessed. Curled bifrost.parkplus.io with the exact
+            # same request shape bot.py sends, for gemini-3.6-flash, on a
+            # trivial one-word question ("capital of India"):
+            #   effort=low     -> 264 of 267 completion tokens on reasoning,
+            #                      4.7s server-side latency
+            #   effort=high    -> 476 of 479 tokens on reasoning, 6.3s
+            #   effort=minimal -> 0 reasoning tokens, 2 completion tokens,
+            #                      2.0s. A realistic system+user prompt at
+            #                      minimal: 37 tokens, clean Hindi content,
+            #                      no leaked reasoning text, no reasoning
+            #                      tokens spent, 2.86s.
+            # "low" was not a meaningful reduction for this model at all —
+            # Bifrost's mapping table says "low"/"minimal" both go to
+            # thinking_level LOW, but the live numbers above say otherwise;
+            # trust the measurement over the docs. "minimal" is the one that
+            # actually removes the reasoning pass.
+            extra["extra_body"] = {"reasoning": {"effort": "minimal"}}
+            from openai import NOT_GIVEN
+            self._settings.frequency_penalty = NOT_GIVEN
+            self._settings.presence_penalty = NOT_GIVEN
         else:
+            # Plain Groq-native models (qwen, gpt-oss). Gemini/Bifrost 400s with
+            # "Penalty is not enabled for this model" if frequency_penalty /
+            # presence_penalty is sent — caught live 17:45 — but that's the
+            # is_gemini branch above now, not this one.
             extra.pop("extra_body", None)
+            if getattr(self, "_frequency_penalty_pref", None) is not None:
+                self._settings.frequency_penalty = self._frequency_penalty_pref
         self._settings.extra = extra
         if not announce:
             return
@@ -1164,8 +1301,51 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # "has Devanagari" to mean "real speech" once this is on.
     parkplus_stt_url = os.getenv("PARKPLUS_STT_URL")
     assemblyai_key = os.getenv("ASSEMBLYAI_API_KEY")
+    # A/B trial, 2026-09-21. SARVAM_STT=1 tries Sarvam's realtime STT instead of
+    # AssemblyAI — same vendor as TTS, so no new key, and it has a real Pipecat
+    # integration (SarvamRealtimeSTTService), unlike Park+'s hand-rolled one.
+    #
+    # What it does NOT have, checked against the source before wiring this:
+    #   - Speculative/eager inference. Same gap as AssemblyAI and Park+ — only
+    #     Cartesia's STT implements that mixin in this Pipecat build. Switching
+    #     here does not buy "start the LLM before the caller finishes talking".
+    #   - A keyterms list. Only a free-text `prompt`, left unset below for the
+    #     same reason AssemblyAI's is: a custom prompt REPLACES the vendor's own
+    #     tuned default, and that trade should be measured, not assumed.
+    #   - A named noise-suppression feature (AssemblyAI's voice_focus). Only a
+    #     general VAD `threshold` — confirmed live (18:47 call) that Sarvam's
+    #     own default of 0.3 is too permissive for the same noisy rooms
+    #     voice_focus was tuned for; raised below, see the comment on
+    #     `threshold=` for the evidence.
+    # endpointing="vad" hands turn boundaries to Sarvam's own model, same
+    # reasoning as AssemblyAI's vad_force_turn_endpoint=False: a linguistic
+    # decision, not just Silero silence. stream_type="fast" is the speed ask.
+    # If turns still get cut early after the threshold fix, silence_duration_ms
+    # is the next knob (Sarvam default 1000ms), not stream_type.
+    sarvam_stt_key = os.getenv("SARVAM_API_KEY") if os.getenv("SARVAM_STT") else None
     if parkplus_stt_url:
         stt = ParkPlusSTTService(url=parkplus_stt_url)
+    elif sarvam_stt_key:
+        stt = SarvamRealtimeSTTService(
+            api_key=sarvam_stt_key,
+            endpointing="vad",
+            should_interrupt=True,
+            settings=SarvamRealtimeSTTService.Settings(
+                language_code="hi-IN",
+                stream_type=os.getenv("SARVAM_STT_STREAM_TYPE") or "fast",
+                # CUTOFF bug, 2026-09-21: the 18:47 live call had replies
+                # truncating mid-sentence twice ("...है, पर" / "...तब", both with
+                # nothing after) with room noise showing up as CALLER lines
+                # ("बहुत ज़्यादा ही साउंड आ रही है इसमें" — the caller's own
+                # words) and no real barge-in logged. Root cause: Sarvam's
+                # threshold defaults to 0.3 (confirmed live via the raw
+                # session.begin response) vs the 0.92 AssemblyAI needed for the
+                # same rooms — should_interrupt=True means any noise crossing
+                # that threshold cuts the bot off. Raised as a starting point;
+                # SARVAM_STT_THRESHOLD overrides for further live tuning.
+                threshold=float(os.getenv("SARVAM_STT_THRESHOLD") or 0.6),
+            ),
+        )
     elif assemblyai_key:
         # Turn detection is AssemblyAI's, not Pipecat's. That is the whole point
         # of this block, so read before changing it.
@@ -1209,6 +1389,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # is exactly the "person too far still gets transcribed" bug on
                 # the 17:10 call ("प्लेसमेंट…", room chatter). Use far-field only
                 # for a conference / drive-thru mic where the caller IS distant.
+                # interruption_delay set further down, only if overridden —
+                # see the note there.
                 voice_focus=os.getenv("ASSEMBLYAI_VOICE_FOCUS") or "near-field",
                 voice_focus_threshold=float(
                     os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 1.0
@@ -1216,12 +1398,33 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Docs: raise vad_threshold when background noise causes false
                 # speech. Keep ALIGNED with Silero VAD_CONFIDENCE.
                 vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.92),
-                # Delay first partial so speaker bleed / brief room bursts do
-                # not barge in mid-TTS. Server adds ~256ms on top (Pipecat).
-                interruption_delay=int(os.getenv("ASSEMBLYAI_INTERRUPTION_DELAY") or 600),
-                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 500),
-                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1800),
+                # SPEED, 2026-09-21: these three add up on the caller's side of
+                # EVERY turn, before Bifrost or Sarvam ever see the request —
+                # min_turn_silence + max_turn_silence + interruption_delay was as
+                # much as 900ms of pure wait, above AssemblyAI's OWN "balanced"
+                # numbers (their docs: min_turn_silence 100 / max_turn_silence
+                # 1000, interruption_delay 500 on balanced/max_accuracy, 0 on
+                # min_latency). We were slower than balanced while claiming to
+                # BE balanced. Reverted to their vetted defaults, not invented
+                # ones — mode stays "balanced", so accuracy is untouched; only
+                # the turn-timing catches back up to what that mode is supposed
+                # to mean.
+                #
+                # interruption_delay is left unset (NOT_GIVEN) rather than
+                # pinned, so AssemblyAI's mode picks it — 500ms on balanced —
+                # instead of us silently overriding it again.
+                #
+                # If callers start getting cut off mid-sentence again, raise
+                # ASSEMBLYAI_MAX_TURN_SILENCE first; that is the room-noise
+                # trade, not vad_threshold/voice_focus, which stay as they were.
+                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 100),
+                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1000),
                 mode=os.getenv("ASSEMBLYAI_MODE") or "balanced",
+                **(
+                    {"interruption_delay": int(os.environ["ASSEMBLYAI_INTERRUPTION_DELAY"])}
+                    if os.getenv("ASSEMBLYAI_INTERRUPTION_DELAY")
+                    else {}
+                ),
             ),
         )
     elif groq_stt_key:
@@ -1258,6 +1461,30 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         tts = SarvamTTSService(
             api_key=sarvam_key,
             text_filters=[MarkdownTextFilter(), PriceGuardFilter(guard)],
+            # REVERTED to SENTENCE on 2026-09-21 — TOKEN mode broke the safety
+            # guard, live, on the 18:35 call. text_filters (PriceGuardFilter,
+            # which is KycGuard — OTP, Aadhaar, invented-regulator checks) run
+            # AFTER aggregation, on whatever the aggregator hands them
+            # (Pipecat's own docs: "text filters to apply after aggregation").
+            # SimpleTextAggregator's own source is explicit about TOKEN mode:
+            # "yields the text immediately without buffering" — so with TOKEN
+            # on, the guard was checking raw, arbitrary-boundary LLM stream
+            # fragments instead of sentences. That is exactly what the 18:35:29
+            # log shows: GUARDRAIL firing on the fragment
+            # ', IRDAI के rules के हिसाब से KYC complete' — a comma-leading
+            # half-sentence, not the full claim the rule is written against.
+            # Every one of KycGuard's regexes assumes roughly-sentence-shaped
+            # input (_SENTENCE_RE splitting, {0,18}-char proximity windows for
+            # rules like invented_authority); feeding it token fragments does
+            # not just produce ugly false positives like this one, it can also
+            # produce FALSE NEGATIVES — a banned phrase split across two
+            # fragments matches in neither. This guard is what stands between
+            # a live call and an OTP request or a fabricated IRDAI claim; it is
+            # not the place to trade correctness for ~200-300ms. Sarvam's own
+            # min_buffer_size/max_chunk_length below still do useful work for
+            # voice consistency; they just no longer get to decide what shape
+            # of text the guard sees first.
+            text_aggregation_mode=TextAggregationMode.SENTENCE,
             settings=SarvamTTSService.Settings(
                 # The nine bulbul:v3 female speakers, each confirmed to synthesise
                 # on this key 2026-09-15 (anything outside this list is rejected):
@@ -1358,13 +1585,31 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Ornith quality: give room for a full Hindi script (~80–120
                 # tokens). 140 was clipping mid-answer on Park+; thinking is
                 # already off via chat_template_kwargs so this is speech budget.
-                max_completion_tokens=int(os.getenv("MAX_REPLY_TOKENS") or 280),
+                #
+                # RAISED AGAIN, 2026-09-21: replies were still cutting off
+                # mid-sentence ("...है, पर", "...तब") after swapping STT vendor
+                # twice (Sarvam, then AssemblyAI) with no change — proof the cut
+                # is not on the caller's side of the pipeline. This cap is the
+                # one thing both swaps left untouched, and Devanagari costs more
+                # tokens per character than English in this tokenizer, so 280
+                # can under-budget a genuinely short Hindi sentence. Doubled;
+                # _log_finish_reason() above now logs finish_reason="length"
+                # when the model itself hits this cap, so the next call
+                # confirms or rules this out instead of guessing again.
+                max_completion_tokens=int(os.getenv("MAX_REPLY_TOKENS") or 500),
                 # Low temp + top_p keeps Ornith on the scripted lines. At 0.3 it
                 # paraphrased the waiting line over the details script.
                 temperature=float(os.getenv("LLM_TEMPERATURE") or 0.1),
                 top_p=float(os.getenv("LLM_TOP_P") or 0.85),
-                # Cuts the "same form खुल गया line twice" loop on Park+.
-                frequency_penalty=float(os.getenv("LLM_FREQUENCY_PENALTY") or 0.4),
+                # frequency_penalty: Ornith-only. Gemini/Bifrost 400s with
+                # "Penalty is not enabled for this model" (17:45 call). Blank or
+                # 0 = omitted. Set LLM_FREQUENCY_PENALTY only when Park+ leads.
+                **(
+                    {"frequency_penalty": float(os.environ["LLM_FREQUENCY_PENALTY"])}
+                    if (os.getenv("LLM_FREQUENCY_PENALTY") or "").strip()
+                    not in ("", "0", "0.0")
+                    else {}
+                ),
                 # qwen3.8 reasons before answering. On a hard/garbled turn it spent
                 # the whole budget reasoning and returned an empty reply
                 # (completion_tokens: 1), so the bot just went silent on the call.

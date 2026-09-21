@@ -359,6 +359,94 @@ _SAFE_MONEY = (
     "उसका exact amount मैं यहाँ से confirm नहीं कर सकती सर — team बता देगी"
 )
 
+# --- English goodbye / English-only close (15:22 call) ------------------------
+# Ornith closed with "Thank you सर! Have a good day." Prompt says Hindi only;
+# this makes it stick. A sentence that is mostly Latin AND looks like a closing
+# gets rewritten. Mixed Hindi+English instructional sentences stay.
+_ENGLISH_CLOSE_RE = re.compile(
+    r"(?:have\s+a\s+(?:good|nice|great)\s+day|good\s+(?:day|bye|night)|"
+    r"thank\s*you(?:\s+so\s+much)?|thanks(?:\s+a\s+lot)?|"
+    r"\bgoodbye\b|\bbye\b(?:\s*bye)?|"
+    r"take\s+care|see\s+you|talk\s+to\s+you\s+later)",
+    re.IGNORECASE,
+)
+_SAFE_CLOSE = "धन्यवाद सर, Park+"
+
+# --- waiting-line dump when the customer asked a real question ----------------
+# 15:45 / 17:23: Ornith answered "details बता दो" and "दो मिनट लगेंगे?" with the
+# form-open waiting script. That script is for silence after the form opens, not
+# for questions. When note_caller marked the last turn as a question topic, a
+# waiting-line sentence is rewritten to the short safe redirect for that topic.
+_WAITING_LINE_RE = re.compile(
+    r"form\s*खुल\s*गया\s*है|"
+    r"आराम\s*से\s*सारी\s*details\s*complete|"
+    r"मैं\s*line\s*पे\s*ही\s*हूँ",
+    re.IGNORECASE,
+)
+_SAFE_BY_TOPIC = {
+    "time": "बस दो मिनट का काम है सर।",
+    "details": (
+        "खाली वाले भरें — owner's name, email, address, nominee। पहले से भरे "
+        "सिर्फ check। KYC पे PAN + Aadhaar app में — number मुझे मत बताइए।"
+    ),
+    "nominee": (
+        "नॉमिनी परिवार या भरोसेमंद व्यक्ति का नाम — claim उन्हीं को। "
+        "RC वाला owner-name nominee में नहीं। Age उनकी असली age।"
+    ),
+    "aadhaar": (
+        "सर, Aadhaar और PAN app के KYC form में भरना है — number मुझे call पे "
+        "मत बताइए।"
+    ),
+    "fill_for_me": (
+        "मैं call पे details नहीं भर सकती सर — app में आपको ही डालना है।"
+    ),
+    "busy": (
+        "कोई बात नहीं सर, बस दो मिनट का काम है — अभी कर लेते हैं? नहीं तो कब "
+        "call करूँ?"
+    ),
+}
+
+# Caller-topic detectors for note_caller. First match wins; order matters.
+_CALLER_TOPIC_PATTERNS = (
+    ("fill_for_me", re.compile(
+        r"भर\s*(?:दो|दें|दीजिए|दे)|"
+        r"(?:तुम|आप|you)\s*[^.।!?]{0,12}(?:भर|डाल|fill)|"
+        r"(?:भर|डाल|fill)[^.।!?]{0,12}(?:तुम|आप|you)|"
+        r"(?:मेरी|meri)\s*(?:details|डिटेल्स)\s*(?:भर|डाल|तुम|आप)|"
+        r"(?:details|डिटेल्स)\s*(?:तुम|आप)\s*(?:भर|डाल)",
+        re.IGNORECASE,
+    )),
+    ("nominee", re.compile(
+        r"नॉमिनी|nominee|नॉमिनी\s*की\s*(?:age|एज|उम्र)",
+        re.IGNORECASE,
+    )),
+    ("aadhaar", re.compile(
+        r"आधार|aadhaar|aadhar|\bPAN\b|पैन|केवाईसी\s*वाले|KYC\s*वाले",
+        re.IGNORECASE,
+    )),
+    ("time", re.compile(
+        r"कितना\s*(?:टाइम|समय|देर)|कितनी\s*देर|how\s*long|"
+        r"दो\s*मिनट\s*(?:से\s*)?(?:ज़्यादा|ज्यादा|लग)",
+        re.IGNORECASE,
+    )),
+    ("details", re.compile(
+        r"क्या[\s\-]*क्या|details\s*बता|डिटेल्स\s*बता|क्या\s*भरना|"
+        r"details\s*(?:कैसे|क्या)|डिटेल्स\s*(?:कैसे|क्या)",
+        re.IGNORECASE,
+    )),
+    ("busy", re.compile(
+        r"(?:अभी\s*)?(?:टाइम|समय)\s*नहीं|बाद\s*में|फ्री\s*नहीं|"
+        r"call\s*(?:later|बाद)|later\s*call",
+        re.IGNORECASE,
+    )),
+    ("bye", re.compile(
+        r"\bbye\b|बाय|धन्यवाद|thank\s*you|थैंक|ठीक\s*है\s*(?:बाय|bye)",
+        re.IGNORECASE,
+    )),
+)
+
+_SAFE_TIME_ONLY = "बस दो मिनट का काम है सर।"
+
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
 
 
@@ -382,6 +470,8 @@ class KycGuard:
         ("banned_terms", "error", "rewrote a term the call card forbids"),
         ("money_amounts", "error", "rewrote a rupee figure this bot cannot know"),
         ("self_ai", "error", "rewrote the bot announcing it is an AI"),
+        ("english_close", "error", "rewrote an English goodbye"),
+        ("wrong_script", "error", "rewrote waiting-line / IRDAI-on-time mismatch"),
         ("labels", "warning", "stripped a speaker label the model wrote"),
         ("romanised", "warning", "answered in romanised Hindi instead of Devanagari"),
         ("machine_output", "error", "DROPPED non-speech output"),
@@ -419,18 +509,29 @@ class KycGuard:
         self.banned_terms: list[str] = []
         self.money_amounts: list[str] = []
         self.self_ai: list[str] = []
+        self.english_close: list[str] = []
+        self.wrong_script: list[str] = []
         self.labels: list[str] = []
         self.romanised: list[str] = []
         self.machine_output: list[str] = []
         self.self_narration: list[str] = []
+        # Last caller topic, so a waiting-line / IRDAI dump can be rewritten to
+        # the script that actually answers what they asked (15:18, 15:45, 17:23).
+        self.last_caller_topic: str | None = None
 
     def note_caller(self, text: str) -> bool:
-        """Nothing the CALLER says unlocks anything on this call.
+        """Record what the caller just asked, so _fix_sentence can match scripts.
 
-        Present because the observer calls it for every domain. The car spa
-        needed it — a price is gated on the caller naming a car. Here every rule
-        is about what the BOT may ask for, which no customer utterance changes.
+        Returns False always — nothing the caller says unlocks money/ID rules
+        here (unlike car spa). The observer still calls this every turn.
+        Clears the topic when nothing matches, so a prior nominee ask cannot
+        poison the next turn's guard rewrite.
         """
+        for topic, pat in _CALLER_TOPIC_PATTERNS:
+            if pat.search(text):
+                self.last_caller_topic = topic
+                return False
+        self.last_caller_topic = None
         return False
 
     def check(self, text: str) -> str:
@@ -480,6 +581,42 @@ class KycGuard:
         if self._do_not_say is not None and self._do_not_say.search(sentence):
             self.banned_terms.append(sentence.strip())
             return _SAFE_DO_NOT_SAY + terminator
+
+        # English goodbye — before authority checks so "Thank you" does not
+        # fall through as a harmless romanised warning.
+        if _ENGLISH_CLOSE_RE.search(sentence) and not re.search(
+            r"[\u0900-\u097F]{8,}", sentence
+        ):
+            self.english_close.append(sentence.strip())
+            return _SAFE_CLOSE + terminator
+
+        # Time question answered with IRDAI / waiting line (15:18, 17:23).
+        # Only when note_caller marked the turn as a time ask — the sanctioned
+        # IRDAI mandate line also contains "दो मिनट" and must survive on busy.
+        if self.last_caller_topic == "time" and (
+            _IRDAI_ONLY.search(sentence)
+            or _WAITING_LINE_RE.search(sentence)
+            or re.search(r"payment\s*तो\s*हो|पेमेंट\s*तो\s*हो", sentence, re.I)
+        ):
+            self.wrong_script.append(sentence.strip())
+            return _SAFE_TIME_ONLY + terminator
+
+        # Waiting-line dump after a real question (details / nominee / etc.).
+        topic = self.last_caller_topic
+        if (
+            topic in _SAFE_BY_TOPIC
+            and topic not in ("busy", "bye")
+            and _WAITING_LINE_RE.search(sentence)
+        ):
+            self.wrong_script.append(sentence.strip())
+            return _SAFE_BY_TOPIC[topic] + terminator
+
+        if topic == "bye" and (
+            _WAITING_LINE_RE.search(sentence)
+            or re.search(r"documents?\s*मुझे\s*नहीं|privacy\s*की\s*वजह", sentence, re.I)
+        ):
+            self.wrong_script.append(sentence.strip())
+            return _SAFE_CLOSE + terminator
 
         if _OTP_RE.search(sentence) and not (
             _OTP_REFUSAL.search(sentence) and not _OTP_ASK_VERB.search(sentence)
@@ -634,12 +771,47 @@ def _demo():
         # Nothing in this bot can send a message.
         ("false_send_promise", "मैं आपको link भेज देती हूँ, वहीं से complete कर लीजिए।"),
         ("false_send_promise", "मैं SMS भेज देती हूँ, उसमें link होगा।"),
+        # 15:22 call — Ornith English goodbye (one sentence each; a multi-sentence
+        # line increments once per sentence).
+        ("english_close", "Have a good day."),
+        ("english_close", "Goodbye, take care."),
+        ("english_close", "Thanks a lot, bye."),
     ]
     for counter, line in blocked:
         before = len(getattr(g, counter))
         out = g.check(line)
-        assert len(getattr(g, counter)) == before + 1, f"{counter} missed: {line!r}"
+        assert len(getattr(g, counter)) >= before + 1, f"{counter} missed: {line!r}"
         assert out != line, f"not rewritten: {line!r}"
+
+    # Topic-aware rewrites (15:18 IRDAI-on-time, 15:45 waiting-line-on-details).
+    g_topic = KycGuard()
+    g_topic.note_caller("वैसे कि ऐसे करने में कितना टाइम लगेगा?")
+    assert g_topic.last_caller_topic == "time"
+    out = g_topic.check(
+        "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete "
+        "हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।"
+    )
+    assert "IRDAI" not in out and "दो मिनट" in out, out
+    assert g_topic.wrong_script, "time+IRDAI should land in wrong_script"
+
+    g_topic2 = KycGuard()
+    g_topic2.note_caller("एक बार डिटेल्स बता दो ना क्या-क्या है।")
+    assert g_topic2.last_caller_topic == "details"
+    out = g_topic2.check(
+        "सर, form खुल गया है। आप आराम से सारी details complete कर दीजिए। "
+        "मैं line पे ही हूँ।"
+    )
+    assert "form खुल गया" not in out and "nominee" in out.lower() or "खाली" in out, out
+    assert g_topic2.wrong_script
+
+    g_topic3 = KycGuard()
+    g_topic3.note_caller("ओके ठीक है बाय बाय")
+    assert g_topic3.last_caller_topic == "bye"
+    out = g_topic3.check(
+        "आपके documents मुझे नहीं चाहिए सर — privacy की वजह से ये सब app में ही होता है।"
+    )
+    assert "documents" not in out.lower() and "धन्यवाद" in out, out
+
 
     # ...and the lines the bot MUST still be able to say, because they are the
     # product: pointing the customer at the app. The first two are VERBATIM from
@@ -737,16 +909,12 @@ def _demo():
         "Park+ Insurance से Monika बोल रही हूँ।",
         "Payment हो चुका है, बस KYC बाक़ी है।",
         # The sanctioned answers to "अगर न करूँ तो?" and "कब तक?", rendered
-        # into the prompt straight from context.json's kyc_mandate. If the guard
-        # ever blocks these the bot goes mute on the commonest objection there
-        # is, so they are asserted verbatim.
-        "सर, payment तो हो चुका है — पर IRDAI के rules के हिसाब से KYC complete "
-        "हुए बिना insurance company policy issue नहीं कर सकती।",
-        "सर, payment तो हो चुका है — पर KYC complete हुए बिना policy issue नहीं "
-        "हो पाती।",
-        # The live 00:51:51 line, which the product owner signed off as correct.
-        "सर, payment हो गई है, पर KYC complete किए बिना IRDAI के नियमों के "
-        "मुताबिक बीमा कंपनी पॉलिसी issue नहीं कर सकती।",
+        # into the prompt straight from context.json's kyc_mandate. Payment
+        # opener dropped 2026-09-21 — IRDAI / cannot-issue is enough; repeating
+        # "payment हो चुका" on every बाद में felt like a lecture.
+        "सर, IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company "
+        "policy issue नहीं कर सकती।",
+        "सर, KYC complete हुए बिना IRDAI के rules से policy issue नहीं हो पाती।",
         "नॉमिनी का नाम app में डाल दीजिए।",
     ):
         assert g2.check(ok) == ok, f"blocked a legitimate line: {g2.check(ok)!r}"
