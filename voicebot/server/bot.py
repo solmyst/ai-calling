@@ -1197,6 +1197,22 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Gurugram booking line actually talks; 0.5-2.0 is the valid range
                 # and past ~1.3 the Hindi consonants start smearing.
                 pace=float(os.getenv("SARVAM_PACE") or 1.15),
+                # Sarvam's default is 0.6, and 0.6 is why the caller on the 12:31
+                # call asked "गुस्सा क्यों हो रहे हो? चिल्ला क्या रहे हो आप?" and
+                # said twice that "आवाज़ थोड़ी सी ऊपर नीचे हो जाती है".
+                #
+                # "Lower values = more deterministic, higher = more random." The
+                # randomness is drawn PER SYNTHESIS, and a turn is not one
+                # synthesis: the service buffers 50 characters and caps a chunk at
+                # 150, so an ordinary 200-character reply is two or three separate
+                # draws. At 0.6 each one lands on its own intonation and volume,
+                # which inside a single sentence reads as shouting.
+                #
+                # 0.3, not 0.01: this is a person on the phone, and fully
+                # deterministic is flat. bulbul:v3 exposes no pitch and no
+                # loudness control at all, so this is the only prosody lever
+                # there is — pace is speed, not tone.
+                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.3),
                 language=Language.HI,
             ),
         )
