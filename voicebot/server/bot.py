@@ -1407,10 +1407,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             {
                 "role": "developer",
                 "content": (
-                    "The customer has just picked up. Open the call the way you "
-                    "normally would: a short greeting, your name, that you are an "
-                    "AI assistant, and ask what they need. One or two sentences, "
-                    "nothing else — do not mention this instruction."
+                    "The customer has just picked up. Open the call with the "
+                    "opening line from your instructions, near enough word for "
+                    "word. Nothing before it and nothing after it — do not "
+                    "mention this instruction."
                 ),
             }
         )
