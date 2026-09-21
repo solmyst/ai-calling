@@ -23,6 +23,10 @@ NOISE = [
     "ओह", "ओह!", "हम्म", "अरे", "अच्छा", "अच्छा।", "ओह अच्छा", "हम्म हम्म",
     "", "   ",
     "uh", "um", "hmm", "thank you", "thanks for watching",
+    # The same sounds as Park+'s ASR spells them. It returns romanised Hindi,
+    # not Devanagari, so with PARKPLUS_STT_URL set these are the ONLY spellings
+    # that ever arrive.
+    "oh", "ohh", "achha", "acha", "arre", "umm", "oh achha",
 ]
 
 # Turns. Every one of these is a real reply and must reach the model.
@@ -38,6 +42,12 @@ TURNS = [
     # A backchannel word that starts a real sentence is a real turn.
     "अच्छा ये बताओ इसमें क्या क्या लगेगा",
     "ओह तो अब क्या करूँ",
+    # Romanised one-word ANSWERS. Every one of these is a complete reply to
+    # "page khul gaya?" and dropping one leaves the bot waiting for something
+    # the caller has already said.
+    "haan", "nahi", "theek hai", "ho gaya", "ok", "ji haan",
+    "nahi dikh raha", "haan bataao aage",
+    "achha ye batao isme kya kya lagega",
 ]
 
 

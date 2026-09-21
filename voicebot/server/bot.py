@@ -167,6 +167,20 @@ _HINDI_BACKCHANNELS = frozenset({
     "अच्छा अच्छा", "हम्म हम्म", "ओह अच्छा",
 })
 
+# The same sounds as Park+'s ASR spells them. It returns ROMANISED Hindi
+# ("Haan ji meri creta hai"), not Devanagari, so with PARKPLUS_STT_URL set the
+# Devanagari set above never matches a thing and every one of these earns a
+# full reply — which is the duplicate-answer bug the set was added to stop.
+#
+# Same discipline as above: NO answers. "haan", "nahi", "theek hai", "ho gaya"
+# and "ok" are all one-word replies to "page khul gaya?", and dropping one
+# leaves the bot waiting for something the caller already said. Bare "are" is
+# left out too, because it is an English word.
+_ROMAN_BACKCHANNELS = frozenset({
+    "oh", "ohh", "ooh", "achha", "acha", "accha", "achcha", "arre", "arey",
+    "umm", "uhh", "hmmm", "oh achha", "achha achha",
+})
+
 
 class NoiseGate(FrameProcessor):
     """Drops transcripts that are the transcriber talking to itself.
@@ -193,7 +207,7 @@ class NoiseGate(FrameProcessor):
         # it says, which is what keeps one-word answers ("हाँ") working.
         if re.search(r"[\u0900-\u097F]", stripped):
             return bare in _HINDI_BACKCHANNELS
-        return bare in _NOISE_TRANSCRIPTS
+        return bare in _NOISE_TRANSCRIPTS or bare in _ROMAN_BACKCHANNELS
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
