@@ -19,7 +19,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot greets Neha by name as a Park+ AI assistant and says the KYC is pending"
+        eval: "the bot greets Neha by name as Monika from Park+ and says the KYC is pending. It does NOT announce that it is an AI, a bot or an assistant"
 
   - user: "हाँ KYC page खोल लिया है"
     expect:

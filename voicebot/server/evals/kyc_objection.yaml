@@ -17,7 +17,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot introduces itself as Monika from Park+, says it is an AI assistant, and asks them to open the app"
+        eval: "the bot introduces itself as Monika from Park+ and asks them to open the app. It does NOT announce that it is an AI or a bot"
 
   # Verbatim from the call. The customer is talking about a video game.
   - user: "डोमिनेशन और हार्ड पॉइंट में जो कम्बैक होते हैं ना वो मस्त होते हैं"

@@ -770,6 +770,7 @@ class PriceGuardFilter(BaseTextFilter):
         ("availability_claims", logger.error, "rewrote a slot/area availability claim"),
         ("damage_promises", logger.error, "rewrote a damage/liability promise"),
         ("body_type_asks", logger.error, "rewrote a hatchback/sedan/SUV question"),
+        ("self_ai", logger.error, "rewrote the bot announcing it is an AI"),
         ("machine_output", logger.error, "DROPPED non-speech output"),
         ("priced_before_car", logger.error, "blocked a price before the caller named a car"),
         ("self_narration", logger.error, "DROPPED the model thinking out loud"),

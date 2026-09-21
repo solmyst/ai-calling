@@ -15,7 +15,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot says it is an AI assistant from Park+, that the customer took insurance, that KYC is pending, and asks them to open the app"
+        eval: "the bot says it is calling from Park+, that the customer took insurance, that KYC is pending, and asks them to open the app. It does NOT announce that it is an AI or a bot"
 
   # There is an insurance HOME screen between the icon and the button. Naming
   # the button too early sends them hunting for something not on screen yet.

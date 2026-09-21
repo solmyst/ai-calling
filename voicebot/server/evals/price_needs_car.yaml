@@ -26,7 +26,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot opens the call: it greets, gives a name, and says it is an AI assistant"
+        eval: "the bot opens the call: it greets and gives a name. It does NOT announce that it is an AI, a bot or an assistant"
 
   # Asks for a price while refusing to name the car, exactly as the live caller did.
   - user: "कितने का पड़ेगा भाई? जल्दी बता दो"

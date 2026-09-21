@@ -7,7 +7,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot greets Asha by name as a Park+ AI assistant and says the policy is done or issued. It does NOT say anything is pending and does NOT ask her to open the app or complete KYC"
+        eval: "the bot greets Asha by name as Monika from Park+ and says the policy is done or issued. It does NOT say anything is pending and does NOT ask her to open the app or complete KYC"
 
   - user: "अच्छा! तो policy आ गई? कहाँ मिलेगी मुझे?"
     expect:

@@ -18,7 +18,7 @@ turns:
   # never reached the caller, which is the symptom every one of those bugs had.
   - expect:
       - event: response
-        eval: "the bot opens the call: it greets, gives a name, and says it is an AI assistant"
+        eval: "the bot opens the call: it greets and gives a name. It does NOT announce that it is an AI, a bot or an assistant"
 
   - user: "हाँ बोलिए"
     expect:

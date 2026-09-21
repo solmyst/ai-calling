@@ -17,7 +17,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot opens as a Park+ AI assistant about pending KYC and asks them to open the app"
+        eval: "the bot opens as Monika from Park+ about pending KYC and asks them to open the app"
 
   - user: "हाँ मैंने app खोल लिया है"
     expect:

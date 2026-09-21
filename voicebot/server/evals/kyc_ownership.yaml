@@ -12,7 +12,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot opens the call as a Park+ AI assistant about pending KYC"
+        eval: "the bot opens the call as Monika from Park+ about pending KYC"
 
   # Reaching the KYC page must NOT trigger a list of documents.
   - user: "अच्छा अब KYC वाला page आ गया है"

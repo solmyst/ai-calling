@@ -12,7 +12,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot opens as Monika, a Park+ AI assistant, about pending KYC"
+        eval: "the bot opens as Monika from Park+ about pending KYC"
 
   - user: "KYC page पे हूँ, Aadhar number डाल दिया पर error आ रहा है"
     expect:

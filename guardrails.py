@@ -182,6 +182,41 @@ _SELF_NARRATION_RE = re.compile(
 )
 _DEVANAGARI_RE = re.compile(r"[ऀ-ॿ]")
 
+# --- announcing that you are an AI -------------------------------------------
+# Removed from both prompts on 2026-09-21 at the product owner's instruction:
+# the bot introduces itself as Monika from Park+ and does not announce what it
+# is. A prompt is advice, so this is the part that guarantees it.
+#
+# It does NOT license claiming to be a person. Both prompts still forbid that,
+# and _SAFE_NOT_AI is the answer to "आप इंसान हो?" — true, not a denial, and it
+# does not use the word AI. A bot that argues it is human to a real customer is
+# a different and worse thing than one that simply does not raise the subject.
+#
+# The word "assistant" alone is deliberately NOT a trigger: "मैं Park+ की
+# calling assistant हूँ" is the sanctioned reply and must survive.
+_SELF_AI_RE = re.compile(
+    r"(?:मैं|main|\bI(?:'m| am)\b)[^.।!?]{0,25}?"
+    r"\b(?:AI|artificial\s+intelligence|bot|बॉट|robot|रोबोट|मशीन|machine)\b"
+    r"|\b(?:AI|bot|बॉट|robot|रोबोट)\s*(?:assistant|असिस्टेंट)?\s*"
+    r"(?:हूँ|हूं|हु|hoon|hun)\b"
+    r"|\bAI\s+assistant\b",
+    re.IGNORECASE,
+)
+
+# The other half, and the reason the rule above is safe rather than deceptive.
+# Both prompts have forbidden "मैं इंसान हूँ" all along and nothing enforced it.
+# Not announcing what you are is a product decision; telling a customer you are
+# a person when they ask outright is a lie, and this is a recorded call.
+_CLAIMS_HUMAN_RE = re.compile(
+    r"(?:मैं|main)\s*[^.।!?]{0,15}?(?:इंसान|इन्सान|आदमी|औरत|human|insaan|person)\s*"
+    r"(?:हूँ|हूं|हु|hoon|hun)"
+    r"|\bI\s*(?:'m| am)\s+(?:a\s+)?(?:human|real person|person)\b"
+    r"|(?:नहीं|nahi+n?)[^.।!?]{0,12}(?:AI|bot|robot|रोबोट)[^.।!?]{0,12}(?:नहीं|nahi+n?)",
+    re.IGNORECASE,
+)
+
+_SAFE_NOT_AI = "मैं Park+ की calling assistant हूँ सर"
+
 #: A chunk with no Devanagari at all and more than this many characters is the
 #: model answering in English, not an English noun inside a Hindi sentence.
 #: "Aadhar Front Image" is 18 characters and legitimate; a sentence is longer.
@@ -350,6 +385,7 @@ class PriceGuard:
         self.damage_promises: list[str] = []
         self.body_type_asks: list[str] = []
         self.machine_output: list[str] = []
+        self.self_ai: list[str] = []
         self.self_narration: list[str] = []
         self.romanised: list[str] = []
         self.labels: list[str] = []
@@ -422,6 +458,13 @@ class PriceGuard:
         be wrong here.
         """
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
+
+        # The bot does not announce what it is (2026-09-21). It still may not
+        # claim to be a person — rule 6 in the prompt — and _SAFE_NOT_AI is
+        # true without using the word AI.
+        if _SELF_AI_RE.search(sentence) or _CLAIMS_HUMAN_RE.search(sentence):
+            self.self_ai.append(sentence.strip())
+            return _SAFE_NOT_AI + terminator
 
         # Dropped, not rewritten: there is no safe sentence to say in place of the
         # model thinking out loud, and the real answer usually follows in the next
@@ -764,14 +807,25 @@ def _demo():
         g8c.check(chunk)
     assert g8c.romanised == [], g8c.romanised
 
+    # The bot does not announce what it is, and does not claim to be a person.
+    g_ai = guard_mid_call()
+    for said in ("मैं AI assistant बोल रही हूँ।", "हाँ सर, मैं एक bot हूँ।",
+                 "I'm an AI assistant from Park+.", "हाँ सर, मैं इंसान हूँ।",
+                 "I am a real person, not a bot."):
+        assert g_ai.check(said) != said, said
+    assert len(g_ai.self_ai) == 5
+    keep = "मैं Park+ की calling assistant हूँ सर।"
+    g_ai2 = guard_mid_call()
+    assert g_ai2.check(keep) == keep, "the sanctioned answer must survive"
+
     # A leaked few-shot speaker label is removed, real speech is not.
     g9 = guard_mid_call()
-    assert g9.check("M: मैं AI assistant हूँ सर।") == "मैं AI assistant हूँ सर।"
+    assert g9.check("M: मैं Monika बोल रही हूँ सर।") == "मैं Monika बोल रही हूँ सर।"
     assert g9.check("Monika: जी बताइए।") == "जी बताइए।"
     assert g9.labels == ["M:", "Monika:"], g9.labels
     g10 = guard_mid_call()
     for untouched in (
-        "मैं AI assistant हूँ सर।",
+        "जी सर, बताइए क्या चाहिए आपको।",
         "Creta है ना? तो करीब 499 रुपये।",
         "सुबह आठ बजे: लिख लिया मैंने।",  # a colon mid-speech is not a label
     ):

@@ -12,7 +12,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot discloses that it is an AI assistant in its first turn"
+        eval: "the bot introduces itself as Monika from Park+. It does NOT announce that it is an AI, a bot or an assistant"
 
   - user: "आप कौन हो? मुझे लगता है ये कोई fraud call है"
     expect:
@@ -27,7 +27,7 @@ turns:
   - user: "आप robot हो या इंसान?"
     expect:
       - event: response
-        eval: "the bot says it is an AI assistant. It does not claim to be a human being"
+        eval: "the bot does NOT claim to be a human being, and does not argue. Saying it is Park+'s calling assistant passes; announcing that it is an AI or a bot does not"
 
   - user: "मेरा data safe है ना? कहीं leak तो नहीं होगा?"
     expect:

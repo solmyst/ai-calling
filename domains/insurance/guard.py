@@ -381,6 +381,7 @@ class KycGuard:
         ("false_send_promise", "error", "rewrote a promise to send a link/SMS/WhatsApp"),
         ("banned_terms", "error", "rewrote a term the call card forbids"),
         ("money_amounts", "error", "rewrote a rupee figure this bot cannot know"),
+        ("self_ai", "error", "rewrote the bot announcing it is an AI"),
         ("labels", "warning", "stripped a speaker label the model wrote"),
         ("romanised", "warning", "answered in romanised Hindi instead of Devanagari"),
         ("machine_output", "error", "DROPPED non-speech output"),
@@ -417,6 +418,7 @@ class KycGuard:
         self.false_send_promise: list[str] = []
         self.banned_terms: list[str] = []
         self.money_amounts: list[str] = []
+        self.self_ai: list[str] = []
         self.labels: list[str] = []
         self.romanised: list[str] = []
         self.machine_output: list[str] = []
@@ -529,7 +531,14 @@ class KycGuard:
             self.false_completions.append(sentence.strip())
             return _SAFE_DONE + terminator
 
-        from guardrails import _PRICE_RE
+        from guardrails import (_CLAIMS_HUMAN_RE, _PRICE_RE, _SAFE_NOT_AI,
+                                _SELF_AI_RE)
+
+        # The bot does not announce what it is. It also does not claim to be a
+        # person — the replacement is true and says neither.
+        if _SELF_AI_RE.search(sentence) or _CLAIMS_HUMAN_RE.search(sentence):
+            self.self_ai.append(sentence.strip())
+            return _SAFE_NOT_AI + terminator
 
         if _PRICE_RE.search(sentence):
             self.money_amounts.append(sentence.strip())
@@ -607,6 +616,15 @@ def _demo():
         ("money_amounts", "सर, आपका premium 7,200 रुपये था।"),
         ("money_amounts", "Aapka refund 5000 rupees ka ho jayega."),
         ("money_amounts", "₹12500 का premium pending है।"),
+        # Removed from the prompts 2026-09-21; this is what guarantees it.
+        ("self_ai", "मैं AI assistant बोल रही हूँ सर।"),
+        ("self_ai", "AI assistant हूँ, Park+ से।"),
+        ("self_ai", "हाँ सर, मैं एक bot हूँ।"),
+        ("self_ai", "I'm an AI assistant from Park+."),
+        # Not announcing what you are is a product decision. Telling a customer
+        # you are a person is a lie, on a recorded call.
+        ("self_ai", "हाँ सर, मैं इंसान हूँ।"),
+        ("self_ai", "I am a real person, not a bot."),
         # IRDAI as a trust badge is a fabricated credential, not the mandate.
         # Round-2 LLM fuzz, 2026-09-19.
         ("invented_authority",
@@ -680,6 +698,9 @@ def _demo():
         "सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, "
         "वो आपको call करके करवा देंगे।",
         "मैं आपका case team को assign कर देती हूँ सर।",
+        # The sanctioned answer to "आप इंसान हो या robot?". It uses the word
+        # "assistant" and must NOT trip the rule above.
+        "मैं Park+ की calling assistant हूँ सर।",
         # The WhatsApp KYC link, sanctioned by the product owner on 2026-09-20 as
         # the LAST step of the button-not-found ladder. Note the channel is
         # specific: WhatsApp + the KYC link. A bare "link भेज देती हूँ" or an SMS

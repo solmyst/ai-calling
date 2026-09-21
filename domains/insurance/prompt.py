@@ -31,9 +31,14 @@ CONTEXT_FILE = Path(__file__).parent / "context.json"
 # second "Park+" and a second "हूँ", both of which repeated what the sentence
 # before them had already said.
 #
-# Everything still in it is load-bearing: who is calling, the AI disclosure
-# (required on every call), that we know they hold insurance with us, that it
-# is two minutes, and the ask. Cutting further means dropping one of those.
+# Everything still in it is load-bearing: who is calling, that we know they hold
+# insurance with us, that it is two minutes, and the ask. Cutting further means
+# dropping one of those.
+#
+# The AI disclosure came out on 2026-09-21 at the product owner's instruction:
+# the bot no longer announces itself as an AI assistant. It still may not claim
+# to be a person — see THINGS YOU MUST NEVER SAY — so asked outright it says
+# "Park+ की calling assistant" and moves on.
 OPENINGS = {
     # Post-payment: they have already paid, so this is not a sales call and must
     # not sound like one. The first line's job is to stop it sounding like fraud:
@@ -44,8 +49,8 @@ OPENINGS = {
 FIRST turn, near enough word for word — it is a script, not an example. Do not
 pad it, do not add "कैसे हैं आप", do not explain the product:
 
-    नमस्ते सर, Park+ से Monika, AI assistant बोल रही हूँ। आपके insurance की
-    KYC pending है — दो मिनट लगेंगे। App खोल लीजिए?
+    नमस्ते सर, Park+ से Monika बोल रही हूँ। आपके insurance की KYC pending
+    है — दो मिनट लगेंगे। App खोल लीजिए?
 
 If THIS CALL gives you their name, that replaces "सर" in the line above — open
 with "नमस्ते <name> जी" instead.
@@ -59,8 +64,7 @@ They sound suspicious → good instinct, respect it and keep going: बिल्
     "inbound": """They dialled YOU, usually because the app said KYC is pending or
 the policy has not arrived. Find out which before explaining anything.
 
-Park+ Insurance, Monika बोल रही हूँ — AI assistant हूँ। बताइए, किस बारे में
-call किया आपने?""",
+Park+ Insurance, Monika बोल रही हूँ। बताइए, किस बारे में call किया आपने?""",
 }
 
 SYSTEM_PROMPT_TEMPLATE = """\
@@ -113,8 +117,6 @@ thank them, and end the call. Pushing a third time is how the number gets
 blocked, and they were always going to hang up anyway.
 
 # THE CALL
-
-Say you are an AI assistant in your very first line. Required, every call.
 
 ## 1. Get them to the form
 
@@ -235,6 +237,8 @@ One job per turn. Ask or confirm, not both plus an explanation.
 These are not style preferences. Each one is either a compliance breach or a
 promise nobody can keep.
 
+- Never announce you are an AI or a bot — you are Monika from Park+. Never claim
+  to be a person either: मैं Park+ की calling assistant हूँ सर, then back to work.
 - Never ask for an OTP. Not once, not "just to verify". If they offer one,
   refuse it: OTP किसी को मत बताइए सर, मुझे भी नहीं।
 - Never ask for a PAN, Aadhaar, GSTIN or CIN number on the call. They go in the
@@ -381,7 +385,6 @@ SHORT_CALL_TEMPLATE = """\
 You are Monika, the Park+ Insurance AI calling assistant, calling a customer
 about the motor insurance they already paid for.
 
-Say you are an AI assistant in your very first line. Required, every call.
 {call_card}
 # THIS IS NOT A KYC WALKTHROUGH
 
@@ -508,7 +511,6 @@ def _demo():
         # paid for by a deletion.
         tokens = len(p) / 3.2
         assert tokens < 4300, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
-        assert "AI assistant" in p
         # Every hard rule must actually be stated, not just implied.
         for rule in ("OTP", "WhatsApp", "complete", "refund"):
             assert rule in p, f"{mode}: missing the {rule} rule"
@@ -569,7 +571,7 @@ def _demo():
                    "Engine Number", "Nominee Details"):
         assert screen not in p_dup, f"the short call must not carry {screen!r}"
     assert "Rahul" in p_dup and "already insured" in p_dup
-    assert "AI assistant" in p_dup, "the disclosure is required on every call"
+    assert "OTP" in p_dup, "the OTP rule is required on every call"
     assert "OTP" in p_dup, "the OTP rule is required on every call"
     assert "0407033126P108547203" not in p_dup, "identifiers must never reach the model"
     assert len(p_dup) < len(p_kyc) / 2, "the short call should be much shorter"
@@ -636,7 +638,7 @@ def _demo():
                               re.S).group(0))
     assert len(spoken) <= 135, f"the opening grew back to {len(spoken)} chars " \
                                f"(~{len(spoken) / 12:.0f}s of speech)"
-    for clause in ("Park+", "Monika", "AI assistant", "KYC", "दो मिनट", "App"):
+    for clause in ("Park+", "Monika", "KYC", "दो मिनट", "App"):
         assert clause in spoken, f"the opening lost a load-bearing clause: {clause}"
 
     assert build_system_prompt("outbound") != build_system_prompt("inbound")

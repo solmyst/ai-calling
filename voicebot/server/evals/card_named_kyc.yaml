@@ -8,7 +8,7 @@ judge:
 turns:
   - expect:
       - event: response
-        eval: "the bot greets Vikram by name, says it is an AI assistant from Park+, says the KYC on his insurance is pending, and asks him to open the app"
+        eval: "the bot greets Vikram by name, says it is calling from Park+, says the KYC on his insurance is pending, and asks him to open the app. It does NOT announce that it is an AI or a bot"
 
   - user: "हाँ खोल लिया app"
     expect:
