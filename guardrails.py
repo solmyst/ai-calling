@@ -182,6 +182,37 @@ _SELF_NARRATION_RE = re.compile(
 )
 _DEVANAGARI_RE = re.compile(r"[ऀ-ॿ]")
 
+#: A chunk with no Devanagari at all and more than this many characters is the
+#: model answering in English, not an English noun inside a Hindi sentence.
+#: "Aadhar Front Image" is 18 characters and legitimate; a sentence is longer.
+_ENGLISH_DRIFT_MIN_CHARS = 25
+
+
+def is_script_drift(text: str) -> bool:
+    """Is this the model answering in the wrong script?
+
+    Two shapes, and the second was missed for a long time because the first
+    looked like the whole problem:
+
+    1. Romanised Hindi — "Aapko kaun sa package chahiye". _ROMAN_HINDI_RE
+       catches it by its function words, none of which is a real English word.
+    2. Straight English — "Good afternoon. I'm Monika calling from Park+
+       Insurance about your vehicle." There is not one romanised Hindi word in
+       that, so rule 1 never fires, and it is further from the script than any
+       drift rule 1 catches. Observed for real on a Park+/Ornith fallback turn.
+
+    Both are a problem for the same mechanical reason: Sarvam pronounces Latin
+    text with an English mouth. Callers on this line are speaking Hindi.
+
+    The length floor keeps legitimate English nouns safe. The bot says "Complete
+    KYC", "Aadhar Front Image" and "Next" constantly, and a TTS filter sees
+    CHUNKS rather than whole turns, so a short Latin-only chunk is ordinary.
+    """
+    if _ROMAN_HINDI_RE.search(text):
+        return True
+    stripped = text.strip()
+    return len(stripped) >= _ENGLISH_DRIFT_MIN_CHARS and not _DEVANAGARI_RE.search(stripped)
+
 # --- speaker labels ----------------------------------------------------------
 # Few-shot examples in the prompt are written as a transcript, and gpt-oss-20b
 # copied the transcript's own label into what it said: the caller heard
@@ -375,8 +406,7 @@ class PriceGuard:
         # Script drift is recorded, never rewritten: transliterating mid-call
         # would mangle the English words that are supposed to stay English.
         # The count is here so drift is a number we can watch, not a vibe.
-        roman = _ROMAN_HINDI_RE.findall(text)
-        if roman:
+        if is_script_drift(text):
             self.romanised.append(text)
 
         return cleaned
@@ -714,10 +744,25 @@ def _demo():
     drift = "Aapko kaun sa package chahiye — Basic ya Premium?"
     assert g7.check(drift) == drift
     assert g7.romanised == [drift], g7.romanised
+    # English NOUNS inside a Hindi sentence are the house style, not drift.
     g8 = guard_mid_call()
     g8.check("आपको कौन सा package चाहिए — Basic, Premium, या Exterior Only?")
-    g8.check("Your full car spa booking slot and address, please.")
     assert g8.romanised == [], g8.romanised
+    # A whole sentence in English is a different thing, and it used to be
+    # asserted clean here alongside the line above — which read as "English is
+    # fine" when what was meant was "English nouns are fine". It carries no
+    # romanised Hindi, so the function-word list never fired on it, and Sarvam
+    # reads it to a Hindi caller in an English mouth. Counted, never rewritten.
+    g8b = guard_mid_call()
+    english = "Your full car spa booking slot and address, please."
+    assert g8b.check(english) == english
+    assert g8b.romanised == [english], g8b.romanised
+    # ...but a short Latin chunk is the bot's ordinary vocabulary. The TTS
+    # filter sees chunks, not whole turns.
+    g8c = guard_mid_call()
+    for chunk in ("Full Car Spa Premium", "Basic", "Exterior Only"):
+        g8c.check(chunk)
+    assert g8c.romanised == [], g8c.romanised
 
     # A leaked few-shot speaker label is removed, real speech is not.
     g9 = guard_mid_call()

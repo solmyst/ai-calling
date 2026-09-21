@@ -162,7 +162,8 @@ _NEGATED_DONE = re.compile(
 
 _UI_ACTION = (
     r"दबा\s*(?:दीजिए|दो|दें|इए)|tap|click|press|button|बटन|option|विकल्प|"
-    r"select|चुन|खोल\s*(?:िए|ो)|open|जाइए|जाके|जाकर"
+    r"select|चुन|खोल\s*(?:िए|ो)|open|जाइए|जाके|जाकर|"
+    r"Complete\s*KYC"
 )
 
 # Asking someone to complete their KYC is the entire purpose of this call, and
@@ -343,6 +344,21 @@ _SAFE_DO_NOT_SAY = (
     "उसकी detail मैं यहाँ से नहीं बता सकती सर — team आपको confirm कर देगी"
 )
 
+# --- stating an amount of money ----------------------------------------------
+# Borrowed wholesale from the car spa's price guard, because the failure is the
+# same one with a bigger number on it: a figure the bot cannot verify, said out
+# loud, that the customer then plans around.
+#
+# The difference is that the car spa HAS a price list and this bot has none. The
+# premium, the amount paid and any refund were deliberately kept off the call
+# card — "a bot that quotes money it cannot verify is how a call becomes a
+# refund dispute" — so there is no rupee figure this bot is ever right about.
+# Every one of them is invented. Nothing legitimate is lost by refusing them
+# all: "दो मिनट" is a time, not an amount, and _PRICE_RE does not match it.
+_SAFE_MONEY = (
+    "उसका exact amount मैं यहाँ से confirm नहीं कर सकती सर — team बता देगी"
+)
+
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
 
 
@@ -364,6 +380,9 @@ class KycGuard:
          "rewrote an invented regulator rule or money-at-risk claim"),
         ("false_send_promise", "error", "rewrote a promise to send a link/SMS/WhatsApp"),
         ("banned_terms", "error", "rewrote a term the call card forbids"),
+        ("money_amounts", "error", "rewrote a rupee figure this bot cannot know"),
+        ("labels", "warning", "stripped a speaker label the model wrote"),
+        ("romanised", "warning", "answered in romanised Hindi instead of Devanagari"),
         ("machine_output", "error", "DROPPED non-speech output"),
         ("self_narration", "error", "DROPPED the model thinking out loud"),
     )
@@ -397,6 +416,9 @@ class KycGuard:
         self.invented_authority: list[str] = []
         self.false_send_promise: list[str] = []
         self.banned_terms: list[str] = []
+        self.money_amounts: list[str] = []
+        self.labels: list[str] = []
+        self.romanised: list[str] = []
         self.machine_output: list[str] = []
         self.self_narration: list[str] = []
 
@@ -413,11 +435,35 @@ class KycGuard:
         """Return text safe to speak, recording anything that was suppressed."""
         # Reuse the shared non-speech and thinking-out-loud rules; they are
         # model failures, not domain rules, and both were caught on live calls.
-        from guardrails import _MACHINE_OUTPUT_RE, _SELF_NARRATION_RE, _DEVANAGARI_RE
+        from guardrails import (
+            _DEVANAGARI_RE,
+            _MACHINE_OUTPUT_RE,
+            _SELF_NARRATION_RE,
+            _SPEAKER_LABEL_RE,
+            is_script_drift,
+        )
 
         if _MACHINE_OUTPUT_RE.search(text):
             self.machine_output.append(text.strip())
             return ""
+
+        # The model copies the transcript label out of its own few-shot examples
+        # and the caller hears "Monika: जी सर". Stripped, not blocked — the
+        # sentence after the label is usually fine.
+        label = _SPEAKER_LABEL_RE.match(text)
+        if label:
+            self.labels.append(label.group(0).strip())
+            text = text[label.end():]
+
+        # Script drift is RECORDED, never rewritten, for the reason the car spa
+        # guard gives: transliterating mid-call would mangle the English words
+        # that are supposed to stay English (KYC, app, policy, payment). The
+        # count makes drift a number to watch. Not hypothetical here — an Ornith
+        # fallback turn came back as "**Good afternoon, Rahul जी.** I'm Monika
+        # calling from Park+ Insurance", entirely in English, with markdown.
+        if is_script_drift(text):
+            self.romanised.append(text.strip())
+
         out = []
         for sentence in _SENTENCE_RE.findall(text):
             if _SELF_NARRATION_RE.search(sentence) and not _DEVANAGARI_RE.search(sentence):
@@ -482,6 +528,12 @@ class KycGuard:
         ):
             self.false_completions.append(sentence.strip())
             return _SAFE_DONE + terminator
+
+        from guardrails import _PRICE_RE
+
+        if _PRICE_RE.search(sentence):
+            self.money_amounts.append(sentence.strip())
+            return _SAFE_MONEY + terminator
 
         if _BOT_SENDS_RE.search(sentence) and not _SEND_EXEMPT.search(sentence):
             self.false_send_promise.append(sentence.strip())
@@ -549,6 +601,12 @@ def _demo():
         ("invented_authority", "आपका प्रीमियम का पैसा अटक जाएगा सर।"),
         ("invented_authority", "KYC नहीं हुई तो amount block हो जाएगा।"),
         ("invented_authority", "पेमेंट वापस नहीं मिलेगा सर।"),
+        # This bot has no price list and no premium on the call card, so every
+        # rupee figure it says is one it made up. Same rule as the car spa's,
+        # borrowed with its regex.
+        ("money_amounts", "सर, आपका premium 7,200 रुपये था।"),
+        ("money_amounts", "Aapka refund 5000 rupees ka ho jayega."),
+        ("money_amounts", "₹12500 का premium pending है।"),
         # IRDAI as a trust badge is a fabricated credential, not the mandate.
         # Round-2 LLM fuzz, 2026-09-19.
         ("invented_authority",
@@ -671,7 +729,44 @@ def _demo():
         "नॉमिनी का नाम app में डाल दीजिए।",
     ):
         assert g2.check(ok) == ok, f"blocked a legitimate line: {g2.check(ok)!r}"
-    assert not any(getattr(g2, c) for c, _, _ in KycGuard.COUNTERS), "false positive"
+    rewriting = [c for c, level, _ in KycGuard.COUNTERS if level == "error"]
+    assert not any(getattr(g2, c) for c in rewriting), "false positive"
+
+    # --- rules borrowed from the car spa guard --------------------------------
+    # Speaker labels and script drift are MODEL failures, not domain rules — the
+    # same class as machine output and thinking-out-loud, which this guard has
+    # imported from guardrails.py all along. Insurance was exposed to both.
+    g5 = KycGuard()
+    assert g5.check("Monika: जी सर, app खोल लीजिए।") == "जी सर, app खोल लीजिए।"
+    assert g5.labels == ["Monika:"]
+    g6 = KycGuard()
+    assert g6.check("M: आपकी KYC pending है।") == "आपकी KYC pending है।"
+    # ...and an ordinary colon is not a label.
+    g7 = KycGuard()
+    kept = "सर, ये दो चीज़ें चाहिए: PAN और Aadhaar।"
+    assert g7.check(kept) == kept and not g7.labels
+
+    # Drift is counted, never rewritten — the text comes back untouched.
+    g8 = KycGuard()
+    drift = "Aapko sirf PAN number dalna hai, baaki sab ho jayega."
+    assert g8.check(drift) == drift, "drift must never be rewritten"
+    assert g8.romanised == [drift]
+    g9 = KycGuard()
+    clean = "सर, PAN number app में डाल दीजिए।"
+    assert g9.check(clean) == clean and not g9.romanised, \
+        "English nouns that stay English must not read as drift"
+
+    # A whole turn in English carries no romanised Hindi at all, so the function
+    # word list never fires on it. Observed on a Park+/Ornith fallback turn.
+    g10 = KycGuard()
+    english = "Good afternoon. I'm Monika calling from Park+ Insurance about your vehicle."
+    assert g10.check(english) == english, "drift is counted, never rewritten"
+    assert g10.romanised == [english]
+    # Short Latin chunks are the bot's ordinary vocabulary, not drift. The TTS
+    # filter sees chunks, not whole turns.
+    for ok_chunk in ("Complete KYC", "Aadhar Front Image", "Next", "PAN Number"):
+        g11 = KycGuard()
+        assert g11.check(ok_chunk) == ok_chunk and not g11.romanised, ok_chunk
 
     # Only the offending sentence is replaced; the rest of the turn survives.
     g3 = KycGuard()
