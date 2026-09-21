@@ -1031,6 +1031,12 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # there is no per-minute bill and no third-party quota. Set PARKPLUS_STT_URL
     # to use it; unset, nothing changes and AssemblyAI stays.
     #
+    # Turned OFF again on 2026-09-21. It has no noise suppression, no turn model
+    # and no keyterms, and the 12:51 call shows what that costs: the other people
+    # in the room were transcribed as the caller, in romanised Hindi, with no way
+    # to tune it. AssemblyAI's U3 Pro below has voice_focus and its own turn
+    # detection, which is what those calls actually needed.
+    #
     # Its transcripts are ROMANISED Hindi ("Haan ji meri creta hai"), not
     # Devanagari. That is fine for the LLM and for the car gate, which matches
     # "creta" case-insensitively — but it is why NoiseGate cannot lean on
@@ -1040,11 +1046,58 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     if parkplus_stt_url:
         stt = ParkPlusSTTService(url=parkplus_stt_url)
     elif assemblyai_key:
+        # Turn detection is AssemblyAI's, not Pipecat's. That is the whole point
+        # of this block, so read before changing it.
+        #
+        # vad_force_turn_endpoint defaults to True, which means "return finals as
+        # fast as possible and let Pipecat's smart-turn analyzer decide". In that
+        # mode the service PINS min_turn_silence to 100ms and sets max_turn_silence
+        # equal to it, so every 100ms gap ends a turn. On the 12:30 and 12:51 calls
+        # that turned one room into a crowd: background conversation arrived as
+        # its own CALLER lines ("हम जिसका बेटा है हमेशा", "आर्ट करें"), and a
+        # caller mid-sentence was chopped into five turns in twenty seconds.
+        #
+        # It also caused the "it never answered my question" complaint. Each new
+        # fragment starts a new turn, which interrupts the in-flight LLM response
+        # and throws it away — so the question that was actually being answered
+        # is lost, and the caller repeats themselves ("और बताओ" three times at
+        # 12:44). Nothing was broken in the LLM; the turn was being cut out from
+        # under it. Letting AssemblyAI merge a whole utterance into ONE turn is
+        # what fixes that, not a longer timeout somewhere else.
+        #
+        # vad_force_turn_endpoint=False hands turn ends to AssemblyAI's own model
+        # and needs a U3 Pro model, which is why the model is pinned below.
+        # should_interrupt stays True so the caller can still barge in.
         stt = AssemblyAISTTService(
             api_key=assemblyai_key,
+            vad_force_turn_endpoint=False,
+            should_interrupt=True,
             settings=AssemblyAISTTService.Settings(
+                # U3 Pro. Required by vad_force_turn_endpoint=False, and the only
+                # family that accepts voice_focus, vad_threshold and mode.
+                model=os.getenv("ASSEMBLYAI_MODEL") or "universal-3-5-pro",
                 language=stt_language,
                 keyterms_prompt=_stt_keyterms(),
+                # "Isolate the primary voice and suppress background noise."
+                # far-field is the laptop-mic-in-a-room case, which is exactly
+                # where the other people in the room got transcribed.
+                voice_focus=os.getenv("ASSEMBLYAI_VOICE_FOCUS") or "far-field",
+                voice_focus_threshold=float(
+                    os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 0.7
+                ),
+                # AssemblyAI's own VAD gate. Its default is 0.3 against Silero's
+                # 0.7 here, and the SDK documents exactly what that gap does:
+                # "align this value with your VAD's activation threshold to avoid
+                # the dead zone where AssemblyAI transcribes speech that your VAD
+                # hasn't detected yet." That dead zone is where the noise turns
+                # were coming from.
+                vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.7),
+                # Silence before a turn is allowed to end, and the hard ceiling.
+                # No longer pinned to 100ms, so a caller who pauses mid-sentence
+                # keeps their turn.
+                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 400),
+                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1600),
+                mode=os.getenv("ASSEMBLYAI_MODE") or "balanced",
             ),
         )
     elif groq_stt_key:
