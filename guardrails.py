@@ -255,7 +255,8 @@ def is_script_drift(text: str) -> bool:
 # here is what guarantees it. Only an exact known label at the very start of the
 # chunk is removed, so ordinary speech containing a colon is untouched.
 _SPEAKER_LABEL_RE = re.compile(
-    r"^\s*(?:M|C|A|U|Monika|Assistant|Agent|Bot|You|Caller|Customer|मोनिका|ग्राहक)\s*:\s*",
+    r"^\s*(?:M|C|A|U|Monika|Shreya|Assistant|Agent|Bot|You|Caller|Customer|"
+    r"मोनिका|श्रेया|ग्राहक)\s*:\s*",
     re.IGNORECASE,
 )
 

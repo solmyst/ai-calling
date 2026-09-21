@@ -370,7 +370,14 @@ _ENGLISH_CLOSE_RE = re.compile(
     r"take\s+care|see\s+you|talk\s+to\s+you\s+later)",
     re.IGNORECASE,
 )
-_SAFE_CLOSE = "धन्यवाद सर, Park+"
+_SAFE_CLOSE = "धन्यवाद, thank you for choosing Park+"
+# The sanctioned close itself contains "thank you" and only a 7-character
+# Devanagari run ("धन्यवाद"), one short of _ENGLISH_CLOSE_RE's own 8-char
+# exemption — caught live 2026-09-22 before it ever shipped: without this, the
+# guard would rewrite its own sanctioned line back to itself on every close.
+_SANCTIONED_CLOSE_RE = re.compile(
+    r"धन्यवाद[,،]?\s*thank\s*you\s*for\s*choosing", re.IGNORECASE
+)
 
 # --- waiting-line dump when the customer asked a real question ----------------
 # 15:45 / 17:23: Ornith answered "details बता दो" and "दो मिनट लगेंगे?" with the
@@ -384,7 +391,7 @@ _WAITING_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 _SAFE_BY_TOPIC = {
-    "time": "बस दो मिनट का काम है सर।",
+    "time": "सर, दो मिनट ही लगेंगे, अभी करवा देती हूँ।",
     "details": (
         "खाली वाले भरें — owner's name, email, address, nominee। पहले से भरे "
         "सिर्फ check। KYC पे PAN + Aadhaar app में — number मुझे मत बताइए।"
@@ -401,7 +408,7 @@ _SAFE_BY_TOPIC = {
         "मैं call पे details नहीं भर सकती सर — app में आपको ही डालना है।"
     ),
     "busy": (
-        "कोई बात नहीं सर, बस दो मिनट का काम है — अभी कर लेते हैं? नहीं तो कब "
+        "कोई बात नहीं सर, दो मिनट ही लगेंगे — अभी करवा देते हैं? नहीं तो कब "
         "call करूँ?"
     ),
 }
@@ -445,7 +452,7 @@ _CALLER_TOPIC_PATTERNS = (
     )),
 )
 
-_SAFE_TIME_ONLY = "बस दो मिनट का काम है सर।"
+_SAFE_TIME_ONLY = "सर, दो मिनट ही लगेंगे, अभी करवा देती हूँ।"
 
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
 
@@ -551,7 +558,7 @@ class KycGuard:
             return ""
 
         # The model copies the transcript label out of its own few-shot examples
-        # and the caller hears "Monika: जी सर". Stripped, not blocked — the
+        # and the caller hears "Shreya: जी सर". Stripped, not blocked — the
         # sentence after the label is usually fine.
         label = _SPEAKER_LABEL_RE.match(text)
         if label:
@@ -562,7 +569,7 @@ class KycGuard:
         # guard gives: transliterating mid-call would mangle the English words
         # that are supposed to stay English (KYC, app, policy, payment). The
         # count makes drift a number to watch. Not hypothetical here — an Ornith
-        # fallback turn came back as "**Good afternoon, Rahul जी.** I'm Monika
+        # fallback turn came back as "**Good afternoon, Rahul जी.** I'm Shreya
         # calling from Park+ Insurance", entirely in English, with markdown.
         if is_script_drift(text):
             self.romanised.append(text.strip())
@@ -584,8 +591,10 @@ class KycGuard:
 
         # English goodbye — before authority checks so "Thank you" does not
         # fall through as a harmless romanised warning.
-        if _ENGLISH_CLOSE_RE.search(sentence) and not re.search(
-            r"[\u0900-\u097F]{8,}", sentence
+        if (
+            _ENGLISH_CLOSE_RE.search(sentence)
+            and not re.search(r"[\u0900-\u097F]{8,}", sentence)
+            and not _SANCTIONED_CLOSE_RE.search(sentence)
         ):
             self.english_close.append(sentence.strip())
             return _SAFE_CLOSE + terminator
@@ -906,7 +915,7 @@ def _demo():
         "Hum log bas aapka KYC complete karwa rahe hain sir.",
         "Aapka payment update ho gaya hai, bas last step KYC baaki hai.",
         "अभी name और email pending है आपका।",
-        "Park+ Insurance से Monika बोल रही हूँ।",
+        "Park+ Insurance से Shreya बोल रही हूँ।",
         "Payment हो चुका है, बस KYC बाक़ी है।",
         # The sanctioned answers to "अगर न करूँ तो?" and "कब तक?", rendered
         # into the prompt straight from context.json's kyc_mandate. Payment
@@ -926,8 +935,8 @@ def _demo():
     # same class as machine output and thinking-out-loud, which this guard has
     # imported from guardrails.py all along. Insurance was exposed to both.
     g5 = KycGuard()
-    assert g5.check("Monika: जी सर, app खोल लीजिए।") == "जी सर, app खोल लीजिए।"
-    assert g5.labels == ["Monika:"]
+    assert g5.check("Shreya: जी सर, app खोल लीजिए।") == "जी सर, app खोल लीजिए।"
+    assert g5.labels == ["Shreya:"]
     g6 = KycGuard()
     assert g6.check("M: आपकी KYC pending है।") == "आपकी KYC pending है।"
     # ...and an ordinary colon is not a label.
@@ -948,7 +957,7 @@ def _demo():
     # A whole turn in English carries no romanised Hindi at all, so the function
     # word list never fires on it. Observed on a Park+/Ornith fallback turn.
     g10 = KycGuard()
-    english = "Good afternoon. I'm Monika calling from Park+ Insurance about your vehicle."
+    english = "Good afternoon. I'm Shreya calling from Park+ Insurance about your vehicle."
     assert g10.check(english) == english, "drift is counted, never rewritten"
     assert g10.romanised == [english]
     # Short Latin chunks are the bot's ordinary vocabulary, not drift. The TTS

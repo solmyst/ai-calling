@@ -50,6 +50,7 @@ from domain import (
     CONTEXT_FILE,
     build_call_card,
     build_guard,
+    build_opening_line,
     build_system_prompt,
 )
 from guardrails import PriceGuard, is_machine_output
@@ -66,6 +67,7 @@ from pipecat.frames.frames import (
     EndWorkerFrame,
     LLMRunFrame,
     TranscriptionFrame,
+    TTSSpeakFrame,
     TTSTextFrame,
 )
 from pipecat.observers.base_observer import BaseObserver, FramePushed
@@ -1256,6 +1258,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # the dialer has not been updated yet, the bot falls back to exactly the
     # generic call it ran before any of this existed.
     card = build_call_card(getattr(runner_args, "body", None))
+    # Dev convenience, 2026-09-22: the browser test UI sends a fixed body with
+    # no room for a call card, so there was no way to test against a REAL
+    # case locally short of hand-crafting a runner body. TEST_CALL_CARD is a
+    # raw JSON object, tried only when the request itself carried no card —
+    # a real dialer body always wins. Unset in .env.example on purpose; this
+    # is for a specific local test, not something to leave on.
+    if not card and os.getenv("TEST_CALL_CARD"):
+        try:
+            card = build_call_card(json.loads(os.environ["TEST_CALL_CARD"]))
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"TEST_CALL_CARD is not valid JSON, ignoring: {e}")
     if card:
         # Names and registration numbers are customer data; call.log gets the
         # shape of the card, not its contents.
@@ -1513,12 +1526,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # 0.15 keeps a little human variation without volume swings.
                 # Pair with larger chunks below so fewer draws per turn.
                 temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.15),
-                # Match liveagents buffering (80 / 500 intent). Bigger chunks =
-                # fewer temperature rolls = one consistent voice per reply.
-                # Cap at 300 not 500 so first audio still starts before a long
-                # LLM sentence finishes.
+                # Match liveagents buffering (80 / 500). Was capped at 300 here
+                # for a faster first chunk, but live feedback 2026-09-22: the
+                # voice still audibly shifts mid-reply — the 300 cap was still
+                # 2 draws on a normal-length reply, just less often than 150
+                # would be. liveagents (same temperature, same model) does not
+                # show this complaint at 500, and 500 is the one concrete
+                # numeric difference between the two configs. Matched it;
+                # consistency over the marginal first-chunk latency this cost.
                 min_buffer_size=int(os.getenv("SARVAM_MIN_BUFFER") or 80),
-                max_chunk_length=int(os.getenv("SARVAM_MAX_CHUNK") or 300),
+                max_chunk_length=int(os.getenv("SARVAM_MAX_CHUNK") or 500),
                 language=Language.HI,
             ),
         )
@@ -1778,6 +1795,21 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             return
         greeted = True
         _arm_max_duration()
+        # SPEED, 2026-09-22: the opening is a fixed script — "SAY THIS LINE
+        # near enough word for word" — but going through an LLM turn to
+        # produce it meant the caller heard nothing until a full Gemini round
+        # trip finished, the same 2-3s+ every other turn pays, before the
+        # FIRST word of the call. Product feedback: the line's wording was
+        # right, the delay before it started was the actual complaint.
+        # build_opening_line() returns the literal text for domains/modes
+        # that have one (fixed line only, no dead air needed) — speak it
+        # straight to TTS. append_to_context=True still puts it in the LLM's
+        # context as an assistant turn, so "you already said this, don't
+        # repeat it" holds exactly as before.
+        line = build_opening_line(call_mode, card)
+        if line:
+            await worker.queue_frames([TTSSpeakFrame(line)])
+            return
         context.add_message(
             {
                 "role": "developer",

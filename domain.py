@@ -119,3 +119,21 @@ def build_system_prompt(mode: str = "outbound", card=None) -> str:
         return module.build_system_prompt(mode, card)
     except TypeError:
         return module.build_system_prompt(mode)
+
+
+def build_opening_line(mode: str = "outbound", card=None) -> str | None:
+    """The literal greeting text, if the domain's prompt has a fixed one.
+
+    None means there is no fixed script for this mode (or the domain's
+    prompt.py predates this, or has no such notion at all) — the caller
+    should fall back to the slower LLM-driven greeting. Never raises: a
+    domain without opening_line() just means "no fast path", not a startup
+    failure the way a missing prompt.py is.
+    """
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.prompt")
+    except ModuleNotFoundError:
+        return None
+    if not hasattr(module, "opening_line"):
+        return None
+    return module.opening_line(mode, card)
