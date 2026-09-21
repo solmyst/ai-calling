@@ -60,13 +60,18 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
+    EndWorkerFrame,
     LLMRunFrame,
     TranscriptionFrame,
     TTSTextFrame,
 )
 from pipecat.observers.base_observer import BaseObserver, FramePushed
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.worker import PipelineParams, PipelineWorker
+from pipecat.pipeline.worker import (
+    PipelineParams,
+    PipelineWorker,
+    ProcessorUnusablePolicy,
+)
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import (
@@ -90,6 +95,7 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.services.whisper.stt import WhisperSTTService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
+from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 from pipecat.utils.text.markdown_text_filter import MarkdownTextFilter
 from pipecat.workers.runner import WorkerRunner
@@ -151,6 +157,10 @@ def _setup_logging() -> None:
 _NOISE_TRANSCRIPTS = frozenset({
     "thank", "thank you", "thanks", "thanks for watching", "thank you very much",
     "cool", "so yeah", "you", "uh", "um", "hmm", "mm", "mhm", "ah",
+    # 15:53 browser call — laptop mic + room bleed hallucinated as English
+    # turns ("Marine Toy.") and earned full KYC replies. Exact-match only.
+    "marine toy", "marine", "toy", "subtitle", "subtitles", "music",
+    "applause", "laughing", "laughter",
 })
 
 # Devanagari backchannels: the noise a caller makes while still thinking. In the
@@ -202,12 +212,38 @@ class NoiseGate(FrameProcessor):
             return True
         bare = re.sub(r"[।.,!?…\"'`\-–—]+", "", stripped).strip().lower()
         bare = re.sub(r"\s+", " ", bare)
+        words = bare.split()
         # Anything in Devanagari is the caller — EXCEPT a bare backchannel, which
         # is a noise, not a turn. Everything else in Hindi is left alone whatever
         # it says, which is what keeps one-word answers ("हाँ") working.
         if re.search(r"[\u0900-\u097F]", stripped):
-            return bare in _HINDI_BACKCHANNELS
-        return bare in _NOISE_TRANSCRIPTS or bare in _ROMAN_BACKCHANNELS
+            if bare in _HINDI_BACKCHANNELS:
+                return True
+            # Short vague room scraps ("देखने के लिए", "और भी") with no KYC
+            # force. Real answers usually contain हाँ/नहीं/ठीक/कर/बता/… or are
+            # longer turns.
+            if len(words) <= 3 and not re.search(
+                r"हाँ|हां|नहीं|नही|ठीक|हो\s*गया|कर|खोल|बता|हेलो|हैलो|बाय|"
+                r"ऐप|फॉर्म|केवाईसी|आधार|पैन|पॉलिसी|टाइम|कॉल|पेज|बटन|"
+                r"nominee|kyc|app|form|pan|aadhaar|aadhar|policy",
+                bare,
+                re.IGNORECASE,
+            ):
+                return True
+            return False
+        if bare in _NOISE_TRANSCRIPTS or bare in _ROMAN_BACKCHANNELS:
+            return True
+        # Latin / English office bleed with no romanised-Hindi / call markers
+        # ("Marine Toy", "It would be there", placement chatter). Keep "yeah",
+        # "nahi dikh raha", "ok" etc.
+        if not re.search(
+            r"\b(haan|hahn|nahi|nahin|theek|thik|gaya|ji|dikh|raha|batao|"
+            r"bolo|app|kyc|ok|okay|yes|yeah|yep|hello|hi|bye|wait|later|"
+            r"call|time|form|nominee|aadhaar|aadhar|pan)\b",
+            bare,
+        ):
+            return True
+        return False
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -301,14 +337,43 @@ def _estimate_tokens(text: str) -> int:
 def _reasoning_effort(model: str) -> str:
     """The lowest reasoning setting each model family will actually accept.
 
-    Both families reason before answering and both need that turned down for a
-    phone call, but they disagree on the word for it: Groq's gpt-oss rejects
-    "none" outright — `400: reasoning_effort must be one of low, medium, or
-    high` — and its minimum is "low". Hard-coding qwen's "none" meant that
-    switching GROQ_MODEL to gpt-oss made every single turn fail with a 400, so
-    the value has to follow the model rather than sit next to it.
+    Three families now, and none of them agree:
+      - Groq's gpt-oss rejects "none" outright — `400: reasoning_effort must be
+        one of low, medium, or high` — minimum is "low".
+      - qwen accepts "none" and means it.
+      - Gemini 3 (gemini-3.5-flash, gemini-3.6-flash — both bare and Bifrost's
+        "gemini/"-namespaced form) does NOT accept "none" as a real off switch.
+        Google's own docs: "Reasoning cannot be turned off for Gemini 2.5 Pro or
+        3 models." We were sending "none" anyway, and it was not a no-op — it
+        was invisibly the WRONG value being silently reinterpreted, most likely
+        as the model's default thinking level ("medium" for 3.x flash). Caught
+        in our own logs before this was diagnosed: guardrails.py's
+        _SELF_NARRATION_RE was written specifically because gemini-3.6-flash
+        leaked its hidden reasoning as spoken English — "I need to investigate
+        this further. Let me check the details." — WITH reasoning_effort
+        already set to "none" (guardrails.py:165). That is direct evidence the
+        model was still doing real reasoning work despite the setting, which is
+        also the leading suspect for why Gemini's measured full-turn latency
+        (2.46s) sits so far above Park+'s (0.95s), where thinking is actually
+        off via the vLLM chat_template_kwargs switch.
+
+        "low" is the lowest value Google's OpenAI-compatibility docs confirm as
+        both valid and fastest for Gemini 3 flash. It is not zero — reasoning
+        cannot be zero on this model family — but it is real self-consistent
+        input rather than a value the API has to guess how to handle.
+
+      Unverified: whether "low" measurably closes the gap to Park+, and whether
+      Bifrost's proxy even forwards this correctly (it may not be a straight
+      passthrough to Gemini's own API). BIFROST_VK was capped at the time this
+      was written, so this could not be timed live — re-run the same benchmark
+      as the 2026-09-18 note above once credit is back: TTFT and full-turn time
+      on an identical prompt, "low" vs the old "none".
     """
-    return "low" if model.startswith("openai/gpt-oss") else "none"
+    if model.startswith("openai/gpt-oss"):
+        return "low"
+    if "gemini" in model.lower():
+        return "low"
+    return "none"
 
 
 def _stt_keyterms() -> list[str]:
@@ -956,6 +1021,32 @@ def _make_escalate_tool():
 
     return escalate_to_human
 
+
+async def end_call(params: FunctionCallParams):
+    """End the call once the goodbye is said.
+
+    Call this after thanking the customer and saying goodbye — when they refuse
+    KYC, when the ask is done, or when they clearly want to hang up. Speak the
+    goodbye first; this tool hangs up after queued audio finishes.
+    """
+    logger.info("end_call tool — hanging up after queued audio")
+    await params.result_callback({"success": True})
+    await params.llm.push_frame(EndWorkerFrame(reason="end_call_tool"))
+
+
+def _call_limit_secs(env_name: str, default: float) -> float | None:
+    """Parse a call-safety timeout from env. Blank = default; 0 or less = off."""
+    raw = os.getenv(env_name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(f"{env_name}={raw!r} is not a number — using {default}")
+        return default
+    return value if value > 0 else None
+
+
 # There used to be a block of "VOICE OUTPUT RULES" appended here for every voice.
 # Measured against Groq's own token count it cost ~150 tokens on EVERY turn, and
 # all of it except the Roman-script rule below was either already in the system
@@ -1112,32 +1203,24 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Sending nothing keeps AssemblyAI's own voice-agent prompt,
                 # which a custom one would replace.
                 prompt=_stt_prompt(),
-                # "Isolate the primary voice and suppress background noise."
-                # far-field is the laptop-mic-in-a-room case, which is exactly
-                # where the other people in the room got transcribed.
-                voice_focus=os.getenv("ASSEMBLYAI_VOICE_FOCUS") or "far-field",
+                # Voice Focus — https://www.assemblyai.com/docs/streaming/voice-focus
+                # near-field = primary speaker is AT the mic (laptop / browser /
+                # handset). far-field deliberately pulls in distant speech, which
+                # is exactly the "person too far still gets transcribed" bug on
+                # the 17:10 call ("प्लेसमेंट…", room chatter). Use far-field only
+                # for a conference / drive-thru mic where the caller IS distant.
+                voice_focus=os.getenv("ASSEMBLYAI_VOICE_FOCUS") or "near-field",
                 voice_focus_threshold=float(
-                    os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 0.7
+                    os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 1.0
                 ),
-                # AssemblyAI's own VAD gate. The rule is ALIGNMENT with the
-                # local VAD, not a particular number: "align this value with your
-                # VAD's activation threshold to avoid the dead zone where
-                # AssemblyAI transcribes speech that your VAD hasn't detected
-                # yet." That dead zone, between AssemblyAI's default 0.3 and
-                # Silero's 0.7 here, is where the noise turns came from.
-                #
-                # AssemblyAI's voice-agent guide recommends aligning BOTH at 0.3,
-                # for latency. We align both at 0.7 instead, because the problem
-                # on these calls is not latency — it is a laptop mic in a room
-                # with other people talking, and 0.3 is what let them in. If a
-                # soft caller starts getting missed, lower this and
-                # VAD_CONFIDENCE together; moving one alone re-opens the gap.
-                vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.7),
-                # Silence before a turn is allowed to end, and the hard ceiling.
-                # No longer pinned to 100ms, so a caller who pauses mid-sentence
-                # keeps their turn.
-                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 200),
-                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 2000),
+                # Docs: raise vad_threshold when background noise causes false
+                # speech. Keep ALIGNED with Silero VAD_CONFIDENCE.
+                vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.92),
+                # Delay first partial so speaker bleed / brief room bursts do
+                # not barge in mid-TTS. Server adds ~256ms on top (Pipecat).
+                interruption_delay=int(os.getenv("ASSEMBLYAI_INTERRUPTION_DELAY") or 600),
+                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 500),
+                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1800),
                 mode=os.getenv("ASSEMBLYAI_MODE") or "balanced",
             ),
         )
@@ -1185,34 +1268,30 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # 402 paid_plan_required, "Free users cannot use library voices via
                 # the API". So no value here brings that voice back.
                 #
-                # Stays priya unless SARVAM_VOICE says otherwise. This was briefly
-                # changed to shreya while chasing a "sounds too slow" report; the
-                # slowness was pace=1.0, not the speaker, and swapping the voice
-                # was not asked for. Pick a different one by setting SARVAM_VOICE,
-                # not by editing this line.
-                voice=os.getenv("SARVAM_VOICE") or "priya",
+                # Liveagents harness (Documents/using liveagents) defaults to
+                # shreya @ pace 1.05. Same speaker across both harnesses so A/B
+                # is about the pipeline, not the voice. Override with SARVAM_VOICE.
+                voice=os.getenv("SARVAM_VOICE") or "shreya",
                 model=os.getenv("SARVAM_MODEL") or "bulbul:v3",
-                # Sarvam's default pace is 1.0 and that is the "too slow" — it is
-                # read-aloud speed, not phone speed. 1.15 is about how fast a
-                # Gurugram booking line actually talks; 0.5-2.0 is the valid range
-                # and past ~1.3 the Hindi consonants start smearing.
-                pace=float(os.getenv("SARVAM_PACE") or 1.15),
-                # Sarvam's default is 0.6, and 0.6 is why the caller on the 12:31
-                # call asked "गुस्सा क्यों हो रहे हो? चिल्ला क्या रहे हो आप?" and
-                # said twice that "आवाज़ थोड़ी सी ऊपर नीचे हो जाती है".
+                # Liveagents uses 1.05; we were at 1.15 which can read as rushed
+                # / sharp on a KYC money call. 1.08 sits between phone-speed and
+                # calm. Past ~1.3 Hindi consonants smear.
+                pace=float(os.getenv("SARVAM_PACE") or 1.08),
+                # Prosody lever for bulbul:v3 (pitch/loudness are v2-only — Sarvam
+                # docs + Pipecat both confirm). Temperature is drawn PER CHUNK,
+                # and defaults buffer 50 / cap 150, so one reply is 2–3 independent
+                # draws — that is the "different voice every sentence" and the
+                # 12:31 "चिल्ला क्या रहे हो" call at 0.6.
                 #
-                # "Lower values = more deterministic, higher = more random." The
-                # randomness is drawn PER SYNTHESIS, and a turn is not one
-                # synthesis: the service buffers 50 characters and caps a chunk at
-                # 150, so an ordinary 200-character reply is two or three separate
-                # draws. At 0.6 each one lands on its own intonation and volume,
-                # which inside a single sentence reads as shouting.
-                #
-                # 0.3, not 0.01: this is a person on the phone, and fully
-                # deterministic is flat. bulbul:v3 exposes no pitch and no
-                # loudness control at all, so this is the only prosody lever
-                # there is — pace is speed, not tone.
-                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.3),
+                # 0.15 keeps a little human variation without volume swings.
+                # Pair with larger chunks below so fewer draws per turn.
+                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.15),
+                # Match liveagents buffering (80 / 500 intent). Bigger chunks =
+                # fewer temperature rolls = one consistent voice per reply.
+                # Cap at 300 not 500 so first audio still starts before a long
+                # LLM sentence finishes.
+                min_buffer_size=int(os.getenv("SARVAM_MIN_BUFFER") or 80),
+                max_chunk_length=int(os.getenv("SARVAM_MAX_CHUNK") or 300),
                 language=Language.HI,
             ),
         )
@@ -1276,22 +1355,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             settings=GroqLLMService.Settings(
                 model=groq_model,
                 system_instruction=system_instruction,
-                # A phone turn is one or two sentences; the prompt says so and the
-                # model ignores it — gpt-oss-20b returned 578 completion tokens to
-                # "what are your plans?". This is the ceiling the prompt cannot
-                # enforce. 200 rather than 140 because reasoning tokens are spent
-                # out of the same budget: at 140 a gpt-oss turn came back
-                # finish_reason=length with 140 tokens used and NOTHING said.
-                # Real turns measure 23-73 tokens, so this only clips a runaway.
-                max_completion_tokens=int(os.getenv("MAX_REPLY_TOKENS") or 200),
-                # This is a compliance-scripted call, not creative writing. At
-                # the provider default (1.0) the model followed a written rule
-                # most of the time and sampled a hedge the rest: the suite's
-                # remaining failures on 2026-09-19 were all one scenario passing
-                # and then failing on the same turn with no change in between —
-                # "already filled" becoming "already filled, या RC से देख के डाल
-                # दीजिए". Wobble on a rule is a defect, not variety.
-                temperature=float(os.getenv("LLM_TEMPERATURE") or 0.3),
+                # Ornith quality: give room for a full Hindi script (~80–120
+                # tokens). 140 was clipping mid-answer on Park+; thinking is
+                # already off via chat_template_kwargs so this is speech budget.
+                max_completion_tokens=int(os.getenv("MAX_REPLY_TOKENS") or 280),
+                # Low temp + top_p keeps Ornith on the scripted lines. At 0.3 it
+                # paraphrased the waiting line over the details script.
+                temperature=float(os.getenv("LLM_TEMPERATURE") or 0.1),
+                top_p=float(os.getenv("LLM_TOP_P") or 0.85),
+                # Cuts the "same form खुल गया line twice" loop on Park+.
+                frequency_penalty=float(os.getenv("LLM_FREQUENCY_PENALTY") or 0.4),
                 # qwen3.8 reasons before answering. On a hard/garbled turn it spent
                 # the whole budget reasoning and returned an empty reply
                 # (completion_tokens: 1), so the bot just went silent on the call.
@@ -1304,6 +1377,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         # how the opening greeting is kicked off. This makes Pipecat send it as a
         # user message instead.
         llm.supports_developer_role = False
+        # Park+ Ornith is slower than Groq-flash but quality needs the headroom;
+        # 10s was cutting long Hindi turns mid-sentence on a cold start.
+        if PARKPLUS_BASE_URL:
+            llm._client.timeout = float(os.getenv("LLM_REQUEST_TIMEOUT") or 25)
     else:
         llm = OLLamaLLMService(
             settings=OLLamaLLMService.Settings(
@@ -1320,21 +1397,15 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # Every value here is a room-and-microphone number, not a universal one, so
     # all four are env-tunable: a laptop mic in an open office and a phone handset
     # need different thresholds and no amount of code can know which is in use.
-    # These are the values callers were demonstrably HEARD on. They were briefly
-    # raised to 0.85/0.6 on 2026-09-18 to chase a room-noise complaint and put
-    # back the same day: two hardware numbers changed at once on no measurement,
-    # and a min_volume of 0.6 clips quiet speech, which costs whole turns. The
-    # targeted fix for that complaint is NoiseGate, not a blunter VAD.
-    #
-    # Tune ONE at a time, on a real call, reading the NOISE lines in call.log:
-    # raise VAD_MIN_VOLUME if the room gets in, lower it if a soft speaker is
-    # missed. They trade directly against each other.
+    # Aligned with ASSEMBLYAI_VAD_THRESHOLD (both 0.92). min_volume 0.55 rejects
+    # quiet distant room talk; if a soft caller at the mic is missed, lower
+    # VAD_MIN_VOLUME / VAD_CONFIDENCE / ASSEMBLYAI_VAD_THRESHOLD together.
     vad = SileroVADAnalyzer(
         params=VADParams(
-            confidence=float(os.getenv("VAD_CONFIDENCE") or 0.7),
-            start_secs=float(os.getenv("VAD_START_SECS") or 0.2),
+            confidence=float(os.getenv("VAD_CONFIDENCE") or 0.92),
+            start_secs=float(os.getenv("VAD_START_SECS") or 0.35),
             stop_secs=float(os.getenv("VAD_STOP_SECS") or 0.8),
-            min_volume=float(os.getenv("VAD_MIN_VOLUME") or 0.4),
+            min_volume=float(os.getenv("VAD_MIN_VOLUME") or 0.55),
         )
     )
 
@@ -1343,17 +1414,23 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # carrying tools, so sending none is what lets that endpoint answer at all.
     #
     # The cost is not cosmetic and is worth re-reading before leaving it off:
-    # record_booking_request is the ONLY way a lead is captured, and
-    # escalate_to_human the only way a caller reaches a person. With tools off the
-    # bot holds a good conversation and produces nothing. Turn it back on the day
-    # the server restarts with a tool-call parser.
+    # record_booking_request is the ONLY way a lead is captured,
+    # escalate_to_human the only way a caller reaches a person, and end_call the
+    # only polite hangup. With tools off the bot holds a good conversation and
+    # produces nothing — hangup then relies on CALL_MAX_SECS / CALL_IDLE_SECS.
+    # Bifrost/Gemini supports tools; turn them back on there.
     tools_on = (os.getenv("LLM_TOOLS") or "on").lower() not in ("off", "0", "false")
     context = LLMContext(
-        tools=[record_booking_request, _make_escalate_tool()] if tools_on else []
+        tools=(
+            [record_booking_request, _make_escalate_tool(), end_call]
+            if tools_on
+            else []
+        )
     )
     if not tools_on:
         logger.warning(
-            "LLM_TOOLS=off — no booking capture, no human handover this call")
+            "LLM_TOOLS=off — no booking, no handover, no end_call tool this call"
+        )
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(vad_analyzer=vad),
@@ -1373,13 +1450,39 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         ]
     )
 
+    # Call-safety timeouts. 0 disables. Idle default matches Pipecat (300s) so
+    # the eval suite is not killed mid-run; set CALL_IDLE_SECS=90 for PSTN so a
+    # mute line or off-hook handset stops billing sooner. Max-duration always
+    # restarts on each new greeting.
+    call_max_secs = _call_limit_secs("CALL_MAX_SECS", 360.0)
+    call_idle_secs = _call_limit_secs("CALL_IDLE_SECS", 300.0)
+
+    # Exotel/Plivo media is 8 kHz PCM. Leaving the pipeline at 16k/24k forces
+    # resampling on every frame and was a quality risk on the first Exotel leg.
+    phone = getattr(runner_args, "transport_type", None) in (
+        "exotel",
+        "plivo",
+        "twilio",
+        "telnyx",
+    )
     worker = PipelineWorker(
         pipeline,
         params=PipelineParams(
             enable_metrics=True,
             enable_usage_metrics=True,
+            **(
+                {"audio_in_sample_rate": 8000, "audio_out_sample_rate": 8000}
+                if phone
+                else {}
+            ),
         ),
         observers=[CallLogObserver(guard)],
+        # CONTINUE left the line open and mute the day Bifrost hit its cap.
+        processor_unusable_policy=ProcessorUnusablePolicy.END,
+        idle_timeout_secs=call_idle_secs,
+        # Prefer EndWorkerFrame (graceful) from the idle handler over the default
+        # CancelFrame, so any in-flight TTS can finish before the carrier drops.
+        cancel_on_idle_timeout=False,
     )
 
     runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
@@ -1393,16 +1496,43 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # "नमस्ते सर, Monika बोल रही ह" (cut off mid-word by the second run) followed
     # by the whole greeting again. It also appended a second copy of the developer
     # message below, so the model was told to open the call twice.
+    #
+    # Telephony (Exotel/Plivo) never sends RTVI frames at all — without also
+    # greeting from on_client_connected the bot answers and sits in silence.
     greeted = False
+    duration_task: asyncio.Task | None = None
+    ending = False
 
-    @worker.rtvi.event_handler("on_client_ready")
-    async def on_client_ready(rtvi):
+    async def _hangup(reason: str) -> None:
+        """Graceful end once. Downstream EndWorkerFrame flushes queued TTS first."""
+        nonlocal ending
+        if ending:
+            return
+        ending = True
+        logger.warning(f"Hanging up: {reason}")
+        await worker.queue_frames([EndWorkerFrame(reason=reason)])
+
+    def _arm_max_duration() -> None:
+        nonlocal duration_task
+        if call_max_secs is None:
+            return
+        if duration_task is not None:
+            duration_task.cancel()
+            duration_task = None
+
+        async def _watch() -> None:
+            await asyncio.sleep(call_max_secs)
+            await _hangup(f"CALL_MAX_SECS={call_max_secs}")
+
+        duration_task = asyncio.create_task(_watch())
+
+    async def _greet_once() -> None:
         nonlocal greeted
         if greeted:
-            logger.info("Client ready again (reconnect) — not re-greeting")
+            logger.info("Already greeted (reconnect / dual handler) — skipping")
             return
         greeted = True
-        # Kick off the conversation
+        _arm_max_duration()
         context.add_message(
             {
                 "role": "developer",
@@ -1416,27 +1546,60 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         )
         await worker.queue_frames([LLMRunFrame()])
 
+    @worker.rtvi.event_handler("on_client_ready")
+    async def on_client_ready(rtvi):
+        await _greet_once()
+
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info("Client connected")
+        await _greet_once()
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
-        nonlocal greeted
+        nonlocal greeted, duration_task, ending
         # The call is over, so the next client is a new caller who must be
         # greeted. With webrtc the process ends here anyway, but the eval
         # transport keeps ONE worker for many sessions: without this reset the
         # first eval run greets and every run after it sits in silence, which is
         # exactly how this was found.
         greeted = False
+        ending = False
+        if duration_task is not None:
+            duration_task.cancel()
+            duration_task = None
         logger.info("Client disconnected")
         await runner.cancel()
+
+    @worker.event_handler("on_idle_timeout")
+    async def on_idle_timeout(worker):
+        await _hangup(f"CALL_IDLE_SECS={call_idle_secs}")
+
+    @worker.event_handler("on_pipeline_error")
+    async def on_pipeline_error(worker, frame):
+        processor = getattr(frame, "processor", None)
+        usable = getattr(processor, "is_usable", None)
+        logger.error(
+            f"Pipeline error from {processor}: {frame} (is_usable={usable})"
+        )
+        if usable is False:
+            await _hangup(f"processor_unusable:{processor}")
 
     await runner.run()
 
 
 async def bot(runner_args: RunnerArguments):
     """Main bot entry point."""
+
+    # Telephony serializers are injected by create_transport once the provider
+    # handshake arrives. Pick Exotel or Plivo (Indian CLI / 1600-series), not
+    # Twilio — see HANDOVER.md. Run with `-t exotel` or `-t plivo`; needs a
+    # public HTTPS/WSS front (ngrok etc.) because run.py binds localhost:7860.
+    def _phone_params() -> FastAPIWebsocketParams:
+        return FastAPIWebsocketParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+        )
 
     transport_params = {
         "webrtc": lambda: TransportParams(
@@ -1452,6 +1615,8 @@ async def bot(runner_args: RunnerArguments):
             audio_in_enabled=True,
             audio_out_enabled=True,
         ),
+        "exotel": _phone_params,
+        "plivo": _phone_params,
     }
 
     transport = await create_transport(runner_args, transport_params)
