@@ -213,22 +213,21 @@ def _demo():
     print("costs ok")
 
 
-if __name__ == "__main__":
-    _demo()
-    print()
-    report()
 
 
 # --- getting to Re 1 per minute -----------------------------------------------
 # The product owner's target, 2026-09-21. Everything below is measured, not
 # assumed: reply length and turn count come from call.log (174 bot turns, mean
-# 182 characters), the LLM prompt size from the tokeniser, the rates from the
+# 144 characters), the LLM prompt size from the tokeniser, the rates from the
 # constants above and from each vendor's published price page.
 
 TARGET_INR_PER_MIN = 1.0
 CALL_MIN = 3.0                 # the three real calls in call.log ran 178/145/172s
 BOT_TURNS = 9                  # MONIKA lines in one 3-minute call
-REPLY_CHARS = 182              # MEASURED mean over 174 logged turns
+REPLY_CHARS = 144              # MEASURED mean over the 145 INSURANCE turns in
+                               # call.log. NOT 182 — that is the blend with the
+                               # car spa era, whose replies average 225 and are
+                               # a different product with a different prompt.
 LLM_IN_PER_TURN = 4056         # system prompt (3556, measured) + card + history
 BIFROST_USD_PER_MTOK = 1.03    # implied by the $10 cap against 9.67M tokens
 PLIVO_INR_PER_MIN = 0.38       # published
@@ -271,8 +270,8 @@ def target_report() -> None:
     print()
     line("+ Park+ LLM (self-hosted, no per-token bill)", _call_inr(llm_free=True))
     line("+ Park+ STT (self-hosted)", _call_inr(llm_free=True, stt_free=True))
-    line("+ replies 182 -> 110 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=110))
-    line("+ replies 182 -> 80 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=80))
+    line("+ replies 144 -> 110 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=110))
+    line("+ replies 144 -> 80 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=80))
     print()
     print("  keeping Gemini (quality) and leaning on caching instead:")
     for frac in (0.0, 0.5, 0.75, 0.9):
@@ -283,3 +282,10 @@ def target_report() -> None:
     line("  Park+ LLM + Park+ STT + Piper TTS", _call_inr(llm_free=True, stt_free=True, tts_free=True))
     print(f"\n  telephony alone is Rs {CALL_MIN * PLIVO_INR_PER_MIN / CALL_MIN:.2f}/min "
           f"and cannot be optimised away.")
+
+
+if __name__ == "__main__":
+    _demo()
+    print()
+    report()
+    target_report()
