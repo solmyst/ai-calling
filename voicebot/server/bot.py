@@ -330,6 +330,36 @@ def _stt_keyterms() -> list[str]:
     return sorted(ctx.get("stt_keyterms", []))
 
 
+def _stt_prompt() -> str | None:
+    """A plain description of what this recording IS — OFF unless asked for.
+
+    Keyterms bias individual words; this gives the transcriber the situation.
+    AssemblyAI publishes 21% lower word error rate and 49% fewer name-entity
+    errors for a detailed prompt, which reads like the biggest accuracy lever
+    available — and is why the prompt in context.json exists.
+
+    It is off by default anyway, because the SDK says so out loud the moment you
+    set one:
+
+        "Prompting is a beta feature. We recommend testing with no prompt first,
+         as this will use our optimized default prompt for voice agents. Bad
+         prompts may lead to bad results."
+
+    So "no prompt" does not mean no context — it means AssemblyAI's own
+    voice-agent prompt, tuned on far more calls than this one bot. The published
+    21% is against nothing at all, not against that default, and a custom prompt
+    REPLACES it. Handing that away for an unmeasured 48 words is a bad trade
+    made blind.
+
+    ASSEMBLYAI_CONTEXT_PROMPT=1 sends ours instead, for when there is a live
+    call to A/B it against. Until then the vendor's default wins on evidence.
+    """
+    if (os.getenv("ASSEMBLYAI_CONTEXT_PROMPT") or "").lower() not in ("1", "on", "true"):
+        return None
+    ctx = json.loads(CONTEXT_FILE.read_text())
+    return ctx.get("stt_prompt") or None
+
+
 def _extra_groq_keys() -> list[str]:
     """Every Groq key in the environment besides GROQ_API_KEY, for the failover.
 
@@ -1078,6 +1108,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 model=os.getenv("ASSEMBLYAI_MODEL") or "universal-3-5-pro",
                 language=stt_language,
                 keyterms_prompt=_stt_keyterms(),
+                # OFF unless ASSEMBLYAI_CONTEXT_PROMPT=1 — see _stt_prompt().
+                # Sending nothing keeps AssemblyAI's own voice-agent prompt,
+                # which a custom one would replace.
+                prompt=_stt_prompt(),
                 # "Isolate the primary voice and suppress background noise."
                 # far-field is the laptop-mic-in-a-room case, which is exactly
                 # where the other people in the room got transcribed.
@@ -1085,18 +1119,25 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 voice_focus_threshold=float(
                     os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 0.7
                 ),
-                # AssemblyAI's own VAD gate. Its default is 0.3 against Silero's
-                # 0.7 here, and the SDK documents exactly what that gap does:
-                # "align this value with your VAD's activation threshold to avoid
-                # the dead zone where AssemblyAI transcribes speech that your VAD
-                # hasn't detected yet." That dead zone is where the noise turns
-                # were coming from.
+                # AssemblyAI's own VAD gate. The rule is ALIGNMENT with the
+                # local VAD, not a particular number: "align this value with your
+                # VAD's activation threshold to avoid the dead zone where
+                # AssemblyAI transcribes speech that your VAD hasn't detected
+                # yet." That dead zone, between AssemblyAI's default 0.3 and
+                # Silero's 0.7 here, is where the noise turns came from.
+                #
+                # AssemblyAI's voice-agent guide recommends aligning BOTH at 0.3,
+                # for latency. We align both at 0.7 instead, because the problem
+                # on these calls is not latency — it is a laptop mic in a room
+                # with other people talking, and 0.3 is what let them in. If a
+                # soft caller starts getting missed, lower this and
+                # VAD_CONFIDENCE together; moving one alone re-opens the gap.
                 vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.7),
                 # Silence before a turn is allowed to end, and the hard ceiling.
                 # No longer pinned to 100ms, so a caller who pauses mid-sentence
                 # keeps their turn.
-                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 400),
-                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1600),
+                min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 200),
+                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 2000),
                 mode=os.getenv("ASSEMBLYAI_MODE") or "balanced",
             ),
         )
