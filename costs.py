@@ -217,3 +217,69 @@ if __name__ == "__main__":
     _demo()
     print()
     report()
+
+
+# --- getting to Re 1 per minute -----------------------------------------------
+# The product owner's target, 2026-09-21. Everything below is measured, not
+# assumed: reply length and turn count come from call.log (174 bot turns, mean
+# 182 characters), the LLM prompt size from the tokeniser, the rates from the
+# constants above and from each vendor's published price page.
+
+TARGET_INR_PER_MIN = 1.0
+CALL_MIN = 3.0                 # the three real calls in call.log ran 178/145/172s
+BOT_TURNS = 9                  # MONIKA lines in one 3-minute call
+REPLY_CHARS = 182              # MEASURED mean over 174 logged turns
+LLM_IN_PER_TURN = 4056         # system prompt (3556, measured) + card + history
+BIFROST_USD_PER_MTOK = 1.03    # implied by the $10 cap against 9.67M tokens
+PLIVO_INR_PER_MIN = 0.38       # published
+
+
+def _call_inr(*, llm_free=False, stt_free=False, tts_free=False,
+              reply_chars=REPLY_CHARS, turns=BOT_TURNS, call_min=CALL_MIN,
+              cached_frac=0.0):
+    """Rupees for one call under a given set of levers."""
+    llm = 0.0 if llm_free else (
+        turns * LLM_IN_PER_TURN * (1 - cached_frac) / 1e6
+        * BIFROST_USD_PER_MTOK * INR_PER_USD
+    )
+    stt = 0.0 if stt_free else call_min / 60 * ASSEMBLYAI_HINDI_USD_PER_HOUR * INR_PER_USD
+    tts = 0.0 if tts_free else turns * reply_chars * SARVAM_TTS_INR_PER_CHAR
+    tel = call_min * PLIVO_INR_PER_MIN
+    return llm, stt, tts, tel
+
+
+def target_report() -> None:
+    """What each lever is worth, and which combinations reach Re 1/min."""
+    def line(label, parts, note=""):
+        total = sum(parts)
+        per_min = total / CALL_MIN
+        hit = "  <-- TARGET" if per_min <= TARGET_INR_PER_MIN else ""
+        print(f"  {label:<44} Rs {total:5.2f}/call  Rs {per_min:4.2f}/min{hit}")
+        if note:
+            print(f"  {'':<44} {note}")
+
+    print(f"\nTarget: Rs {TARGET_INR_PER_MIN:.0f}/min "
+          f"= Rs {TARGET_INR_PER_MIN * CALL_MIN:.0f} for a {CALL_MIN:.0f}-minute call\n")
+
+    base = _call_inr()
+    names = ("LLM (Bifrost/Gemini)", "STT (AssemblyAI)", "TTS (Sarvam)", "telephony (Plivo)")
+    print("  where it goes today:")
+    for n, v in zip(names, base):
+        print(f"    {n:<40} Rs {v:5.2f}  {v / sum(base) * 100:4.0f}%")
+    print()
+    line("today", base)
+    print()
+    line("+ Park+ LLM (self-hosted, no per-token bill)", _call_inr(llm_free=True))
+    line("+ Park+ STT (self-hosted)", _call_inr(llm_free=True, stt_free=True))
+    line("+ replies 182 -> 110 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=110))
+    line("+ replies 182 -> 80 chars", _call_inr(llm_free=True, stt_free=True, reply_chars=80))
+    print()
+    print("  keeping Gemini (quality) and leaning on caching instead:")
+    for frac in (0.0, 0.5, 0.75, 0.9):
+        line(f"  prompt cache hit {frac:.0%}, Park+ STT, 110-char replies",
+             _call_inr(stt_free=True, reply_chars=110, cached_frac=frac))
+    print()
+    print("  the floor, if TTS also goes local (Piper):")
+    line("  Park+ LLM + Park+ STT + Piper TTS", _call_inr(llm_free=True, stt_free=True, tts_free=True))
+    print(f"\n  telephony alone is Rs {CALL_MIN * PLIVO_INR_PER_MIN / CALL_MIN:.2f}/min "
+          f"and cannot be optimised away.")
