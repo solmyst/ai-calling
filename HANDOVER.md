@@ -82,9 +82,25 @@ Pipecat's `create_transport` already knows `daily`, `twilio`, `telnyx`,
 (`venv/.../pipecat/runner/utils.py`). Add the key and the serializer is wired
 for you.
 
-**Pick Exotel or Plivo, not Twilio** — see the 1600-series blocker below. That
-number has to be Indian and issued under the insurance telemarketing regime,
-which rules out most global providers.
+**Use Plivo.** Researched 2026-09-21:
+
+- **Twilio is out entirely.** Their own India guidelines bar domestic outbound
+  calling within India — calls to Indian numbers must originate from non-Indian
+  numbers as international traffic. Not viable here.
+- **Plivo** publishes ₹0.38/min domestic, ₹200/month number rental, no platform
+  fee, $10 trial credit. Its docs list "160-series — service and transactional,
+  BFSI sector only" as a number type it provisions, and **AudioStream is
+  confirmed bidirectional** (`keepCallAlive="true"`), which is what Pipecat
+  needs. μ-law 8kHz is the native telephony codec.
+- **Exotel** is the fallback: AgentStream is also confirmed bidirectional, but
+  pricing is quote-only with a ₹4,999–10,499 setup fee, reported ₹0.60–1.50/min,
+  and **reportedly bills on a 30s or 60s pulse rather than per-second** — on
+  short KYC calls that matters more than the headline rate. Ask for the pulse in
+  writing before modelling anything.
+
+Ask Plivo in writing whether AudioStream is genuinely ₹0 and what the billing
+pulse is. Their page is silent on streaming cost, which is consistent with free
+but is an absence, not a published zero.
 
 Also needed:
 - the Pipecat extra in `voicebot/server/pyproject.toml` (see the dependency
@@ -157,14 +173,33 @@ time.
 
 ### Legal
 
-1. **1600-series CLI.** IRDAI Circular IRDAI/PP&GR/CIR/MISC/02/01/2026
-   (6 Jan 2026) implementing a TRAI direction: insurers and insurance
+1. **1600-series CLI — and we probably cannot hold it.** IRDAI Circular
+   IRDAI/PP&GR/CIR/MISC/02/01/2026 (6 Jan 2026): insurers and insurance
    intermediaries may make **no** service or transactional voice call from any
-   number other than a 1600-series CLI, after **15 Feb 2026**, *regardless of
-   consent*. That date has passed. Non-compliance is treated as unregistered
-   telemarketing — telecom disconnection up to 2 years and cross-operator
-   blacklisting, plus IRDAI action. **Confirm with Park+ compliance whether the
-   allocation exists and whether it must sit with Park+ or the insurer.**
+   number other than a 1600-series CLI after **15 Feb 2026**, *regardless of
+   consent*. That date passed seven months ago.
+
+   DoT reserved the series; **the telco allocates it** (Airtel/Jio/Vi/BSNL/Tata),
+   circle-wise, from a small pool — 485 entities and ~2,800 numbers nationwide as
+   of mid-2026. Eligibility is limited to entities regulated by RBI, SEBI, IRDAI
+   or PFRDA, and TRAI's stated design principle for the sibling 1601 series is
+   that numbers go **"directly to eligible entities, and not to intermediaries or
+   aggregators."**
+
+   So the number sits with the **IRDAI-registered insurer or intermediary**, not
+   with a technology vendor. A CPaaS can be the routing leg against the insurer's
+   registration; it cannot hold the entitlement. **This is the one unresolved
+   legal question — get the insurer's compliance head to put it to their TSP
+   enterprise account manager in writing.**
+
+   Documents: company registration, PAN, GSTIN, signatory KYC, **IRDAI
+   registration certificate**, an undertaking to use it only for
+   service/transactional calls, and DLT Principal Entity registration.
+   **Start at least 8 weeks before you need to dial.** Number price is
+   quote-only — no telco publishes it.
+
+   Penalty: up to ₹10 lakh per violation plus blacklisting of all telecom
+   resources for up to a year.
 2. **A2P pre-declaration.** TCCCPR Third Amendment, notified 18 Sept 2026:
    every entity using automated calling must pre-declare the usage and its CLIs
    to its telecom provider. Undeclared automated traffic is spam by definition.
@@ -173,6 +208,18 @@ time.
 4. **Zero promotional content.** One cross-sell line converts the call from
    "service" to "promotional" and forfeits the DND/NCPR exemption entirely,
    which then requires full scrubbing and explicit consent.
+5. **DLT template registration — read this before promising anything.**
+   Principal Entity registration is ₹5,900 incl. GST, 3–7 working days; content
+   templates are free but take 3–7 days, realistically 2–3 weeks for a first-time
+   entity. The insurer registers as PE, not us.
+
+   **The hard part: every outbound voice script the bot can use must be
+   registered as a template**, tagged transactional/service/promotional, with
+   language and an exemplar script. A free-form generative agent does not
+   obviously map onto a registered template, and nobody has resolved how a
+   per-turn LLM output satisfies that. This is a product-design question, not a
+   paperwork one, and it is the item most likely to force a rethink of how much
+   the model is allowed to improvise. Raise it early.
 
 **AI disclosure is NOT required** by any current Indian law, TRAI regulation or
 IRDAI circular — this was researched specifically. The product owner's
@@ -271,8 +318,11 @@ Learned the expensive way. Each of these was a live-call bug.
 
 ## Suggested order
 
-1. Telephony transport + the `on_client_connected` greeting fix + hangup path
-   and a max-duration timer. (This task.)
+1. ~~Telephony transport + the `on_client_connected` greeting fix + hangup path
+   and a max-duration timer.~~ **Done 2026-09-21** — `exotel`/`plivo` in
+   `transport_params`, shared `_greet_once`, `end_call` + `CALL_MAX_SECS` /
+   `CALL_IDLE_SECS` + `ProcessorUnusablePolicy.END`. Still needs a public WSS
+   host and a real Exotel/Plivo number before a live leg.
 2. Fix `pyproject.toml` and add a lock file, or nothing deploys.
 3. Top up Sarvam and Bifrost; set `BIFROST_EVAL_VK`; re-run the suite.
 4. Add a call id and a per-call record before any volume.
