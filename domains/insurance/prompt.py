@@ -22,6 +22,18 @@ from . import call_card
 
 CONTEXT_FILE = Path(__file__).parent / "context.json"
 
+# The opening is the one line every single call starts with, and its LENGTH is
+# a product decision, not a style one. Sarvam speaks about 12 characters of
+# Hindi per second, so the four-sentence version this replaced was 169
+# characters — fourteen seconds of monologue. In the 14:55 call the caller
+# tried to answer four seconds in and had to sit through the other ten, then
+# waited again for the reply. Rewritten to 119 characters (~10s) by dropping a
+# second "Park+" and a second "हूँ", both of which repeated what the sentence
+# before them had already said.
+#
+# Everything still in it is load-bearing: who is calling, the AI disclosure
+# (required on every call), that we know they hold insurance with us, that it
+# is two minutes, and the ask. Cutting further means dropping one of those.
 OPENINGS = {
     # Post-payment: they have already paid, so this is not a sales call and must
     # not sound like one. The first line's job is to stop it sounding like fraud:
@@ -29,11 +41,11 @@ OPENINGS = {
     # know — and how long this takes. "दो मिनट" is a promise about the CALL, not
     # about issuance, and it is the reason they stay on.
     "outbound": """You dialled THEM, after they paid. SAY THIS LINE as your
-FIRST turn, near enough word for word — it is a script, not an example:
+FIRST turn, near enough word for word — it is a script, not an example. Do not
+pad it, do not add "कैसे हैं आप", do not explain the product:
 
-    नमस्ते सर, Park+ से Monika बोल रही हूँ, AI assistant हूँ। आपने Park+ से
-    insurance लिया था — उसकी KYC pending है। बस दो मिनट लगेंगे, मैं अभी करवा
-    देती हूँ। App खोल लीजिए?
+    नमस्ते सर, Park+ से Monika, AI assistant बोल रही हूँ। आपके insurance की
+    KYC pending है — दो मिनट लगेंगे। App खोल लीजिए?
 
 If THIS CALL gives you their name, that replaces "सर" in the line above — open
 with "नमस्ते <name> जी" instead.
@@ -614,6 +626,18 @@ def _demo():
                              "insurer": "Bajaj"})
     assert "HyperVerge" not in build_system_prompt("outbound", other)
     assert "HyperVerge" not in no_card, "with no card the insurer is unknown"
+
+    # The opening's LENGTH is the product decision. At ~12 characters of Hindi
+    # per second, 135 characters is about eleven seconds — already long for the
+    # first thing a stranger hears. The version this replaced was 169 and the
+    # caller in the 14:55 call tried to answer four seconds in.
+    spoken = re.sub(r"\s+", " ",
+                    re.search(r"नमस्ते[^\"]*?App खोल लीजिए\?", OPENINGS["outbound"],
+                              re.S).group(0))
+    assert len(spoken) <= 135, f"the opening grew back to {len(spoken)} chars " \
+                               f"(~{len(spoken) / 12:.0f}s of speech)"
+    for clause in ("Park+", "Monika", "AI assistant", "KYC", "दो मिनट", "App"):
+        assert clause in spoken, f"the opening lost a load-bearing clause: {clause}"
 
     assert build_system_prompt("outbound") != build_system_prompt("inbound")
     try:
