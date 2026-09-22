@@ -530,7 +530,7 @@
             {
               "label": "Date of birth",
               "state": "customer_fills",
-              "help": "the car owner's own date of birth, day/month/year — not prefilled, do not assume it is already there"
+              "help": "the car owner's own date of birth, day/month/year"
             },
             {
               "label": "Email Id",
@@ -634,9 +634,8 @@
       "how_to_guide": "Do NOT recite the document list. The customer can see the page. Tell them to complete everything and that you are on the line to help. Answer WHICH documents are needed only if they ask, and then answer for their ownership type only.",
       "on_screen_warning": "The name on your Aadhar must match the one submitted on the previous page",
       "failure_warnings": [
-        "A full-size or folded Aadhaar printout is photographed in two shots: the side with the photo and name goes in Aadhar Front Image, the side with the address goes in Aadhar Back Image. NEVER tell a customer to cut, tear or damage the card — the 14:55 call told someone to cut theirs in half.",
-        "The Aadhaar number must be typed exactly right. One wrong digit and the KYC FAILS and the whole thing has to be done again — this is the most common reason a customer ends up on a second call.",
-        "The Full Name here must match the name entered on the previous page, or the upload is rejected."
+        "A full-size or folded Aadhaar printout is photographed in two shots: the side with the photo and name goes in Aadhar Front Image, the side with the address goes in Aadhar Back Image. NEVER tell a customer to cut, tear or damage the card.",
+        "The Aadhaar number must be typed exactly right. One wrong digit and the KYC fails and has to be redone."
       ],
       "sections": [
         {

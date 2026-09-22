@@ -12,6 +12,7 @@ they look invented — the bot legitimately repeats times the customer said, so
 rewriting them would do more damage than good.
 """
 import json
+import os
 import re
 from pathlib import Path
 
@@ -132,6 +133,26 @@ _MACHINE_OUTPUT_RE = re.compile(
     r"""[{}]|"\s*:|https?://|www\.|\.com/|```|</?[a-z]+>""", re.IGNORECASE
 )
 
+# The model writing its own scaffolding instead of a spoken turn. Caught live
+# 2026-09-22 on GEMINI, not on the small model: asked for the field list it
+# answered "/Tone: Natural, spoken Hindi, warm, direct." and then "*   No".
+# Both reached the TTS filter, which logged them as merely "romanised" — a
+# warning, not a rewrite — so the caller would have heard them read aloud.
+#
+# Two shapes, and both must be safe against real speech:
+#   1. A label header — "/Tone:", "Style:", "Note:" — at the very start of a
+#      line, in Latin script only. A Hindi turn does not open with "Word:".
+#   2. A line that is ONLY a markdown bullet or list marker plus a word or two,
+#      with no Devanagari at all. Real replies are sentences, not "*   No".
+# Devanagari anywhere in the line exempts it, because Hinglish prose is the
+# product and must never be dropped by a formatting heuristic.
+_SCAFFOLD_RE = re.compile(
+    r"^\s*[/#*\-]*\s*(?:tone|style|note|format|output|response|reply|answer|"
+    r"instruction|constraint|rule|persona|context|task|goal|step)\s*:",
+    re.IGNORECASE,
+)
+_BARE_BULLET_RE = re.compile(r"^\s*(?:[*\-+•]|\d+[.)])\s+\S{1,30}\s*$")
+
 # --- promising the car will not be damaged -----------------------------------
 # Caught live on the same call: asked "अगर मेरी कार तोड़ दी तो कौन ज़िम्मेदार?" the
 # bot answered "गाड़ी को किसी तरह का damage नहीं होता" and then "team उसका पूरा
@@ -244,9 +265,13 @@ def is_script_drift(text: str) -> bool:
     CHUNKS rather than whole turns, so a short Latin-only chunk is ordinary.
     """
     if _ROMAN_HINDI_RE.search(text):
-        return True
+        # ...unless romanised Hindi is what we asked for. Straight English is
+        # still drift in that mode, which is what the length rule below catches.
+        return not HINGLISH_REPLIES
     stripped = text.strip()
-    return len(stripped) >= _ENGLISH_DRIFT_MIN_CHARS and not _DEVANAGARI_RE.search(stripped)
+    if len(stripped) < _ENGLISH_DRIFT_MIN_CHARS:
+        return False
+    return not _DEVANAGARI_RE.search(stripped)
 
 # --- speaker labels ----------------------------------------------------------
 # Few-shot examples in the prompt are written as a transcript, and gpt-oss-20b
@@ -273,6 +298,31 @@ _ROMAN_HINDI_RE = re.compile(
     r"lagta|lagti|lagega|sakta|sakti|sakte|gaadi|paas|liye|abhi|thoda)\b",
     re.IGNORECASE,
 )
+
+
+# --- which script the bot replies in -----------------------------------------
+# Measured on 2026-09-22, not assumed: the same sentence costs 87 prompt tokens
+# in Devanagari and 55 in romanised Hinglish on Park+'s Qwen tokenizer, and a
+# Sarvam TTS -> Sarvam STT round trip of eight pairs came back byte-identical
+# for seven of them, including pure romanised Hindi with no English in it.
+#
+# That falsifies the assumption this module was built on ("Sarvam pronounces
+# Latin text with an English mouth"), which held for bulbul:v2 and does not
+# hold for v3. REPLY_SCRIPT=hinglish therefore makes romanised Hindi the
+# intended output rather than a defect. Default stays devanagari.
+HINGLISH_REPLIES = (os.getenv("REPLY_SCRIPT") or "devanagari").strip().lower() == "hinglish"
+
+
+def is_hindi_speech(text: str) -> bool:
+    """True when this looks like the bot actually talking to the caller.
+
+    Devanagari used to answer this on its own, which quietly made every rule
+    that asked it wrong the moment the replies are romanised: the scaffold
+    dropper would have started eating real speech, and the English-goodbye
+    rewrite would have fired on every line. Romanised Hindi function words are
+    the same evidence in the other script, so both count.
+    """
+    return bool(_DEVANAGARI_RE.search(text) or _ROMAN_HINDI_RE.search(text))
 
 
 # --- quoting a price for a car the caller never named -------------------------
@@ -331,7 +381,19 @@ def is_machine_output(text: str) -> bool:
     Exposed because two layers need the same answer: the TTS filter, to keep it
     out of the caller's ear, and the LLM service, to keep it out of the history.
     """
-    return bool(text) and bool(_MACHINE_OUTPUT_RE.search(text))
+    if not text:
+        return False
+    if _MACHINE_OUTPUT_RE.search(text):
+        return True
+    # Prompt scaffolding the model wrote instead of speech. Never applied to a
+    # line that is speech in EITHER script — Hinglish prose is the product, and
+    # under REPLY_SCRIPT=hinglish every line of it is Latin.
+    return any(
+        not is_hindi_speech(line)
+        and (_SCAFFOLD_RE.search(line) or _BARE_BULLET_RE.match(line))
+        for line in text.splitlines()
+        if line.strip()
+    )
 
 
 def valid_prices(ctx: dict) -> set[int]:
@@ -359,6 +421,20 @@ def valid_slot_hhmm(ctx: dict) -> set[str]:
         h = int(hh) % 12 + (12 if ampm == "PM" else 0)
         out.add(f"{h:02d}:{mm}")
     return out
+
+
+def keep_lead(original: str, fixed: str) -> str:
+    """Re-attach the leading whitespace a sentence rewrite threw away.
+
+    Every _fix_sentence replacement is a canned line plus a terminator, so it
+    arrives with no leading space and the "".join glues it to the sentence
+    before it — "...कॉलिंग एजेंट।मैं Park+ की calling assistant हूँ" reached the
+    voice as one word run on 2026-09-22.
+    """
+    lead = original[: len(original) - len(original.lstrip())]
+    if fixed and lead and not fixed[:1].isspace():
+        return lead + fixed
+    return fixed
 
 
 class PriceGuard:
@@ -416,7 +492,11 @@ class PriceGuard:
         Returns "" for a chunk that is not speech at all; the TTS service skips
         a filter that returns empty, so nothing is spoken for it.
         """
-        if _MACHINE_OUTPUT_RE.search(text):
+        # Via the function, not the bare regex: the LLM service asks the same
+        # question to keep junk out of the history, and when the two drifted
+        # apart a scaffold line ("/Tone: ...") was dropped from history but
+        # still spoken. One answer, one place.
+        if is_machine_output(text):
             self.machine_output.append(text.strip())
             return ""
 
@@ -426,7 +506,8 @@ class PriceGuard:
             text = text[label.end():]
 
         cleaned = "".join(
-            self._fix_sentence(s) for s in _SENTENCE_RE.findall(text)
+            keep_lead(s, self._fix_sentence(s))
+            for s in _SENTENCE_RE.findall(text)
         )
 
         for m in _TIME_RE.finditer(cleaned):
@@ -470,7 +551,7 @@ class PriceGuard:
         # Dropped, not rewritten: there is no safe sentence to say in place of the
         # model thinking out loud, and the real answer usually follows in the next
         # sentence. Runs first so the rest of the rules never see it.
-        if _SELF_NARRATION_RE.search(sentence) and not _DEVANAGARI_RE.search(sentence):
+        if _SELF_NARRATION_RE.search(sentence) and not is_hindi_speech(sentence):
             self.self_narration.append(sentence.strip())
             return ""
 
@@ -641,14 +722,29 @@ def _demo():
         'details.",\n    "status": "RESOURCE_EXHAUSTED"\n  }\n}',
         "<speak>नमस्ते</speak>",
         "```json",
+        # Prompt scaffolding instead of a spoken turn — both VERBATIM from a
+        # 2026-09-22 Gemini reply that reached the TTS filter unrewritten.
+        "/Tone: Natural, spoken Hindi, warm, direct.",
+        "    *   No",
     ):
         assert gm.check(junk) == "", junk
-    assert len(gm.machine_output) == 4, gm.machine_output
+    assert len(gm.machine_output) == 6, gm.machine_output
+    # A rewritten sentence must keep the space the splitter gave it, or it glues
+    # onto the sentence before it and the voice reads one long word. Caught in
+    # the 2026-09-22 benchmark as "...कॉलिंग एजेंट।मैं Park+ की calling
+    # assistant हूँ".
+    assert keep_lead(" दूसरा वाक्य।", "canned।") == " canned।"
+    assert keep_lead("पहला वाक्य।", "canned।") == "canned।"
+    assert keep_lead(" x", "") == ""
     # Ordinary speech with punctuation is not machine output.
     for speech in (
         "Creta है ना? तो करीब 499 रुपये, app में exact दिख जाएगा।",
         "support@myparkplus.com पर लिख दीजिए।",
         "सुबह आठ बजे — लिख लिया मैंने।",
+        # A dash-led Hinglish line is speech, not a bullet. The scaffold check
+        # only fires on a line with NO Devanagari, which is what protects these.
+        "— हाँ सर, वही button है।",
+        "Park+ app खोलकर Insurance icon पर click कीजिए।",
     ):
         assert gm.check(speech) == speech, speech
 

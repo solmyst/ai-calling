@@ -343,6 +343,12 @@ class CallLogObserver(BaseObserver):
 # which is what a stray "." from the sentence splitter produces.
 _SPEAKABLE_RE = re.compile(r"[^\W_]", re.UNICODE)
 
+#: What a silent line hears before it is given up on. Spoken directly, never
+#: generated: it must not cost an LLM turn, and a nudge that varies is worse
+#: than one that does not — see on_idle_timeout(). Deliberately an offer of
+#: help rather than "are you there", because they are almost always mid-form.
+IDLE_NUDGE_LINE = "सर, आप वहीं हैं? आराम से भरिए — कोई दिक्कत हो तो बता दीजिए।"
+
 
 def _message_role(message) -> str | None:
     """Role of a context message, whether it is a dict or an LLMSpecificMessage."""
@@ -1718,6 +1724,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # restarts on each new greeting.
     call_max_secs = _call_limit_secs("CALL_MAX_SECS", 360.0)
     call_idle_secs = _call_limit_secs("CALL_IDLE_SECS", 300.0)
+    # How many times a silent line gets asked before it is dropped. Two, so a
+    # customer filling the form has ~3x CALL_IDLE_SECS of quiet before the call
+    # ends, still bounded by CALL_MAX_SECS. 0 restores the old drop-on-first.
+    idle_nudges_left = int(os.getenv("CALL_IDLE_NUDGES") or 2)
 
     # Exotel/Plivo media is 8 kHz PCM. Leaving the pipeline at 16k/24k forces
     # resampling on every frame and was a quality risk on the first Exotel leg.
@@ -1850,6 +1860,27 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
 
     @worker.event_handler("on_idle_timeout")
     async def on_idle_timeout(worker):
+        # Silence on THIS call usually means they are doing what we asked —
+        # typing the form. It takes far longer than CALL_IDLE_SECS=90: owner
+        # name, DOB, email, address, three nominee fields, then PAN, Aadhaar
+        # and two photo uploads. call.log has the bot saying "nominee — उन्हें
+        # भर दीजिए" and "'Complete KYC' पे click कीजिए" and then hanging up 90
+        # seconds later, mid-KYC, having just promised "मैं line पे ही हूँ".
+        #
+        # So the first idle stretches get a nudge, not a hangup. Speaking is
+        # itself activity (BotSpeakingFrame is in idle_timeout_frames), which
+        # re-arms the monitor — and cancel_on_idle_timeout=False means
+        # returning here leaves the call up. Only once the nudges are spent
+        # does a genuinely dead line get dropped.
+        nonlocal idle_nudges_left
+        if idle_nudges_left > 0:
+            idle_nudges_left -= 1
+            logger.info(
+                f"Idle {call_idle_secs}s — nudging instead of hanging up "
+                f"({idle_nudges_left} nudge(s) left)"
+            )
+            await worker.queue_frames([TTSSpeakFrame(IDLE_NUDGE_LINE)])
+            return
         await _hangup(f"CALL_IDLE_SECS={call_idle_secs}")
 
     @worker.event_handler("on_pipeline_error")

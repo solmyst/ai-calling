@@ -16,6 +16,7 @@ the model improvises "aapka Aadhaar number bata dijiye" is a compliance incident
 on a recorded call. Same reasoning as the price guard, higher stakes.
 """
 
+import io
 import json
 import re
 
@@ -31,9 +32,13 @@ _OTP_RE = re.compile(
     r"(?:code|कोड)\s+(?:jo|जो|which|that)?\s*(?:aaya|आया|mila|मिला|received)",
     re.IGNORECASE,
 )
-_SAFE_OTP = (
-    "OTP मैं कभी नहीं माँगूँगी सर — वो सिर्फ़ app में डालना होता है, किसी को बताना नहीं है"
-)
+# Two forms, picked in check() by whether the turn already refused somewhere.
+# The model usually opens with its own correct refusal and only the SECOND
+# sentence invents an app-OTP step; re-refusing there made the customer hear
+# the refusal twice (benchmark 2026-09-22, safety_probes turn 1). A turn with
+# no refusal in it at all still has to carry one — this is an ID path.
+_SAFE_OTP = "OTP किसी को मत बताइए सर — इस KYC में उसकी ज़रूरत ही नहीं पड़ती"
+_SAFE_OTP_FACT_ONLY = "इस KYC में OTP की ज़रूरत ही नहीं पड़ती सर"
 # ...unless the bot is REFUSING to ask for one, which is the scripted opening
 # and the correct answer when a customer offers theirs.
 _OTP_REFUSAL = re.compile(
@@ -41,7 +46,8 @@ _OTP_REFUSAL = re.compile(
     r"(?:माँग|मांग|maang|mang|ask|चाहिए|chahiye|बताइए|बताना|batana|दीजिए|share)|"
     r"(?:माँग|मांग|maang|mang|ask(?:ing)?|पूछ)\s*"
     r"(?:नहीं|नही|nahi+n?|not|never)|"
-    r"किसी\s*को\s*(?:मत|नहीं)|kisi\s*ko\s*(?:mat|nahi)|"
+    r"किसी\s*को\s*(?:भी\s*|ही\s*)?(?:मत|नहीं|नही)|"
+    r"kisi\s*ko\s*(?:bhi\s*)?(?:mat|nahi)|"
     # ...and negation AFTER the verb: "माँगने की जगह नहीं", "माँगती नहीं हूँ".
     r"(?:माँग|मांग|maang|mang)\w*[^.।!?]{0,18}(?:नहीं|नही|nahi+n?)|"
     r"(?:ask|need)\w*[^.।!?]{0,18}(?:not|never|no\b)|"
@@ -154,9 +160,13 @@ _SAFE_DONE = (
 # the opposite of that claim, so it is exempt. The negation has to be adjacent,
 # so "KYC complete हो गया है, कोई दिक्कत नहीं" is still blocked.
 _NEGATED_DONE = re.compile(
-    r"(?:complete|पूरा|पूरी|हो|done|issue)\s*(?:नहीं|नही|nahi+n?|ना)|"
+    r"(?:complete|पूरा|पूरी|हो|done|issue)\s*(?:नहीं|नही|nahi+n?|ना\b)|"
     r"नहीं\s*(?:हुआ|हुई|होगी|होगा|होती|करते|करेंगे|किया|कर\s*पाए)|"
-    r"not\s+(?:complete|done|verified)",
+    r"\bnot\s+(?:complete|done|verified)|"
+    # "Your payment is done, but the KYC is still pending" is the OPPOSITE of a
+    # completion claim, yet "done" plus "KYC" made false_completions fire and
+    # inject a Hindi line into an English reply (2026-09-22, code_switch 0).
+    r"(?:still\s+)?pending|बाक़ी\s*है|बाकी\s*है|अटक",
     re.IGNORECASE,
 )
 
@@ -187,7 +197,16 @@ _UI_ACTION = (
 _INSTRUCTED_DONE = re.compile(
     r"(?:complete|पूर[ाी]|done)\s*"
     r"(?:कर(?:ना|नी|ने|ें|के)|कर(?:वा|ा)\s*(?:दूँ|दूं|दू|देती|देते|दीजिए|दो)|"
-    r"कर\s*(?:लीजिए|लीजिये|दीजिए|दीजिये|लो|दो|देते|लेते|लेंगे|सकते|सकें|पाएँ|पाएंगे))"
+    # लें / ले / लूँ are the subjunctive "shall we complete it now?" — an
+    # invitation, not a claim. Gemini's "अभी आपके insurance की KYC complete कर
+    # लें?" was rewritten into a nonsense answer on 2026-09-22 because only the
+    # polite लीजिए form was listed. कर ली / कर लिया stay OUT: those are past
+    # tense and are exactly what this rule catches.
+    # देंगे / दें is the CUSTOMER's future action — "जैसे ही आप app में KYC
+    # complete कर देंगे" — not a claim. The transliterated branch below already
+    # listed denge; this one did not.
+    r"कर\s*(?:लीजिए|लीजिये|दीजिए|दीजिये|लो|दो|देते|लेते|लेंगे|लें|ले|लूँ|लूं|"
+    r"देंगे|देंगी|दें|सकते|सकें|पाएँ|पाएंगे))"
     r"|(?:complete|पूर[ाी])\s*होने\s*(?:के|पर|तक|में)"
     r"|(?:complete|पूर[ाी])\s*हो\s*जा(?:ए|एगा|एगी|ता|ती|ती\s*है)"
     # ...and the same shapes transliterated.
@@ -219,7 +238,7 @@ _PROMISE_MARKER = re.compile(
     re.IGNORECASE,
 )
 _SAFE_PROMISE = (
-    "उसका timing मैं यहाँ से confirm नहीं कर सकती सर — team update कर देगी"
+    "वो मैं यहाँ से confirm नहीं कर सकती सर — team update कर देगी"
 )
 
 # --- inventing an authority or a money consequence ----------------------------
@@ -370,13 +389,56 @@ _ENGLISH_CLOSE_RE = re.compile(
     r"take\s+care|see\s+you|talk\s+to\s+you\s+later)",
     re.IGNORECASE,
 )
+# --- English words Sarvam mispronounces in Devanagari -------------------------
+# Only the two that actually come out wrong: bulbul reads "एप" as "ep", not
+# "app", and "डीओबी" as three Hindi letters instead of D-O-B. पॉलिसी, बटन, पेज,
+# इंश्योरेंस and नॉमिनी are ordinary spoken Hindi and the guard's own sanctioned
+# lines use them — rewriting those would fight approved copy, which is why the
+# wider version of this map was reverted on 2026-09-22. Park+'s model (3.3B
+# active) still transliterates with the rule first in the prompt, so this is a
+# deterministic rewrite. \b does not work on Devanagari, hence the bare
+# alternation.
+_LABEL_FIXES = {"एप": "app", "ऐप": "app", "डीओबी": "DOB"}
+_LABEL_RE = re.compile("|".join(sorted(_LABEL_FIXES, key=len, reverse=True)))
+
+# --- coercive phrasing --------------------------------------------------------
+# The product owner's rule is "we can't be rude to the user", and the prompt
+# spells out the exact wording to avoid: gentle "बस इतना बता दूँ", never
+# "आपको करना ही पड़ेगा". Park+'s model produced that banned string verbatim on
+# a garbled-input turn (benchmark 2026-09-22, noise_garble turn 1) — when it
+# cannot parse the caller it falls back to pressure. Advice in the prompt did
+# not hold, so the rewrite is deterministic. The replacement states the same
+# real requirement in the sanctioned shape and still asks for a time.
+_COERCION_RE = re.compile(
+    r"(?:करना|कराना|भरना|देना)\s*(?:ही\s*)?पड़ेगा|"
+    r"(?:करना|कराना)\s*ही\s*होगा|"
+    r"मजबूर|majboor|"
+    r"वरना\s*(?:policy|पॉलिसी|आपकी)|"
+    r"you\s*(?:have|must)\s*to\s*do\s*(?:it|this)\s*now",
+    re.IGNORECASE,
+)
+_SAFE_SOFT_REQUIREMENT = (
+    "बस इतना बता दूँ सर, KYC हो जाने पर ही आपकी policy बन पाएगी — "
+    "दो मिनट का काम है, बताइए कब करवा दें?"
+)
+
 _SAFE_CLOSE = "धन्यवाद, thank you for choosing Park+"
 # The sanctioned close itself contains "thank you" and only a 7-character
 # Devanagari run ("धन्यवाद"), one short of _ENGLISH_CLOSE_RE's own 8-char
 # exemption — caught live 2026-09-22 before it ever shipped: without this, the
 # guard would rewrite its own sanctioned line back to itself on every close.
+def _roman_hindi(text: str) -> bool:
+    """Romanised Hindi function words — "this line is Hindi, in Latin letters"."""
+    from guardrails import _ROMAN_HINDI_RE
+    return bool(_ROMAN_HINDI_RE.search(text))
+
+
 _SANCTIONED_CLOSE_RE = re.compile(
-    r"धन्यवाद[,،]?\s*thank\s*you\s*for\s*choosing", re.IGNORECASE
+    # Both spellings of the same sanctioned line: under REPLY_SCRIPT=hinglish
+    # the bot writes "Dhanyavaad", and without this the close rule rewrites its
+    # own approved closing line back into Devanagari on every call.
+    r"(?:धन्यवाद|dhanyav?aa?d)[,،]?\s*thank\s*you\s*for\s*choosing",
+    re.IGNORECASE,
 )
 
 # --- waiting-line dump when the customer asked a real question ----------------
@@ -454,6 +516,7 @@ _CALLER_TOPIC_PATTERNS = (
 
 _SAFE_TIME_ONLY = "सर, दो मिनट ही लगेंगे, अभी करवा देती हूँ।"
 
+
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
 
 
@@ -483,6 +546,7 @@ class KycGuard:
         ("romanised", "warning", "answered in romanised Hindi instead of Devanagari"),
         ("machine_output", "error", "DROPPED non-speech output"),
         ("self_narration", "error", "DROPPED the model thinking out loud"),
+        ("coercion", "error", "rewrote a line that pressured the customer"),
     )
 
     def __init__(self, ctx: dict | None = None, card: dict | None = None):
@@ -522,9 +586,13 @@ class KycGuard:
         self.romanised: list[str] = []
         self.machine_output: list[str] = []
         self.self_narration: list[str] = []
+        self.coercion: list[str] = []
         # Last caller topic, so a waiting-line / IRDAI dump can be rewritten to
         # the script that actually answers what they asked (15:18, 15:45, 17:23).
         self.last_caller_topic: str | None = None
+        # Whether that line was entirely English — see _caller_spoke_english.
+        self._caller_english = False
+        self._turn_refused_otp = False
 
     def note_caller(self, text: str) -> bool:
         """Record what the caller just asked, so _fix_sentence can match scripts.
@@ -534,6 +602,8 @@ class KycGuard:
         Clears the topic when nothing matches, so a prior nominee ask cannot
         poison the next turn's guard rewrite.
         """
+        self._caller_english = self._caller_spoke_english(text)
+        self._turn_refused_otp = False
         for topic, pat in _CALLER_TOPIC_PATTERNS:
             if pat.search(text):
                 self.last_caller_topic = topic
@@ -541,19 +611,36 @@ class KycGuard:
         self.last_caller_topic = None
         return False
 
+    def _caller_spoke_english(self, text: str) -> bool:
+        """True when the caller's line had no Devanagari at all.
+
+        The prompt tells the bot to answer an all-English line in English, so
+        an English reply to one is correct and must not be logged as script
+        drift — Gemini did exactly that on both code_switch turns and the
+        romanised counter made a working feature look like a defect.
+        """
+        return bool(re.search(r"[A-Za-z]", text)) and not re.search(
+            r"[\u0900-\u097F]", text
+        )
+
     def check(self, text: str) -> str:
         """Return text safe to speak, recording anything that was suppressed."""
         # Reuse the shared non-speech and thinking-out-loud rules; they are
         # model failures, not domain rules, and both were caught on live calls.
         from guardrails import (
             _DEVANAGARI_RE,
-            _MACHINE_OUTPUT_RE,
             _SELF_NARRATION_RE,
             _SPEAKER_LABEL_RE,
+            is_hindi_speech,
+            is_machine_output,
             is_script_drift,
+            keep_lead,
         )
 
-        if _MACHINE_OUTPUT_RE.search(text):
+        # The function, not the bare regex — it also catches prompt scaffolding
+        # ("/Tone: ...", a lone "*   No"), which a Gemini turn produced live on
+        # 2026-09-22 and which the regex alone let through to the voice.
+        if is_machine_output(text):
             self.machine_output.append(text.strip())
             return ""
 
@@ -571,16 +658,29 @@ class KycGuard:
         # count makes drift a number to watch. Not hypothetical here — an Ornith
         # fallback turn came back as "**Good afternoon, Rahul जी.** I'm Shreya
         # calling from Park+ Insurance", entirely in English, with markdown.
-        if is_script_drift(text):
+        # Sentences arrive one call at a time and in order, so a refusal in
+        # sentence one is remembered for sentence two. note_caller clears it at
+        # the start of each turn. See _SAFE_OTP.
+        if _OTP_REFUSAL.search(text):
+            self._turn_refused_otp = True
+
+        if is_script_drift(text) and not getattr(self, "_caller_english", False):
             self.romanised.append(text.strip())
 
         out = []
         for sentence in _SENTENCE_RE.findall(text):
-            if _SELF_NARRATION_RE.search(sentence) and not _DEVANAGARI_RE.search(sentence):
+            if _SELF_NARRATION_RE.search(sentence) and not is_hindi_speech(sentence):
                 self.self_narration.append(sentence.strip())
                 continue
-            out.append(self._fix_sentence(sentence))
+            out.append(keep_lead(sentence, self._label_fix(self._fix_sentence(sentence))))
         return "".join(out)
+
+    def _label_fix(self, sentence: str) -> str:
+        """Put transliterated screen labels back into Latin letters."""
+        fixed = _LABEL_RE.sub(lambda m: _LABEL_FIXES[m.group(0)], sentence)
+        if fixed != sentence:
+            self.labels.append(sentence.strip())
+        return fixed
 
     def _fix_sentence(self, sentence: str) -> str:
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
@@ -594,6 +694,7 @@ class KycGuard:
         if (
             _ENGLISH_CLOSE_RE.search(sentence)
             and not re.search(r"[\u0900-\u097F]{8,}", sentence)
+            and not _roman_hindi(sentence)
             and not _SANCTIONED_CLOSE_RE.search(sentence)
         ):
             self.english_close.append(sentence.strip())
@@ -631,6 +732,8 @@ class KycGuard:
             _OTP_REFUSAL.search(sentence) and not _OTP_ASK_VERB.search(sentence)
         ):
             self.otp_asks.append(sentence.strip())
+            if self._turn_refused_otp:
+                return _SAFE_OTP_FACT_ONLY + terminator
             return _SAFE_OTP + terminator
 
         # Money-at-risk is checked FIRST and has no exemption, so the sanctioned
@@ -698,6 +801,13 @@ class KycGuard:
             self.promises.append(sentence.strip())
             return _SAFE_PROMISE + terminator
 
+        # Last of the rewrites. "सरकार के नियम के हिसाब से आपको ये करना ही होगा"
+        # is coercive AND a false authority claim; the authority rule above is
+        # the more serious of the two and must win, so this sees what is left.
+        if _COERCION_RE.search(sentence):
+            self.coercion.append(sentence.strip())
+            return _SAFE_SOFT_REQUIREMENT + terminator
+
         return sentence
 
 
@@ -728,10 +838,17 @@ def _demo():
         # instruction shapes exempted above ("kar diya" vs "kar dijiye"), which
         # is why both directions are asserted.
         ("false_completions", "Aapka KYC complete kar diya hai maine."),
+        # Must stay caught: कर ली is past tense, unlike the कर लें invitation
+        # exempted in _INSTRUCTED_DONE.
+        ("false_completions", "आपकी KYC complete कर ली है मैंने।"),
         ("false_completions", "Maine aapki KYC complete kar li hai."),
         ("false_completions", "Aapki KYC complete ho gayi hai sir."),
         ("false_completions", "KYC done ho gaya sir."),
         ("promises", "पॉलिसी कल तक issue हो जाएगी।"),
+        # Park+'s own words on a garbled turn, 2026-09-22 benchmark. The prompt
+        # names this exact phrasing as the thing never to say.
+        ("coercion", "सर, आपको अभी करना ही पड़ेगा — बिना KYC के policy नहीं जारी होगी।"),
+        ("coercion", "आपको ये भरना पड़ेगा सर।"),
         # Verbatim from the 00:50 call. IRDAI itself is sanctioned now, but
         # this sentence also claims the payment gets stuck, which nobody knows.
         # Money-at-risk is checked first for exactly this reason.
@@ -925,10 +1042,41 @@ def _demo():
         "policy issue नहीं कर सकती।",
         "सर, KYC complete हुए बिना IRDAI के rules से policy issue नहीं हो पाती।",
         "नॉमिनी का नाम app में डाल दीजिए।",
+        # Inviting them to finish it now is not claiming it is finished.
+        "अभी आपके insurance की KYC complete कर लें?",
+        # Their future action, not a claim about the present.
+        "सर, जैसे ही आप app में KYC complete कर देंगे, policy आ जाएगी।",
+        # Says the OPPOSITE of complete, in English.
+        "Your payment is done, but the KYC is still pending.",
+        "Your KYC is not complete yet sir.",
     ):
         assert g2.check(ok) == ok, f"blocked a legitimate line: {g2.check(ok)!r}"
     rewriting = [c for c, level, _ in KycGuard.COUNTERS if level == "error"]
     assert not any(getattr(g2, c) for c in rewriting), "false positive"
+
+    # The OTP replacement comes in two forms. check() sees ONE SENTENCE at a
+    # time, so the "did this turn already refuse" flag has to survive between
+    # calls and reset on note_caller — a plain per-call read would make the
+    # fact-only branch dead code.
+    def _turn(caller, reply):
+        g = KycGuard()
+        g.note_caller(caller)
+        return "".join(g.check(x) for x in _SENTENCE_RE.findall(reply) if x.strip())
+
+    # Refused in sentence one, invented an app-OTP step in sentence two: fix
+    # only the invention, do not say the refusal twice.
+    both = _turn(
+        "OTP आया है मेरे पास, बता दूँ आपको?",
+        "OTP किसी को भी नहीं बताएं सर — मुझे भी नहीं। आप अपने app में ही OTP दर्ज करें।",
+    )
+    assert both.count("मत बताइए") == 0, both
+    assert "ज़रूरत ही नहीं पड़ती" in both, both
+    # No refusal anywhere in the turn: the replacement has to carry one.
+    alone = _turn("OTP बता दूँ?", "OTP बता दीजिए सर, मैं verify कर लूँगी।")
+    assert "किसी को मत बताइए" in alone, alone
+    # And it never invents an OTP step — there is none in this flow.
+    for out in (both, alone):
+        assert "app में ही OTP" not in out, out
 
     # --- rules borrowed from the car spa guard --------------------------------
     # Speaker labels and script drift are MODEL failures, not domain rules — the
@@ -996,6 +1144,29 @@ def _demo():
     # Everything else stays on, card or no card.
     assert seeing.check("आपका OTP बता दीजिए।") != "आपका OTP बता दीजिए।"
     assert seeing.check("मैं आपको link भेज देती हूँ।") != "मैं आपको link भेज देती हूँ।"
+
+    # Prompt scaffolding instead of speech. Both VERBATIM from a Gemini reply
+    # on 2026-09-22 that the TTS filter logged as merely "romanised" and would
+    # have spoken aloud. Dropped now, and the Hinglish lines beside them prove
+    # the check cannot eat ordinary speech.
+    scaffold = KycGuard()
+    for junk in ("/Tone: Natural, spoken Hindi, warm, direct.", "    *   No",
+                 "Format: two short sentences"):
+        assert scaffold.check(junk) == "", junk
+    for speech in ("सर, आपके insurance की KYC pending है — दो मिनट लगेंगे।",
+                   "Park+ app खोलकर Insurance icon पर click कीजिए।",
+                   "धन्यवाद, thank you for choosing Park+।"):
+        assert scaffold.check(speech) == speech, speech
+
+    # A \b written through a non-raw Python string becomes a literal 0x08 and
+    # the pattern silently stops matching. That is how _NEGATED_DONE lost
+    # "not complete" here. Cheap to assert, impossible to eyeball.
+    src = io.open(__file__, encoding="utf-8").read()
+    for ch in ("\x07", "\x08", "\x0b", "\x0c"):
+        assert ch not in src, (
+            f"literal {ch!r} in this file — a regex escape went through a "
+            "non-raw string and the pattern no longer matches what it reads like"
+        )
 
     print(f"insurance guard ok — {len(KycGuard.COUNTERS)} rules, "
           f"{len(g.insurers)} insurers, upload-only: {sorted(g.upload_only)}")

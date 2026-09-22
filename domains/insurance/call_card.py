@@ -282,6 +282,15 @@ def render(card: dict) -> str:
 
     lines += [
         "",
+        # Without this the model treats the whole card as background and
+        # deflects questions it can already answer: asked "वीकल नंबर बता सकते
+        # हो?" with the registration sitting right here, both models answered
+        # "मुझे इसका exact जवाब पता नहीं है, team बता देगी". The card block was
+        # entirely phrased as what it does NOT know, so that is what it learned.
+        "The facts above are YOURS to say. Asked which vehicle, which insurer, "
+        "which cover, whose name — answer from this card, plainly and at once. "
+        "Never deflect to the team for something listed here.",
+        "",
         "This card is the only thing you know about THIS customer. Every status "
         "above is what our system says right now. Anything not on it — what they "
         "have already typed, which field is blank, why the insurer objected — you "
