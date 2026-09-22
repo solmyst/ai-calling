@@ -329,9 +329,19 @@ class CallLogObserver(BaseObserver):
             self._said.append(frame.text)
         elif isinstance(frame, VADUserStoppedSpeakingFrame):
             self._vad_stop = time.monotonic()
-        elif isinstance(frame, BotStartedSpeakingFrame) and self._turn_start is not None:
-            logger.info(f"LATENCY | {time.monotonic() - self._turn_start:.2f}s caller -> first audio")
-            self._turn_start = None
+        elif isinstance(frame, BotStartedSpeakingFrame):
+            # A pending VAD stop belongs to the turn that just ended. Left set,
+            # it goes stale across the bot's own speech and the NEXT transcript
+            # is measured against it: the 13:19 call logged "STT LAG | 14.89s"
+            # for a transcript that arrived 0.2s after the caller spoke, because
+            # the timestamp was from before a 7-second bot turn. Every STT LAG
+            # over ~2s in that log is this, not the transcriber.
+            self._vad_stop = None
+            if self._turn_start is not None:
+                logger.info(
+                    f"LATENCY | {time.monotonic() - self._turn_start:.2f}s caller -> first audio"
+                )
+                self._turn_start = None
         elif isinstance(frame, BotStoppedSpeakingFrame) and self._said:
             # Joined on flush: the LLM streams a turn as several sentences, and
             # one log line per turn is what makes the transcript readable.

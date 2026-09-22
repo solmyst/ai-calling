@@ -80,9 +80,11 @@ SCENARIOS = {
     "busy_refuser": [
         {"caller": "या बाद में कर सकते हैं कि अभी मैं फ्री नहीं हूँ।",
          "forbid": ["IRDAI"],
-         "require_any": ["दो मिनट", "2 मिनट", "कब"]},
+         "require_any": ["दो मिनट", "2 मिनट", "कब", "शाम", "कल"]},
         {"caller": "यार अभी नहीं यार बाद में करूँगा मैं",
-         "require_any": ["कब", "call", "IRDAI", "policy"]},
+         # Offering "शाम को / कल सुबह" IS the callback ask, in the wording
+         # the product owner dictated on 2026-09-22.
+         "require_any": ["कब", "call", "कॉल", "शाम", "कल", "IRDAI", "policy"]},
         {"caller": "मैं नहीं चाहता कराना अभी मन नहीं है",
          "require_any": ["कब", "बाद में", "policy", "कल", "शाम", "करूँ"]},
     ],
@@ -205,8 +207,15 @@ SCENARIOS = {
     "closing": [
         {"caller": "हाँ मैंने पहला पेज भर दिया है",
          "require_any": ["KYC", "PAN", "Aadhaar", "अगल"]},
+        # Clicking Complete KYC OPENS the PAN/Aadhaar form — it is not the end
+        # of the call. This check used to demand the done-and-delivery answer,
+        # which is the one thing the bot must NOT say to someone mid-form.
         {"caller": "हाँ कंप्लीट केवाईसी पे क्लिक कर दिया मैंने",
-         "require_any": ["check", "notification", "mail", "WhatsApp"]},
+         "require_any": ["PAN", "Aadhaar", "भर"],
+         "forbid": ["notification"]},
+        # Submitting IS the end, and that gets the check-and-delivery answer.
+        {"caller": "सब भर के submit भी कर दिया",
+         "require_any": ["check", "confirm", "notification", "mail", "WhatsApp"]},
         {"caller": "ठीक है बाय",
          "require_any": ["धन्यवाद"]},
     ],

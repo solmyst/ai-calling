@@ -770,5 +770,11 @@
     "United India",
     "Was the car purchased on loan?"
   ],
-  "stt_prompt": "A phone call in Hindi and English between a Park+ Insurance agent and a customer completing KYC for a motor insurance policy. The agent guides the customer through the Park+ app: the Insurance section, the Complete KYC button, PAN and Aadhaar details, and the nominee and address fields."
+  "stt_prompt": "A phone call in Hindi and English between a Park+ Insurance agent and a customer completing KYC for a motor insurance policy. The agent guides the customer through the Park+ app: the Insurance section, the Complete KYC button, PAN and Aadhaar details, and the nominee and address fields.",
+  "refund_or_cancel": {
+    "_source": "Park+ product owner, 2026-09-22, after a live call. The caller said \"मेरे को चाहिए नहीं पॉलिसी\" and the bot answered \"मुझे इसका exact जवाब पता नहीं है — team confirm करके बात कर लेगी\", which leaves them nowhere. Refunds and cancellations are out of scope for THIS call, but Park+ customer support handles them, and saying so is the answer.",
+    "answer": "Refunds and cancellations are handled by Park+ customer support, not on this call. Point them there plainly; never quote an amount, a timeline or whether a refund will be approved.",
+    "still_unknown": "Whether any refund is due, how much, and how long it takes. Never say. Only that customer support is the place to ask.",
+    "sanctioned_line": "सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।"
+  }
 }
