@@ -115,7 +115,12 @@ _DOC_CHANNEL_RE = re.compile(
     r"message\s+kar|भेज\s*दीजिए|send\s+me)",
     re.IGNORECASE,
 )
-_DOC_WORD = r"photo|फोटो|फ़ोटो|image|तस्वीर|document|दस्तावेज़|scan|aadhaar|आधार"
+# PAN and "copy" were missing, so "PAN card की copy email कर दीजिए" — asking for
+# an identity document by email — went straight through (2026-09-22).
+_DOC_WORD = (
+    r"photo|फोटो|फ़ोटो|image|तस्वीर|document|डॉक्यूमेंट|दस्तावेज़|scan|"
+    r"aadhaar|aadhar|आधार|\bPAN\b|पैन|copy|कॉपी|कार्ड\s*की"
+)
 # "copy" was in that list and cost a real turn. Caught live 23:21: "आप अपना ही
 # Email ID डाल दीजिए जिस पर आपको पॉलिसी की copy चाहिए।" was blocked, because
 # "email" matched the channel and "copy" matched the document. Email Id is a
@@ -123,7 +128,14 @@ _DOC_WORD = r"photo|फोटो|फ़ोटो|image|तस्वीर|docume
 # be able to say that. The rule is about SENDING documents to Park+ over an
 # unapproved channel, so a sentence about filling the Email Id field is exempt.
 _FORM_FIELD_CONTEXT = (
-    r"field|फ़ील्ड|फील्ड|Email\s*(?:Id|ID)|डाल\s*(?:दीजिए|दो|दें)|भर\s*(?:दीजिए|दो|दें)|"
+    r"field|फ़ील्ड|फील्ड|Email\s*(?:Id|ID)|"
+    # LISTING the form fields is not asking for documents. Park+ answered "क्या
+    # डॉक्यूमेंट चाहिए" with "नाम, जन्मतिथि, ईमेल, पता … भरें — फिर PAN और
+    # Aadhaar वाला फॉर्म भरना है" and the doc-channel rule saw "ईमेल" + "Aadhaar"
+    # and replaced a correct answer with one about uploading (live call 14:08,
+    # 2026-09-22). The exemption knew भर दीजिए/दो/दें but not भरें or भरना.
+    r"डाल\s*(?:दीजिए|दो|दें|ना|नी)|भर\s*(?:दीजिए|दो|दें|ना|नी|के)|भरें|भरनी|"
+    r"फ़ॉर्म|फॉर्म|form|"
     r"enter|type|fill|screen|स्क्रीन|page|पेज|"
     # Receiving, not sending: the policy document lands in their email, which
     # context.json says is exactly what the Email Id field is for.
@@ -803,6 +815,7 @@ class KycGuard:
         # Whether the "I am Park+'s calling assistant" line was already said
         # this turn, so a second self-description is dropped, not repeated.
         self._said_not_ai = False
+        self._said_close = False
 
     def note_caller(self, text: str) -> bool:
         """Record what the caller just asked, so _fix_sentence can match scripts.
@@ -816,6 +829,7 @@ class KycGuard:
         self._turn_refused_otp = False
         # Latches on and never off: once they are in, they are in.
         self._said_not_ai = False
+        self._said_close = False
         self._caller_clicked_only = bool(
             _CLICKED_BUTTON_RE.search(text) and not _ALSO_SUBMITTED_RE.search(text)
         )
@@ -964,6 +978,13 @@ class KycGuard:
             self.labels.append(sentence.strip())
         return fixed
 
+    def _closing(self, terminator: str) -> str:
+        """The sanctioned close, once per turn — several rules reach for it."""
+        if self._said_close:
+            return ""
+        self._said_close = True
+        return _SAFE_CLOSE if _SAFE_CLOSE[-1:] in ".।!?" else _SAFE_CLOSE + terminator
+
     def _fix_sentence(self, sentence: str) -> str:
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
 
@@ -1002,7 +1023,7 @@ class KycGuard:
             and not _SANCTIONED_CLOSE_RE.search(sentence)
         ):
             self.english_close.append(sentence.strip())
-            return safe(_SAFE_CLOSE)
+            return self._closing(terminator)
 
         # Time question answered with IRDAI / waiting line (15:18, 17:23).
         # Only when note_caller marked the turn as a time ask — the sanctioned
@@ -1038,7 +1059,7 @@ class KycGuard:
             or re.search(r"documents?\s*मुझे\s*नहीं|privacy\s*की\s*वजह", sentence, re.I)
         ):
             self.wrong_script.append(sentence.strip())
-            return safe(_SAFE_CLOSE)
+            return self._closing(terminator)
 
         if _OTP_RE.search(sentence) and not (
             _OTP_REFUSAL.search(sentence) and not _OTP_ASK_VERB.search(sentence)
@@ -1440,6 +1461,40 @@ def _demo():
         out = g_t.check(line if line[-1:] in ".।!?" else line + "।")
         assert not any(d in out for d in ("।।", "?।", "!।", ".।", "।.")), \
             f"{name} doubles its terminator: {out!r}"
+
+    # The sanctioned close is reachable from several rules, so a two-sentence
+    # goodbye used to get it twice ("Thank you सर! Have a good day." became
+    # "धन्यवाद, thank you for choosing Park+! धन्यवाद, thank you for choosing
+    # Park+."). Found replaying 347 spoken lines from call.log through the guard.
+    g_c = KycGuard()
+    g_c.note_caller("अच्छा ठीक है थैंक यू यार")
+    closed = "".join(g_c.check(x) for x in _SENTENCE_RE.findall(
+        "Thank you सर! Have a good day.") if x.strip())
+    assert closed.count("choosing Park+") == 1, closed
+
+    # The off-topic redirect must SURVIVE the app-push gate. Row 11 used to end
+    # "Insurance icon खोलिए?", which the gate drops before they engage — so the
+    # redirect vanished and the call just drifted.
+    g_o = KycGuard()
+    g_o.note_caller("क्रिकेट देख रहे हो आज का मैच?")
+    redirect = "मैच का मज़ा लीजिए सर! दो मिनट में KYC निपटा दें?"
+    assert g_o.check(redirect) == redirect, g_o.check(redirect)
+
+    # Listing the form fields is an ANSWER, not a document request. Verbatim
+    # from the 14:08 call, where "क्या डॉक्यूमेंट चाहिए" got a correct field
+    # list and the doc-channel rule replaced it with an upload instruction that
+    # answered nothing — it saw "ईमेल" (a field) and "Aadhaar" and fired.
+    FIELD_LIST = ("पहले अपने नाम, जन्मतिथि, ईमेल, पता और नामांकित व्यक्ति के बारे "
+                  "में भरें — फिर PAN और Aadhaar वाला फॉर्म भरना है।")
+    g_f = KycGuard()
+    g_f.note_caller("क्या-क्या डॉक्यूमेंट चाहिए होंगे")
+    assert g_f.check(FIELD_LIST) == FIELD_LIST, g_f.check(FIELD_LIST)
+    # ...while actually asking for an ID by email or WhatsApp still goes.
+    for wrong_channel in ("PAN card की copy email कर दीजिए मुझे।",
+                          "आप Aadhaar की photo WhatsApp पर भेज दीजिए सर।",
+                          "आधार का scan मेल कर दीजिए।"):
+        g_w = KycGuard()
+        assert g_w.check(wrong_channel) != wrong_channel, wrong_channel
 
     # The push gate must NEVER empty a turn: a sentence that answers AND pushes
     # keeps its answer. Gemini joined both with an em-dash and the caller heard

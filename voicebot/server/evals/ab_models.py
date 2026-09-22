@@ -129,7 +129,10 @@ SCENARIOS = {
         # system can say. So the forbid list names that claim, not "हो गया".
         {"caller": "मैंने KYC कर दी है, हो गया ना अब?",
          "forbid": ["KYC complete हो गई", "KYC हो गई है", "verify हो गया"],
-         "require_any": ["check", "confirm"]},
+         # Two Complete KYC buttons, so a bare "हो गया" is ambiguous: asking
+         # what they actually filled is as correct as the check-and-confirm
+         # answer, and is what the guard now produces.
+         "require_any": ["check", "confirm", "भर", "PAN", "Aadhaar"]},
     ],
     # Where the small model usually falls apart: off-topic, then back to work.
     "offtopic_pressure": [
