@@ -16,6 +16,7 @@ the model improvises "aapka Aadhaar number bata dijiye" is a compliance incident
 on a recorded call. Same reasoning as the price guard, higher stakes.
 """
 
+import functools
 import io
 import json
 import re
@@ -51,7 +52,8 @@ _OTP_REFUSAL = re.compile(
     # ...and negation AFTER the verb: "माँगने की जगह नहीं", "माँगती नहीं हूँ".
     r"(?:माँग|मांग|maang|mang)\w*[^.।!?]{0,18}(?:नहीं|नही|nahi+n?)|"
     r"(?:ask|need)\w*[^.।!?]{0,18}(?:not|never|no\b)|"
-    r"OTP\s*(?:किसी|kisi)\s*(?:को|ko)\s*(?:मत|mat|नहीं|nahi)",
+    r"OTP\s*(?:किसी|kisi)\s*(?:को|ko)\s*(?:मत|mat|नहीं|nahi)|"
+    r"(?:mat|kabhi\s*nahi)\s*(?:bataiye|batana|dijiye|maang)",
     re.IGNORECASE,
 )
 # The exemption is void if the sentence ALSO asks for the code. The round-3 fuzz
@@ -74,7 +76,8 @@ _SENSITIVE_ID = r"aadhaar|आधार|\bPAN\b|पैन|GSTIN|जीएसट�
 _ASK_SHAPE = (
     r"\?|बता\s*(?:दीजिए|दो|दें|इए)|बताइए|बोल\s*(?:दीजिए|दो)|"
     r"क्या\s+है|कितना\s+है|share\s+(?:kar|कर)|tell\s+me|what\s+is\s+your|"
-    r"नंबर\s+(?:दे|बता)|number\s+(?:de|bata)"
+    r"नंबर\s+(?:दे|बता)|number\s+(?:de|bata)|"
+    r"bata\s*(?:dijiye|do|dein)|bataiye|bol\s*(?:dijiye|do)|kya\s+hai|kitna\s+hai"
 )
 # Asking whether they FILLED PAN/Aadhaar is not asking them to say the numbers.
 # _ASK_SHAPE contains a bare "?", so "सर, आपने PAN और Aadhaar भर दिए थे?" — the
@@ -83,7 +86,9 @@ _ASK_SHAPE = (
 _ASKED_IF_FILLED = re.compile(
     r"भर\s*(?:दिए|दी|दिया|लिए|ली)|डाल\s*(?:दिए|दी|दिया)|"
     r"fill\s*(?:ed|kiya|kar\s*(?:diya|di))|entered|"
-    r"(?:complete|पूरा|पूरी)\s*(?:कर|हो)",
+    r"(?:complete|पूरा|पूरी)\s*(?:कर|हो)|"
+    r"bhar\s*(?:diye|di|diya|liye|li)\b|daal\s*(?:diye|di|diya)\b|"
+    r"(?:poora|poori|puri)\s*(?:kar|ho)",
     re.IGNORECASE,
 )
 
@@ -102,7 +107,8 @@ _SAFE_SENSITIVE_ID = (
 _APP_CONTEXT = (
     r"screen|स्क्रीन|field|फ़ील्ड|फील्ड|page|पेज|section|सेक्शन|app|ऐप|"
     r"भर\s*(?:दीजिए|दो|दें|ना)|fill|डाल\s*(?:दीजिए|दो|दें)|enter|type|"
-    r"खाली|blank|दिख\s*रहा|upload"
+    r"खाली|blank|दिख\s*रहा|upload|"
+    r"bhar\s*(?:dijiye|do|dein|na)|daal\s*(?:dijiye|do|dein)|khali|dikh\s*raha"
 )
 
 # --- asking for documents over the wrong channel ------------------------------
@@ -112,7 +118,7 @@ _APP_CONTEXT = (
 # link", which is what the runtime actually provides.
 _DOC_CHANNEL_RE = re.compile(
     r"(?:whatsapp|व्हाट्सएप|वॉट्सऐप|email|ईमेल|mail\s+kar|मेल\s+कर|"
-    r"message\s+kar|भेज\s*दीजिए|send\s+me)",
+    r"message\s+kar|भेज\s*दीजिए|bhej\s*dijiye|send\s+me)",
     re.IGNORECASE,
 )
 # PAN and "copy" were missing, so "PAN card की copy email कर दीजिए" — asking for
@@ -140,7 +146,9 @@ _FORM_FIELD_CONTEXT = (
     # Receiving, not sending: the policy document lands in their email, which
     # context.json says is exactly what the Email Id field is for.
     r"आ\s*जाए|मिल\s*जाए|aa\s*jaye|mil\s*jaye|भेज\s*देती\s*हूँ|receive|"
-    r"पर\s*आ|पे\s*आ|pe\s*aa|par\s*aa"
+    r"पर\s*आ|पे\s*आ|pe\s*aa|par\s*aa|"
+    r"daal\s*(?:dijiye|do|dein|na|ni)|bhar\s*(?:dijiye|do|dein|na|ni|ke)|"
+    r"bharein|bharni|bharna|bhej\s*deti\s*hoon"
 )
 _SAFE_DOC_CHANNEL = (
     "Documents app के KYC section में ही upload होते हैं सर — वहीं से कर दीजिए"
@@ -159,7 +167,8 @@ _DONE_MARKER = (
     # (?<!in) because "incomplete" contains "complete": "aapka verification
     # incomplete rahega" says the opposite of what this rule is looking for.
     r"(?<!in)complete|पूर[ाी]\s*हो\s*ग[यई]|हो\s*ग[यई][ाीे]?|ho\s*gay[ai]|done|"
-    r"successful|सफल|अप्रूव|approved|verified|वेरीफाई"
+    r"successful|सफल|अप्रूव|approved|verified|वेरीफाई|"
+    r"poor[aie]\s*ho\s*gay|safal"
 )
 _SAFE_DONE = (
     "मैं system में check करके confirm करूँगी सर — अभी complete नहीं बोल सकती"
@@ -189,14 +198,17 @@ _NEGATED_DONE = re.compile(
     # "Your payment is done, but the KYC is still pending" is the OPPOSITE of a
     # completion claim, yet "done" plus "KYC" made false_completions fire and
     # inject a Hindi line into an English reply (2026-09-22, code_switch 0).
-    r"(?:still\s+)?pending|बाक़ी\s*है|बाकी\s*है|अटक",
+    r"(?:still\s+)?pending|बाक़ी\s*है|बाकी\s*है|अटक|"
+    r"nahi\s*(?:hua|hui|hogi|hoga|hoti|karte|karenge|kiya|kar\s*paaye)|"
+    r"baa?ki\s*hai|atak",
     re.IGNORECASE,
 )
 
 _UI_ACTION = (
     r"दबा\s*(?:दीजिए|दो|दें|इए)|tap|click|press|button|बटन|option|विकल्प|"
     r"select|चुन|खोल\s*(?:िए|ो)|open|जाइए|जाके|जाकर|"
-    r"Complete\s*KYC"
+    r"Complete\s*KYC|"
+    r"daba\s*(?:dijiye|do|dein)|dabaiye|\bchun|khol(?:iye|o)\b|jaiye|jaake|jaakar"
 )
 
 # Asking someone to complete their KYC is the entire purpose of this call, and
@@ -251,7 +263,8 @@ _INSTRUCTED_DONE = re.compile(
 # safety_rules: "No promises of issuance timing or refund approval." A policy
 # date the bot invents is the thing the customer plans around.
 _PROMISE_RE = re.compile(
-    r"(?:policy|पॉलिसी|issue|इशू|जारी|refund|रिफंड|पैसे|amount|claim|क्लेम)",
+    r"(?:policy|पॉलिसी|issue|इशू|जारी|refund|रिफंड|पैसे|amount|claim|क्लेम|"
+    r"paise|jaari)",
     re.IGNORECASE,
 )
 # SPLIT by script, and the Devanagari half carries NO trailing \b. Most of these
@@ -266,7 +279,10 @@ _PROMISE_MARKER = re.compile(
     # than "within" — it fired on the approved "सब कुछ आपके app में ही होगा".
     # Real timing is already covered by the duration alternative below.
     r"|(?:आज|कल|परसों|तुरंत|गारंटी|पक्का)"
-    r"|(?:\d+|एक|दो|तीन|चार|पाँच|पांच|कुछ)\s*(?:घंटे|घंटो|दिन|दिनों)",
+    r"|(?:\d+|एक|दो|तीन|चार|पाँच|पांच|कुछ)\s*(?:घंटे|घंटो|दिन|दिनों)"
+    # Romanised, for REPLY_SCRIPT=hinglish. These DO take \b — Latin only.
+    r"|\b(?:aaj|kal|parson|turant|pakka)\b"
+    r"|\b(?:\d+|ek|do|teen|chaar|paanch|kuch)\s*(?:ghante|ghanton|din|dino|dinon)\b",
     # "मिल जाएगा" / "हो जाएगी" were in this list and dead, so nobody noticed they
     # do not belong: they are plain future tense, and the SANCTIONED line "बस KYC
     # होते ही आपकी policy issue हो जाएगी" contains one. A promise is a TIME or a
@@ -301,7 +317,9 @@ _AUTHORITY_RE = re.compile(
     r"\bIRDAI?\b|आईआरडीए|\bRBI\b|आरबीआई|regulator|रेगुलेटर|"
     r"(?:के\s+)?नियम(?:ों)?\s+के\s+(?:मुताबिक|अनुसार)|"
     r"as\s+per\s+(?:the\s+)?(?:law|regulation)|क़ानून|कानून|"
-    r"mandat(?:ory|ed)\s+by|सरकार\s+(?:के|ने)",
+    r"mandat(?:ory|ed)\s+by|सरकार\s+(?:के|ने)|"
+    r"(?:ke\s+)?niyam(?:on)?\s+ke\s+(?:mutabik|anusaar|anusar)|"
+    r"\b(?:qanoon|kanoon|kaanoon)|sarkar\s+(?:ke|ne)\b",
     re.IGNORECASE,
 )
 # The sanctioned sentence names IRDAI and no other authority, is about KYC, and
@@ -309,13 +327,14 @@ _AUTHORITY_RE = re.compile(
 _IRDAI_ONLY = re.compile(r"\bIRDAI?\b|आईआरडीए|आईआरडीएआई", re.IGNORECASE)
 _OTHER_AUTHORITY = re.compile(
     r"\bRBI\b|आरबीआई|regulator|रेगुलेटर|क़ानून|कानून|सरकार\s+(?:के|ने)|"
-    r"as\s+per\s+(?:the\s+)?(?:law|regulation)",
+    r"as\s+per\s+(?:the\s+)?(?:law|regulation)|"
+    r"\b(?:qanoon|kanoon|kaanoon)|sarkar\s+(?:ke|ne)\b",
     re.IGNORECASE,
 )
 _ABOUT_KYC = re.compile(r"\bKYC\b|केवाईसी", re.IGNORECASE)
 _ABOUT_ISSUANCE = re.compile(
-    r"(?:policy|पॉलिसी|पालिसी|बीमा)[^.।!?]{0,30}(?:issue|इशू|जारी)|"
-    r"(?:issue|इशू|जारी)[^.।!?]{0,20}(?:नहीं|नही|not|cannot|nahi)",
+    r"(?:policy|पॉलिसी|पालिसी|बीमा|bima)[^.।!?]{0,30}(?:issue|इशू|जारी|jaari)|"
+    r"(?:issue|इशू|जारी|jaari)[^.।!?]{0,20}(?:नहीं|नही|not|cannot|nahi)",
     re.IGNORECASE,
 )
 # Anything that sounds like a citation, a penalty or a date is invented: the
@@ -323,17 +342,22 @@ _ABOUT_ISSUANCE = re.compile(
 _FABRICATED_DETAIL = re.compile(
     r"circular|सर्कुलर|section|धारा|clause|अधिनियम|\bact\b|guideline\s*(?:no|number|\d)|"
     r"penalt|जुर्माना|fine|दंड|जेल|legal\s+action|क़ानूनी\s+कार्रवाई|कानूनी\s+कार्रवाई|"
-    r"\b(?:19|20)\d{2}\b|\d+\s*(?:din|दिन|days?|hours?|घंटे|months?|महीने|हफ़्ते|हफ्ते|weeks?)|"
-    r"deadline|आख़िरी\s+तारीख़|आखिरी\s+तारीख|last\s+date|अंतिम\s+तिथि",
+    r"\b(?:19|20)\d{2}\b|\d+\s*(?:din|दिन|days?|hours?|घंटे|months?|महीने|हफ़्ते|हफ्ते|weeks?|"
+    r"ghante|mahine|hafte)|"
+    r"deadline|आख़िरी\s+तारीख़|आखिरी\s+तारीख|last\s+date|अंतिम\s+तिथि|"
+    r"\b(?:dhara|jurmana|jurmaana|dand|jail)\b|(?:qanooni|kanooni)\s+(?:karyavahi|karvai)|"
+    r"aakhri\s+tareekh|antim\s+tithi",
     re.IGNORECASE,
 )
 # "payment हो चुका है" must survive — it is the line that proves the call is
 # real. Only a payment paired with a LOSS word is a fabricated consequence.
 _MONEY_AT_RISK_RE = re.compile(
-    r"(?:payment|पेमेंट|पैसा|पैसे|amount|रक़म|रकम|refund|रिफंड|premium|प्रीमियम)"
+    r"(?:payment|पेमेंट|पैसा|पैसे|amount|रक़म|रकम|refund|रिफंड|premium|प्रीमियम|"
+    r"paisa|paise|rakam)"
     r"[^.।!?]{0,40}"
     r"(?:stuck|अटक|फँस|फंस|block|ब्लॉक|ज़ब्त|जब्त|डूब|लैप्स|lapse|"
-    r"वापस\s+नहीं|waste|बर्बाद|ज़ाया)",
+    r"वापस\s+नहीं|waste|बर्बाद|ज़ाया|"
+    r"atak|phans|fans|zabt|doob|waa?pas\s+nahi|barbaad|zaaya)",
     re.IGNORECASE,
 )
 _SAFE_AUTHORITY = (
@@ -343,7 +367,7 @@ _SAFE_AUTHORITY = (
 # A FAILED outcome is not a completion claim. The failure word has to be the
 # thing that happened, so "KYC complete ho gaya, koi error nahi" stays blocked.
 _FAILED_DONE = re.compile(
-    r"(?:fail|फ़ेल|फेल|reject|रिजेक्ट|रद्द|decline|cancel)\w*\s*"
+    r"(?:fail|फ़ेल|फेल|reject|रिजेक्ट|रद्द|radd|decline|cancel)\w*\s*"
     r"(?:हो|ho)\s*(?:ग[यई][ाीे]?|gay[ai]|जाए|jaye|जाती|jati)",
     re.IGNORECASE,
 )
@@ -451,7 +475,9 @@ _COERCION_RE = re.compile(
     r"(?:करना|कराना)\s*ही\s*होगा|"
     r"मजबूर|majboor|"
     r"वरना\s*(?:policy|पॉलिसी|आपकी)|"
-    r"you\s*(?:have|must)\s*to\s*do\s*(?:it|this)\s*now",
+    r"you\s*(?:have|must)\s*to\s*do\s*(?:it|this)\s*now|"
+    r"(?:karna|karana|bharna|dena)\s*(?:hi\s*)?padega|(?:karna|karana)\s*hi\s*hoga|"
+    r"warna\s*(?:policy|aapki)",
     re.IGNORECASE,
 )
 _SAFE_SOFT_REQUIREMENT = (
@@ -477,7 +503,10 @@ _APP_PUSH_RE = re.compile(
     r"(?:Park\+\s*)?app\s*(?:को\s*)?खोल|app\s*open\s*(?:कर|कीजिए)|"
     r"(?:Insurance|इंश्योरेंस)\s*(?:वाले\s*|वाला\s*)?(?:icon|आइकन)|"
     r"(?:icon|आइकन)\s*(?:पर|पे)\s*(?:click|क्लिक)|"
-    r"open\s*the\s*Park\+\s*app|Park\+\s*app\s*(?:में|पर)\s*(?:जा|आ)",
+    r"open\s*the\s*Park\+\s*app|Park\+\s*app\s*(?:में|पर)\s*(?:जा|आ)|"
+    r"app\s*(?:ko\s*)?khol|app\s*open\s*(?:kar|kijiye)|"
+    r"Insurance\s*(?:wale|wala)\s*icon|icon\s*(?:par|pe)\s*click|"
+    r"Park\+\s*app\s*(?:mein|par)\s*(?:ja|aa)",
     re.IGNORECASE,
 )
 # Topics where "put it in the app" IS the answer, not a push. Someone reading
@@ -537,7 +566,8 @@ def _vocative_re(first_name: str) -> re.Pattern | None:
 # Stating their name is an ANSWER ("आपका नाम Anush Gupta है"), not a vocative.
 _NAME_IS_THE_ANSWER = re.compile(
     r"(?:आपका|आपक[ीे]|your)\s*(?:पूरा\s*)?(?:नाम|name)|"
-    r"(?:नाम|name)\s*(?:है|hai|is)",
+    r"(?:नाम|name)\s*(?:है|hai|is)|"
+    r"aapk[aie]\s*(?:poora\s*)?naam|naam\s*(?:hai|is)\b",
     re.IGNORECASE,
 )
 
@@ -555,15 +585,17 @@ _NAME_IS_THE_ANSWER = re.compile(
 # writes the English words in either script — Park+ said "कॉल" where the
 # sanctioned line says "call", and a literal key missed it entirely.
 _ALTERNATES = (
-    (re.compile(r"शाम\s*को\s*(?:call|कॉल)\s*करूँ\s*या\s*कल\s*सुबह", re.I),
+    (re.compile(r"शाम\s*को\s*(?:call|कॉल)\s*करूँ\s*या\s*कल\s*सुबह|"
+                r"shaam\s*ko\s*call\s*kar(?:oon|un|u)\s*ya\s*kal\s*subah", re.I),
      "बस बता दीजिए कब करना है, उसी time call कर लूँगी"),
     # Widened 2026-09-22: 1b now just asks "कब call करूँ?" (open, so it can
     # accept whatever time the caller names — see prompt.py row 1b), and that
     # same tail question also closes row 1a. Narrower wording tied to the old
     # "बाद में आपको कब call करूँ" phrasing stopped matching when 1b changed.
-    (re.compile(r"कब\s*(?:call|कॉल)\s*करूँ", re.I),
+    (re.compile(r"कब\s*(?:call|कॉल)\s*करूँ|kab\s*call\s*kar(?:oon|un|u)\b", re.I),
      "बस बता दीजिए कब करना है, उसी time call कर लूँगी"),
-    (re.compile(r"अभी\s*2\s*(?:minute|मिनट)\s*में\s*करवा\s*देती\s*हूँ", re.I),
+    (re.compile(r"अभी\s*2\s*(?:minute|मिनट)\s*में\s*करवा\s*देती\s*हूँ|"
+                r"abhi\s*2\s*minute\s*mein\s*karwa\s*deti\s*hoon", re.I),
      "2 minute का ही काम है सर"),
 )
 
@@ -623,9 +655,14 @@ _SANCTIONED_CLOSE_RE = re.compile(
 # for questions. When note_caller marked the last turn as a question topic, a
 # waiting-line sentence is rewritten to the short safe redirect for that topic.
 _WAITING_LINE_RE = re.compile(
-    r"form\s*खुल\s*गया\s*है|"
+    # "गया है" / "ही" were required, and the sanctioned line says "खुल गया
+    # होगा" and "मैं line पे हूँ" — so this never matched it. Loosened
+    # 2026-09-23 while adding the romanised half.
+    r"form\s*खुल\s*गया|"
     r"आराम\s*से\s*सारी\s*details\s*complete|"
-    r"मैं\s*line\s*पे\s*ही\s*हूँ",
+    r"मैं\s*line\s*पे\s*(?:ही\s*)?हूँ|"
+    r"form\s*khul\s*gaya|aaram\s*se\s*saari\s*details\s*complete|"
+    r"main\s*line\s*pe\s*(?:hi\s*)?hoon",
     re.IGNORECASE,
 )
 # The "I genuinely do not know" deflection, in the shapes the prompt teaches it.
@@ -633,7 +670,10 @@ _DONT_KNOW_RE = re.compile(
     r"(?:exact\s*)?(?:जवाब|answer)\s*(?:मुझे\s*)?(?:पता\s*)?(?:नहीं|नही)|"
     r"मुझे\s*(?:इसका\s*)?(?:exact\s*)?(?:पता|मालूम)\s*(?:नहीं|नही)|"
     r"team\s*(?:confirm|check)\s*करके|"
-    r"(?:don'?t|do not)\s*know",
+    r"(?:don'?t|do not)\s*know|"
+    r"(?:jawaa?b|answer)\s*(?:mujhe\s*)?(?:pata\s*)?nahi|"
+    r"mujhe\s*(?:iska\s*)?(?:exact\s*)?(?:pata|maloom)\s*nahi|"
+    r"team\s*(?:confirm|check)\s*kar(?:ke)?\b",
     re.IGNORECASE,
 )
 
@@ -721,8 +761,82 @@ _CALLER_TOPIC_PATTERNS = (
 
 _SAFE_TIME_ONLY = "सर, दो मिनट ही लगेंगे, अभी करवा देती हूँ।"
 
+# REPLY_SCRIPT=hinglish: the same canned lines in Latin letters. A romanised
+# bot that gets rewritten into Devanagari mid-turn would switch script in the
+# caller's ear, so every line the guard can SAY has a twin. _demo() fails if a
+# new canned line is added without one.
+@functools.lru_cache(maxsize=1)
+def _roman_lines() -> dict[str, str]:
+    from guardrails import _SAFE_NOT_AI
+    return {
+        _SAFE_OTP: "OTP kisi ko mat bataiye sir — is KYC mein uski zaroorat hi nahi padti",
+        _SAFE_OTP_FACT_ONLY: "Is KYC mein OTP ki zaroorat hi nahi padti sir",
+        _SAFE_SENSITIVE_ID: (
+            "Woh number mujhe phone par nahi chahiye sir — app mein safe tareeke se "
+            "daal dijiye, Insurance section mein Complete KYC pe"
+        ),
+        _SAFE_DOC_CHANNEL: (
+            "Documents app ke KYC section mein hi upload hote hain sir — wahin se kar dijiye"
+        ),
+        _SAFE_DONE: "Main system mein check karke confirm karungi sir — abhi complete nahi bol sakti",
+        _SAFE_PROMISE: "Woh main yahan se confirm nahi kar sakti sir — team update kar degi",
+        _SAFE_AUTHORITY: (
+            "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina policy issue nahi ho paati"
+        ),
+        _SAFE_SEND: (
+            "Sab kuch aapke app mein hi hai sir — Insurance section mein Complete KYC pe mil jayega"
+        ),
+        _SAFE_DO_NOT_SAY: "Uski detail main yahan se nahi bata sakti sir — team aapko confirm kar degi",
+        _SAFE_MONEY: "Uska exact amount main yahan se confirm nahi kar sakti sir — team bata degi",
+        _SAFE_SOFT_REQUIREMENT: (
+            "Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi — "
+            "do minute ka kaam hai, bataiye kab karwa dein?"
+        ),
+        _SAFE_AFTER_BUTTON: (
+            "Sir, ek baat confirm kar loon — PAN aur Aadhaar ki details bhar di thi aapne? "
+            "Agar haan toh kaam ho gaya, nahi toh woh form bhar dijiye"
+        ),
+        _SAFE_CLOSE: "Dhanyavaad, thank you for choosing Park+",
+        _SAFE_NOT_AI: "Main Park+ ki calling assistant hoon sir",
+        _SAFE_BY_TOPIC["time"]: "Sir, do minute hi lagenge, abhi karwa deti hoon.",
+        _SAFE_BY_TOPIC["refund"]: (
+            "Sir, policy cancel ya refund ki request aap Park+ customer support par kar "
+            "sakte hain — woh log yahi handle karte hain."
+        ),
+        _SAFE_BY_TOPIC["details"]: (
+            "Khali wale bhariye — owner's name, email, address, nominee. Pehle se bhare "
+            "sirf check. KYC pe PAN + Aadhaar app mein — number mujhe mat bataiye."
+        ),
+        _SAFE_BY_TOPIC["nominee"]: (
+            "Nominee parivaar ya bharosemand vyakti ka naam — claim unhi ko. "
+            "RC wala owner-name nominee mein nahi. Age unki asli age."
+        ),
+        _SAFE_BY_TOPIC["aadhaar"]: (
+            "Sir, Aadhaar aur PAN app ke KYC form mein bharna hai — number mujhe call pe "
+            "mat bataiye."
+        ),
+        _SAFE_BY_TOPIC["fill_for_me"]: (
+            "Main call pe details nahi bhar sakti sir — app mein aapko hi daalna hai."
+        ),
+        _SAFE_BY_TOPIC["busy"]: (
+            "Sir, 2 minute lagenge. Abhi 2 minute mein karwa deti hoon. "
+            "Agar possible nahi hai toh kab call karoon?"
+        ),
+        _ALTERNATES[0][1]: "Bas bata dijiye kab karna hai, usi time call kar loongi",
+        _ALTERNATES[2][1]: "2 minute ka hi kaam hai sir",
+    }
+
 
 _SENTENCE_RE = re.compile(r"[^.।!?]+[.।!?]?")
+
+
+def _end(line: str, terminator: str) -> str:
+    """Terminate a canned line once, with a danda only if the line is Devanagari."""
+    if line[-1:] in ".।!?":
+        return line
+    if terminator == "।" and not re.search(r"[\u0900-\u097F]", line):
+        terminator = "."
+    return line + terminator
 
 
 class KycGuard:
@@ -748,7 +862,7 @@ class KycGuard:
         ("english_close", "error", "rewrote an English goodbye"),
         ("wrong_script", "error", "rewrote waiting-line / IRDAI-on-time mismatch"),
         ("labels", "warning", "stripped a speaker label the model wrote"),
-        ("romanised", "warning", "answered in romanised Hindi instead of Devanagari"),
+        ("romanised", "warning", "answered in the wrong script for REPLY_SCRIPT"),
         ("machine_output", "error", "DROPPED non-speech output"),
         ("self_narration", "error", "DROPPED the model thinking out loud"),
         ("coercion", "error", "rewrote a line that pressured the customer"),
@@ -933,6 +1047,13 @@ class KycGuard:
             out.append(keep_lead(sentence, self._trim_name(fixed)))
         return "".join(out)
 
+    def _say(self, line: str) -> str:
+        """A canned line in the script the bot is replying in."""
+        import guardrails
+        if not guardrails.HINGLISH_REPLIES:
+            return line
+        return _roman_lines().get(line, line)
+
     def _vary_repeat(self, sentence: str) -> str:
         """Second use of a sanctioned line gets its alternate wording."""
         for idx, (pat, alt_text) in enumerate(_ALTERNATES):
@@ -949,8 +1070,9 @@ class KycGuard:
         rest = sentence[m.end():]
         # The line being replaced is a question; the alternate is a statement,
         # so the inherited "?" has to go or it is spoken with a rising tone.
+        alt = self._say(alt)
         if rest[:1] == "?" and not alt.endswith("?"):
-            rest = "।" + rest[1:]
+            rest = ("।" if re.search(r"[\u0900-\u097F]", alt) else ".") + rest[1:]
         return sentence[: m.start()] + alt + rest
 
     def _trim_name(self, sentence: str) -> str:
@@ -987,7 +1109,7 @@ class KycGuard:
         if self._said_close:
             return ""
         self._said_close = True
-        return _SAFE_CLOSE if _SAFE_CLOSE[-1:] in ".।!?" else _SAFE_CLOSE + terminator
+        return _end(self._say(_SAFE_CLOSE), terminator)
 
     def _fix_sentence(self, sentence: str) -> str:
         terminator = sentence[len(sentence.rstrip(".।!?")):] or "।"
@@ -998,7 +1120,7 @@ class KycGuard:
             Several sanctioned lines already end in a danda, and appending one
             gave "...handle करते हैं।।" — the voice pauses twice on that.
             """
-            return line if line[-1:] in ".।!?" else line + terminator
+            return _end(self._say(line), terminator)
 
         # Ambiguous "I clicked Complete KYC" — see _CLICKED_BUTTON_RE. Ask which
         # button rather than assert either answer.
@@ -1006,7 +1128,8 @@ class KycGuard:
             self._caller_clicked_only
             and (_DONE_CLAIM.search(sentence)
                  or re.search(r"काम\s*हो\s*गया|तरफ़?\s*का\s*काम|notification|"
-                              r"WhatsApp\s*(?:और|aur)\s*mail", sentence, re.I))
+                              r"WhatsApp\s*(?:और|aur)\s*mail|"
+                              r"kaam\s*ho\s*gaya|taraf\s*ka\s*kaam", sentence, re.I))
         ):
             self.premature_done.append(sentence.strip())
             if self._said_after_button:
@@ -1035,7 +1158,7 @@ class KycGuard:
         if self.last_caller_topic == "time" and (
             _IRDAI_ONLY.search(sentence)
             or _WAITING_LINE_RE.search(sentence)
-            or re.search(r"payment\s*तो\s*हो|पेमेंट\s*तो\s*हो", sentence, re.I)
+            or re.search(r"payment\s*(?:तो|toh?)\s*(?:हो|ho)|पेमेंट\s*तो\s*हो", sentence, re.I)
         ):
             self.wrong_script.append(sentence.strip())
             return safe(_SAFE_TIME_ONLY)
@@ -1060,7 +1183,8 @@ class KycGuard:
 
         if topic == "bye" and (
             _WAITING_LINE_RE.search(sentence)
-            or re.search(r"documents?\s*मुझे\s*नहीं|privacy\s*की\s*वजह", sentence, re.I)
+            or re.search(r"documents?\s*(?:मुझे|mujhe)\s*(?:नहीं|nahi)|"
+                         r"privacy\s*(?:की|ki)\s*(?:वजह|wajah)", sentence, re.I)
         ):
             self.wrong_script.append(sentence.strip())
             return self._closing(terminator)
@@ -1160,6 +1284,10 @@ GUARD = KycGuard
 
 
 def _demo():
+    # The cases below are the Devanagari copy; the romanised block near the end
+    # flips the script itself.
+    import guardrails
+    guardrails.HINGLISH_REPLIES = False
     g = KycGuard()
 
     # The five rules, each in the shape a model actually produces.
@@ -1716,6 +1844,94 @@ def _demo():
                    "Park+ app खोलकर Insurance icon पर click कीजिए।",
                    "धन्यवाद, thank you for choosing Park+।"):
         assert scaffold.check(speech) == speech, speech
+
+    # --- REPLY_SCRIPT=hinglish ------------------------------------------------
+    # The bot writes Latin letters, so every rule has to fire on the romanised
+    # shape of the same violation — a rule that only reads Devanagari is dead
+    # the moment the script flips, and nothing else would say so. The caller's
+    # side stays Devanagari: that is what the STT returns.
+    import guardrails
+    from . import prompt as _prompt
+    was_hinglish = guardrails.HINGLISH_REPLIES
+    guardrails.HINGLISH_REPLIES = True
+    try:
+        for counter, line in (
+            ("otp_asks", "Sir aapko jo OTP aaya hai woh bata dijiye."),
+            ("otp_asks", "Waise OTP kisi ko nahi dena chahiye, par aap mujhe share kar do."),
+            ("sensitive_id_asks", "Sir apna Aadhaar number bata dijiye."),
+            ("sensitive_id_asks", "Aapka PAN number kya hai?"),
+            ("wrong_channel_asks", "Aadhaar ki photo WhatsApp par bhej dijiye."),
+            ("false_completions", "Sir aapki KYC ho gayi hai."),
+            ("false_completions", "Aapka verification poora ho gaya."),
+            ("promises", "Aapki policy kal tak aa jayegi."),
+            ("promises", "Policy 2 din mein issue ho jayegi."),
+            ("invented_authority", "RBI ke niyam ke anusaar ye zaroori hai."),
+            ("invented_authority", "KYC nahi hui toh aapka paisa atak jayega."),
+            ("invented_authority",
+             "IRDAI ke rules ke hisaab se 30 din mein KYC nahi hui toh policy issue nahi hogi."),
+            ("false_send_promise", "Main aapko SMS bhej deti hoon."),
+            ("coercion", "Aapko ye karna hi padega."),
+            ("self_ai", "Main ek AI bot hoon."),
+            ("english_close", "Thank you, have a good day!"),
+        ):
+            h = KycGuard()
+            h.note_caller("हाँ बताइए क्या करना है")
+            out = h.check(line)
+            assert getattr(h, counter), f"hinglish {counter} missed: {line!r} -> {out!r}"
+            assert not re.search(r"[ऀ-ॿ]", out), \
+                f"hinglish {counter} answered in Devanagari: {out!r}"
+
+        # Not engaged yet: the romanised app push is still a push.
+        h = KycGuard()
+        assert h.check("Park+ app kholiye aur Insurance icon par click kijiye.") == ""
+        assert h.unasked_push
+
+        # Every sanctioned line, romanised, is spoken as written — a rule that
+        # eats approved copy is as broken as one that misses a violation.
+        for dev, roman in _prompt._ROMAN_BOT_LINES:
+            if dev.startswith(('"', "(", "never", "restart", "Never", "Exact",
+                               "Owner", "PAN", "जी", "→", "Say")):
+                continue
+            h = KycGuard()
+            h.note_caller("हाँ बताइए क्या करना है")
+            assert h.check(roman) == roman, f"approved romanised line rewritten: {roman!r}"
+
+        # The guard's own canned lines come back romanised and survive a second
+        # pass (FACT_ONLY is the one that only follows a refusal in the turn).
+        roman_lines = _roman_lines()
+        for canned in (_SAFE_OTP, _SAFE_SENSITIVE_ID, _SAFE_DOC_CHANNEL, _SAFE_DONE,
+                       _SAFE_PROMISE, _SAFE_AUTHORITY, _SAFE_SEND, _SAFE_DO_NOT_SAY,
+                       _SAFE_MONEY, _SAFE_SOFT_REQUIREMENT, _SAFE_CLOSE,
+                       *_SAFE_BY_TOPIC.values()):
+            assert canned in roman_lines, f"canned line has no romanised twin: {canned[:40]}"
+            roman = roman_lines[canned]
+            assert not re.search(r"[ऀ-ॿ]", roman), roman
+            h = KycGuard()
+            h.note_caller("हाँ बताइए क्या करना है")
+            assert h.check(roman).rstrip(".") == roman.rstrip("."), \
+                f"guard rewrites its own romanised line: {roman!r}"
+
+        # The replacement for a blocked line is romanised too, and ends with a
+        # full stop, not a danda.
+        h = KycGuard()
+        out = h.check("Sir aapki KYC ho gayi hai।")
+        assert out == roman_lines[_SAFE_DONE] + ".", out
+
+        # Second use of a sanctioned line gets the romanised alternate.
+        h = KycGuard()
+        h.check("Theek hai sir, kab call karoon?")
+        out = h.check("Koi dikkat nahi, kab call karoon?")
+        assert "Bas bata dijiye kab karna hai" in out and "?" not in out, out
+
+        # Drift runs the other way now: Devanagari is the wrong script.
+        h = KycGuard()
+        h.check("सर, आपके insurance की KYC pending है।")
+        assert h.romanised, "Devanagari output under hinglish must be recorded"
+        h = KycGuard()
+        h.check("Sir, aapke insurance ki KYC pending hai.")
+        assert not h.romanised, "romanised output under hinglish is not drift"
+    finally:
+        guardrails.HINGLISH_REPLIES = was_hinglish
 
     # A \b written through a non-raw Python string becomes a literal 0x08 and
     # the pattern silently stops matching. That is how _NEGATED_DONE lost

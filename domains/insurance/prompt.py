@@ -158,6 +158,121 @@ _OUTBOUND_LINE = (
     "लिया था, उसकी KYC pending है। आप अगर free हैं तो मैं अभी दो मिनट में "
     "करा देती हूँ।"
 )
+_OUTBOUND_LINE_HINGLISH = (
+    "Namaste {honorific}, Park+ se Shreya bol rahi hoon. Aapne jo car insurance "
+    "liya tha, uski KYC pending hai. Aap agar free hain toh main abhi do minute "
+    "mein kara deti hoon."
+)
+
+# REPLY_SCRIPT=hinglish: every line the BOT says, Devanagari -> romanised.
+#
+# Applied to the finished prompt rather than kept as a second template, so the
+# Devanagari copy stays the single source and this is only its spelling. What
+# is NOT here is deliberate: the caller's words ("अभी टाइम नहीं", "हो गया",
+# every MATCH trigger) stay Devanagari, because that is what the STT hands the
+# model. Only what the bot SAYS changes script.
+#
+# The last attempt romanised the match table alone and Park+ got WORSE — 90% of
+# the prompt still demonstrated Devanagari and the model copies what it sees.
+# So this covers every sanctioned line, and _demo() fails if any key stops
+# matching (a Devanagari line edited without its twin) or if a bot line is left
+# behind.
+#
+# Keys match across line wraps: whitespace inside a key matches any run of
+# whitespace in the prompt, so a key is written on one line however the
+# template wraps it.
+_ROMAN_BOT_LINES = (
+    # --- opening / call shape ------------------------------------------------
+    (_OUTBOUND_LINE.format(honorific="सर"), _OUTBOUND_LINE_HINGLISH.format(honorific="sir")),
+    ('"नमस्ते <name> जी"', '"Namaste <name> ji"'),
+    ('"उसकी KYC pending है"', '"uski KYC pending hai"'),
+    ('"Insurance icon पर click कीजिए"', '"Insurance icon par click kijiye"'),
+    ("सर, आपके कार insurance की KYC pending है — दो मिनट में हो जाएगा, अभी कर लेते हैं?",
+     "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"),
+    ("बिल्कुल सही सोच रहे हैं सर — मैं कोई OTP या document नहीं माँगूँगी। सब आपके app में ही होगा।",
+     "Bilkul sahi soch rahe hain sir — main koi OTP ya document nahi maangungi. Sab aapke app mein hi hoga."),
+    ("Park+ Insurance, Shreya बोल रही हूँ। बताइए, किस बारे में call किया आपने?",
+     "Park+ Insurance, Shreya bol rahi hoon. Bataiye, kis baare mein call kiya aapne?"),
+    ('"app खोल लीजिए"', '"app khol lijiye"'),
+    # --- refusals / mandate -------------------------------------------------
+    ("सर, IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
+     "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai."),
+    ("कोई last date तो नहीं है सर — पर जब तक KYC नहीं होती, policy document नहीं मिलेगा। अभी कर लेते हैं, दो मिनट लगेंगे।",
+     "Koi last date toh nahi hai sir — par jab tak KYC nahi hoti, policy document nahi milega. Abhi kar lete hain, do minute lagenge."),
+    ("मुझे इसका exact जवाब पता नहीं है सर, team confirm करके बता देगी।",
+     "Mujhe iska exact jawaab pata nahi hai sir, team confirm karke bata degi."),
+    ("मुझे इसका exact जवाब पता नहीं है सर, team check करके आपको बता देगी।",
+     "Mujhe iska exact jawaab pata nahi hai sir, team check karke aapko bata degi."),
+    ("never just say धन्यवाद", "never just say dhanyavaad"),
+    ("ठीक है, कोई दिक्कत नहीं। मैं आपको बाद में connect कर लूँगी — आप बता दीजिए कब करूँ? बस इतना बता दूँ सर, KYC हो जाने पर ही आपकी policy बन पाएगी।",
+     "Theek hai, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."),
+    ("कोई बात नहीं सर — शाम को करूँ या कल?", "Koi baat nahi sir — shaam ko karoon ya kal?"),
+    ("restart from App खोलिए", "restart from App kholiye"),
+    # --- the walkthrough ------------------------------------------------------
+    ('"Complete KYC दिख रहा होगा"', '"Complete KYC dikh raha hoga"'),
+    ("सर, insurance वाला page खुल गया? उस पर 'Complete KYC' का button दिखेगा — उसी पे click कीजिए।",
+     "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye."),
+    ("सर, अभी screen पर क्या दिख रहा है?", "Sir, abhi screen par kya dikh raha hai?"),
+    ("सर, form खुल गया होगा। आप अब इसमें details भरना start कर दीजिए। मैं line पे हूँ। अगर कुछ भी help और कुछ भी दिक्कत होगी, तो मुझे बता देना। मैं help कर दूँगी।",
+     "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main help kar doongi."),
+    ("(RC वाला नाम — गाड़ी के मालिक का)", "(RC wala naam — gaadi ke maalik ka)"),
+    ("जो भी field खाली हो वो भर दीजिए सर।", "Jo bhi field khali ho woh bhar dijiye sir."),
+    ("Owner's name = RC पर नाम. Nominee = परिवार/कोई विश्वसनीय व्यक्ति जिसे claim मिलता है — RC वाला नाम nominee में मत डालो जब तक ये intentionally same न हो.",
+     "Owner's name = RC par naam. Nominee = parivaar/koi vishwasniya vyakti jise claim milta hai — RC wala naam nominee mein mat daalo jab tak ye intentionally same na ho."),
+    ("PAN = गाड़ी के मालिक का ही — mummy/papa का तभी जब वही RC owner हो.",
+     "PAN = gaadi ke maalik ka hi — mummy/papa ka tabhi jab wahi RC owner ho."),
+    ('Never "मैं check करके confirm करूँगी" here.', 'Never "main check karke confirm karungi" here.'),
+    ("सर, आपने proposal page भर दिया है। अब KYC वाले page पे आ जाइए और PAN, Aadhaar वाला form भर दीजिए। कुछ भी दिक्कत हो तो बताइएगा, मैं help करूँगी।",
+     "Sir, aapne proposal page bhar diya hai. Ab KYC wale page pe aa jaiye aur PAN, Aadhaar wala form bhar dijiye. Kuch bhi dikkat ho toh bataiyega, main help karungi."),
+    ('"काम हो गया" to someone', '"kaam ho gaya" to someone'),
+    ("बहुत बढ़िया सर! मैं system में check कर लूँगी — आपकी तरफ़ का काम हो गया।",
+     "Bahut badhiya sir! Main system mein check kar loongi — aapki taraf ka kaam ho gaya."),
+    ("सर, insurer की side से सारी details verify हो जाएँगी, फिर policy आपको WhatsApp और mail दोनों पे आ जाएगी — app में भी notification आ जाएगा।",
+     "Sir, insurer ki side se saari details verify ho jaayengi, phir policy aapko WhatsApp aur mail dono pe aa jaayegi — app mein bhi notification aa jaayega."),
+    ("Exact line, no variation: धन्यवाद, thank you for choosing Park+।",
+     "Exact line, no variation: Dhanyavaad, thank you for choosing Park+."),
+    # --- button ladder (context.json) ----------------------------------------
+    ("Insurance page पे देखिए सर, वहीं मिल जाएगा।", "Insurance page pe dekhiye sir, wahin mil jayega."),
+    ("हाँ सर, insurance वाले page पे ही देखिए — 'Complete KYC' का button वहीं होता है।",
+     "Haan sir, insurance wale page pe hi dekhiye — 'Complete KYC' ka button wahin hota hai."),
+    ("एक काम कीजिए सर — app बंद करके दोबारा खोलिए, फिर insurance page पे देखिए।",
+     "Ek kaam kijiye sir — app band karke dobara kholiye, phir insurance page pe dekhiye."),
+    ("कोई बात नहीं सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ — वहीं से कर लीजिए।",
+     "Koi baat nahi sir, main aapko WhatsApp par KYC ka link bhej deti hoon — wahin se kar lijiye."),
+    # --- handover / never-say -----------------------------------------------
+    ("सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, वो आपको call करके करवा देंगे।",
+     "Sir, ye mujhse yahan se nahi ho pa raha — main hamari team ko bhej deti hoon, woh aapko call karke karwa denge."),
+    ("मैं Park+ की calling assistant हूँ सर", "Main Park+ ki calling assistant hoon sir"),
+    ("OTP किसी को मत बताइए सर, मुझे भी नहीं।", "OTP kisi ko mat bataiye sir, mujhe bhi nahi."),
+    ("आपके documents मुझे नहीं चाहिए सर — privacy की वजह से ये सब app में ही होता है, मैं यहाँ से नहीं भर सकती।",
+     "Aapke documents mujhe nahi chahiye sir — privacy ki wajah se ye sab app mein hi hota hai, main yahan se nahi bhar sakti."),
+    ("मैं आपको सिर्फ KYC का link WhatsApp पर भेज देती हूँ — बाकी सब उसी link से हो जाएगा।",
+     "Main aapko sirf KYC ka link WhatsApp par bhej deti hoon — baaki sab usi link se ho jayega."),
+    ("→ सिर्फ KYC link WhatsApp पर भेजने की पेशकश करें — कोई document नहीं, सिर्फ वो link। App अब भी default रास्ता है, ये सिर्फ़ उनके माँगने पर।",
+     "→ sirf KYC link WhatsApp par bhejne ki offer karein — koi document nahi, sirf woh link. App ab bhi default raasta hai, ye sirf unke maangne par."),
+    ('"बस इतना बता दूँ" not "आपको करना ही पड़ेगा"', '"bas itna bata doon" not "aapko karna hi padega"'),
+    ("सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।",
+     "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."),
+    # --- call card honorific (call_card.render) -------------------------------
+    ('जी" wherever the scripts below say "सर", including in the opening line.',
+     'ji" wherever the scripts below say "sir", including in the opening line.'),
+    ("Never say सर or मैडम to them", "Never say sir or madam to them"),
+    ("जी fits everyone.", "ji fits everyone."),
+)
+
+
+def _roman_key(dev: str) -> re.Pattern:
+    return re.compile(r"\s+".join(re.escape(w) for w in dev.split()))
+
+
+_ROMAN_BOT_PATTERNS = tuple((_roman_key(d), r) for d, r in _ROMAN_BOT_LINES)
+
+
+def _romanise(text: str) -> str:
+    """The bot's lines in Latin letters; the caller's words left as the STT gives them."""
+    for pat, roman in _ROMAN_BOT_PATTERNS:
+        text = pat.sub(lambda _m, r=roman: r, text)
+    return text
 
 OPENINGS = {
     # Post-payment: they have already paid, so this is not a sales call and must
@@ -656,7 +771,7 @@ def opening_line(mode: str, card: dict | None = None) -> str | None:
     """
     if mode != "outbound":
         return None
-    honorific = "सर"
+    honorific = "sir" if HINGLISH_REPLIES else "सर"
     if card and card.get("customer_name"):
         # Same first-name-plus-जी rule as call_card.render(), and for the same
         # reason: जी is respectful and carries no gender, so it is safe with
@@ -664,11 +779,18 @@ def opening_line(mode: str, card: dict | None = None) -> str | None:
         # card["customer_name"], so a rename in one place breaks the other's
         # test loudly rather than silently drifting.
         first = str(card["customer_name"]).split()[0]
-        honorific = f"{first} जी"
-    return _OUTBOUND_LINE.format(honorific=honorific)
+        honorific = f"{first} ji" if HINGLISH_REPLIES else f"{first} जी"
+    line = _OUTBOUND_LINE_HINGLISH if HINGLISH_REPLIES else _OUTBOUND_LINE
+    return line.format(honorific=honorific)
 
 
 def build_system_prompt(mode: str = "outbound", card: dict | None = None) -> str:
+    """The system prompt in the script REPLY_SCRIPT asks for — see _romanise()."""
+    text = _build_devanagari_prompt(mode, card)
+    return _romanise(text) if HINGLISH_REPLIES else text
+
+
+def _build_devanagari_prompt(mode: str = "outbound", card: dict | None = None) -> str:
     """The system prompt, optionally narrowed to one customer's case.
 
     With no card this is exactly what it has always been — the full walkthrough,
@@ -725,6 +847,11 @@ def _est_tokens(text: str) -> float:
 
 
 def _demo():
+    # Every content check below is written against the Devanagari copy, which
+    # is the source; the romanised build is checked on its own at the end.
+    global HINGLISH_REPLIES, WHATSAPP_KYC_LINK_ENABLED
+    env_hinglish = HINGLISH_REPLIES
+    HINGLISH_REPLIES = False
     ctx = json.loads(CONTEXT_FILE.read_text())
     for mode in OPENINGS:
         p = build_system_prompt(mode)
@@ -983,7 +1110,6 @@ def _demo():
     # so flip it directly rather than re-importing. Nothing exercised this
     # before it shipped; a token-budget or content regression here would have
     # gone live invisibly the same way the 4873-vs-4450 overrun did.
-    global WHATSAPP_KYC_LINK_ENABLED
     was_enabled = WHATSAPP_KYC_LINK_ENABLED
     WHATSAPP_KYC_LINK_ENABLED = True
     try:
@@ -1025,6 +1151,48 @@ def _demo():
         f"only {pct}% of the prompt is shared between two calls — per-call "
         "content moved above the call card and the prefix cache is now dead"
     )
+
+    # --- REPLY_SCRIPT=hinglish ---------------------------------------------------
+    # 1. No dead keys: every Devanagari line in _ROMAN_BOT_LINES still exists
+    #    somewhere in a real build. A sanctioned line edited without its twin
+    #    would otherwise silently ship in Devanagari to a Hinglish bot.
+    WHATSAPP_KYC_LINK_ENABLED = True
+    try:
+        sources = [_build_devanagari_prompt(m) for m in OPENINGS]
+        sources += [_build_devanagari_prompt("outbound", c) for c in (kyc, dup, company)]
+    finally:
+        WHATSAPP_KYC_LINK_ENABLED = was_enabled
+    every_build = "\n".join(sources)
+    dead = [d for (d, _), (pat, _) in zip(_ROMAN_BOT_LINES, _ROMAN_BOT_PATTERNS)
+            if not pat.search(every_build)]
+    assert not dead, f"romanisation key no longer matches the prompt: {dead[0][:60]}"
+    # 2. What is left in Devanagari is the CALLER's words only — short quotes
+    #    and MATCH triggers. A run longer than any caller quote is a bot line
+    #    that was added without a romanised twin.
+    HINGLISH_REPLIES = True
+    try:
+        for flag in (False, True):
+            WHATSAPP_KYC_LINK_ENABLED = flag
+            builds = [build_system_prompt(m) for m in OPENINGS]
+            builds += [build_system_prompt("outbound", c) for c in (kyc, dup, company)]
+            for p in builds:
+                runs = re.findall(r"[\u0900-\u097F][\u0900-\u097F\s,।?!—-]*", p)
+                long_runs = [r.strip() for r in runs if len(r.strip()) > 40]
+                assert not long_runs, f"bot line left in Devanagari: {long_runs[0]}"
+                assert _est_tokens(p) < 7800, f"hinglish: {_est_tokens(p):.0f} tokens"
+        WHATSAPP_KYC_LINK_ENABLED = was_enabled
+        p_h = build_system_prompt("outbound")
+        for line in ctx["kyc_mandate"]["sanctioned_lines"].values():
+            assert _romanise(line) in p_h and line not in p_h, line[:40]
+        spoken_h = opening_line("outbound")
+        assert not re.search(r"[\u0900-\u097F]", spoken_h), spoken_h
+        assert len(spoken_h) <= 190, f"romanised opening grew to {len(spoken_h)} chars"
+        named = opening_line("outbound", {"customer_name": "Neha Bhatia"})
+        assert named.startswith("Namaste Neha ji,"), named
+        assert 'Say "Neha ji"' in build_system_prompt("outbound", company)
+    finally:
+        HINGLISH_REPLIES = env_hinglish
+        WHATSAPP_KYC_LINK_ENABLED = was_enabled
 
     sizes = {m: int(_est_tokens(build_system_prompt(m))) for m in OPENINGS}
     print("insurance prompt ok — " + ", ".join(f"{m} ~{t} tokens" for m, t in sizes.items()))

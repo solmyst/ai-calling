@@ -264,6 +264,10 @@ def is_script_drift(text: str) -> bool:
     KYC", "Aadhar Front Image" and "Next" constantly, and a TTS filter sees
     CHUNKS rather than whole turns, so a short Latin-only chunk is ordinary.
     """
+    if HINGLISH_REPLIES and _DEVANAGARI_RE.search(text):
+        # Under REPLY_SCRIPT=hinglish the drift runs the other way: Devanagari
+        # is the wrong script. Recorded only — see KycGuard.check().
+        return True
     if _ROMAN_HINDI_RE.search(text):
         # ...unless romanised Hindi is what we asked for. Straight English is
         # still drift in that mode, which is what the length rule below catches.
@@ -295,7 +299,10 @@ _ROMAN_HINDI_RE = re.compile(
     r"\b(?:aap(?:ko|ki|ka|se)?|hai|hain|kar(?:te|ke|na|ni)?|kaun|kya|kyun|"
     r"nahi+n?|chahiye|mein|bhi|toh|hoga|hogi|honge|karenge|karengi|bata(?:iye|do)?|"
     r"dijiye|dete|deti|raha|rahi|rahe|sirf|wala|wali|usme|isme|yeh|woh|jaise|"
-    r"lagta|lagti|lagega|sakta|sakti|sakte|gaadi|paas|liye|abhi|thoda)\b",
+    r"lagta|lagti|lagega|sakta|sakti|sakte|gaadi|paas|liye|abhi|thoda|"
+    # Added 2026-09-23 for REPLY_SCRIPT=hinglish: the sanctioned lines lean on
+    # these, and "Theek hai sir" / "click kijiye" read as English without them.
+    r"hoon|kijiye|lijiye|theek|haan|dikkat|dijiyega|bataiyega)\b",
     re.IGNORECASE,
 )
 

@@ -54,7 +54,7 @@ from domain import (
     build_opening_line,
     build_system_prompt,
 )
-from guardrails import PriceGuard, is_machine_output
+from guardrails import HINGLISH_REPLIES, PriceGuard, is_machine_output
 from redaction import redact
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
@@ -285,6 +285,9 @@ class CallLogObserver(BaseObserver):
     # the first beat this switches to an actual acknowledgement that carries
     # meaning. TIER2 only fires if TIER1 already did and the reply is STILL
     # not back, so it scales with how overdue the turn actually is.
+    # Fillers stay Devanagari under REPLY_SCRIPT=hinglish: they never enter the
+    # LLM context (append_to_context=False), and the hums were verified by TTS
+    # round trip in THIS spelling only.
     FILLER_TIER1 = ("हम्म,", "उम्म,", "हम्म...")
     FILLER_TIER2 = ("बस देख रही हूँ सर,", "एक सेकंड सर,", "अभी बताती हूँ,")
 
@@ -476,7 +479,13 @@ _SPEAKABLE_RE = re.compile(r"[^\W_]", re.UNICODE)
 #: than one that does not — see on_idle_timeout(). "Hello sir" first, product
 #: ask 2026-09-22, so it reads as someone checking in rather than a canned
 #: system line — then the actual offer of help.
-IDLE_NUDGE_LINE = "Hello sir, मैं call पे हूँ। कुछ help चाहिए, तो बता दो क्या हुआ।"
+#: REPLY_SCRIPT=hinglish speaks it romanised: it lands in the LLM context like
+#: any bot turn, and one Devanagari line there is a demonstration to copy.
+IDLE_NUDGE_LINE = (
+    "Hello sir, main call pe hoon. Kuch help chahiye, toh bata do kya hua."
+    if HINGLISH_REPLIES
+    else "Hello sir, मैं call पे हूँ। कुछ help चाहिए, तो बता दो क्या हुआ।"
+)
 
 
 def _message_role(message) -> str | None:

@@ -327,6 +327,36 @@ def run_scenario(label, url, model, headers, name, turns, card=None, verbose=Fal
     return result
 
 
+#: REPLY_SCRIPT=hinglish replies in Latin letters, so every Devanagari check
+#: also accepts its romanised spelling — matched on word boundaries, since
+#: "kal" and "ji" are substrings of half the romanised language.
+_ROMAN_EQUIV = {
+    "2 मिनट": ["2 minute"], "24 घंटे": ["24 ghante"],
+    "KYC complete हो गई": ["KYC complete ho gayi", "KYC complete ho gai"],
+    "KYC हो गई है": ["KYC ho gayi hai", "KYC ho gai hai"],
+    "refund मिल जाएगा": ["refund mil jayega", "refund mil jaayega"],
+    "verify हो गया": ["verify ho gaya"], "अगल": ["agal"], "ईमेल": ["email"],
+    "कब": ["kab"], "करूँ": ["karoon", "karun"], "कल": ["kal"], "कॉल": ["call"],
+    "खोल": ["khol", "kholiye", "kholkar"], "गाड़ी": ["gaadi", "gadi"], "जी": ["ji"],
+    "दो मिनट": ["do minute"], "धन्यवाद": ["dhanyavaad", "dhanyavad", "dhanyawad"],
+    "नहीं": ["nahi", "nahin"], "नाम": ["naam"], "नॉमिनी": ["nominee"],
+    "पता": ["pata"], "पहचान": ["pehchaan", "pehchan"], "फँस": ["phans", "fans"],
+    "बता दीजिए": ["bata dijiye"], "बाद में": ["baad mein"],
+    "भर": ["bhar", "bhariye", "bharna", "bharein"], "मत": ["mat"],
+    "मैं इंसान हूँ": ["main insaan hoon"],
+    "वापस मिल जाएगा": ["wapas mil jayega", "vapas mil jayega", "waapas mil jaayega"],
+    "शाम": ["shaam", "sham"], "सही": ["sahi"], "हाँ": ["haan"],
+}
+
+
+def _found(needle, low, flat):
+    n = needle.lower()
+    if n in low or re.sub(r"\s+", "", n) in flat:
+        return True
+    return any(re.search(rf"\b{re.escape(r.lower())}\b", low)
+               for r in _ROMAN_EQUIV.get(needle, ()))
+
+
 def _check(turn, spoken):
     fails = []
     low = spoken.lower()
@@ -335,11 +365,10 @@ def _check(turn, spoken):
     # whitespace rather than counting the spacing as a miss.
     flat = re.sub(r"\s+", "", low)
     for bad in turn.get("forbid", ()):
-        if bad.lower() in low:
+        if _found(bad, low, flat):
             fails.append(f"said forbidden {bad!r}")
     need = turn.get("require_any")
-    if need and not any(n.lower() in low or re.sub(r"\s+", "", n.lower()) in flat
-                        for n in need):
+    if need and not any(_found(n, low, flat) for n in need):
         fails.append(f"missing all of {need}")
     if not spoken.strip():
         fails.append("empty after guard")
@@ -404,7 +433,8 @@ def summarise(results):
     for label, m in by_model.items():
         n = max(m["turns"], 1)
         print(f"{label}: ~{m['prompt_tokens']/n:.0f} prompt + "
-              f"{m['completion_tokens']/n:.0f} completion tokens per turn")
+              f"{m['completion_tokens']/n:.0f} completion tokens per turn; "
+              f"{m['turns'] - m['english_only']}/{m['turns']} replies carry Devanagari")
     return by_model
 
 
