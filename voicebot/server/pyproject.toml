@@ -2,12 +2,14 @@
 name = "voicebot"
 version = "0.1.0"
 description = "Voice AI bot built with Pipecat"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     # websocket = Exotel/Plivo FastAPI media streams. assemblyai/sarvam/elevenlabs/
     # groq/openai are what bot.py imports; without them a clean `uv sync` ImportErrors.
-    # Still no lock file — pin when you next freeze the env.
-    "pipecat-ai[piper,runner,silero,webrtc,whisper,websocket,assemblyai,sarvam,elevenlabs,groq]>=1.4.0",
+    # Pinned 2026-09-23 to what every test and live call ran on (Pipecat 1.10.0,
+    # Python 3.12). Unpinned, a fresh VM installed 1.11 on Python 3.14 — a stack
+    # nothing had been verified against. Bump deliberately, re-run the checks.
+    "pipecat-ai[piper,runner,silero,webrtc,whisper,websocket,assemblyai,sarvam,elevenlabs,groq]==1.10.0",
     "openai>=1.0.0",
     "python-dotenv>=1.0.0",
 ]
