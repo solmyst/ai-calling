@@ -280,6 +280,9 @@ def fetch(proposal_id) -> dict | None:
     Never raises: no key, a bad id, a timeout or an empty result all mean "no
     card", which is the supported degraded mode — the bot runs the generic call.
     """
+    # domain.py loads voicebot/server/.env. bot.py imports it anyway; this makes
+    # a standalone `from_body({...})` check see the same key a call does.
+    import domain  # noqa: F401
     key = os.getenv("METABASE_API_KEY")
     try:
         pid = int(str(proposal_id).strip())
@@ -454,7 +457,9 @@ def _demo_fetch():
         assert build(row)["goal"] == goal, code
     assert _row_from_dataset({"data": {"cols": [], "rows": []}}) is None
     assert _row_from_dataset({"error": "x"}) is None
-    # No key, or a bad id, means no fetch — never an exception.
+    # No key, or a bad id, means no fetch — never an exception. .env is loaded
+    # first, so fetch()'s own import of domain cannot put the key back.
+    import domain  # noqa: F401
     saved = os.environ.pop("METABASE_API_KEY", None)
     try:
         assert fetch(741688) is None

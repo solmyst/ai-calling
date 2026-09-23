@@ -29,6 +29,13 @@ bash /opt/ai-calling/voicebot/deploy/start.sh
 It prints the address, `https://<vm-ip-with-dashes>.sslip.io/` — no domain
 needed. Open it in Chrome, allow the mic, press **Connect**.
 
+## Test a specific proposal
+```bash
+bash /opt/ai-calling/voicebot/deploy/start.sh 859623   # every call looks up proposal 859623
+```
+Locally: `python bot.py --proposal 859623`. No .env edit needed; the flag wins
+over TEST_CALL_CARD.
+
 ## Every day
 ```bash
 tail -f /opt/ai-calling/voicebot/server/call.log      # LATENCY / STT LAG lines per turn

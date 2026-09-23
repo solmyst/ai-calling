@@ -2055,7 +2055,30 @@ async def bot(runner_args: RunnerArguments):
     await run_bot(transport, runner_args)
 
 
+def _take_proposal_flag(argv: list[str]) -> int | None:
+    """Pull `--proposal N` / `--proposal=N` out of argv, for local testing.
+
+    `python bot.py --proposal 859623` makes every call this process takes look up
+    that case, instead of editing TEST_CALL_CARD in .env between tests. Removed
+    from argv because the Pipecat runner rejects flags it does not know. Set
+    after .env has loaded (line ~110 loads it with override=True), so the flag
+    always wins over whatever TEST_CALL_CARD says.
+    """
+    for i, arg in enumerate(argv):
+        if arg == "--proposal" or arg.startswith("--proposal="):
+            value = arg.split("=", 1)[1] if "=" in arg else (argv[i + 1] if i + 1 < len(argv) else "")
+            del argv[i:i + (1 if "=" in arg else 2)]
+            if not value.strip().isdigit():
+                sys.exit(f"--proposal needs a proposal id number, got {value!r}")
+            return int(value)
+    return None
+
+
 if __name__ == "__main__":
     from pipecat.runner.run import main
 
+    proposal = _take_proposal_flag(sys.argv)
+    if proposal:
+        os.environ["TEST_CALL_CARD"] = json.dumps({"proposal_id": proposal})
+        print(f"TEST PROPOSAL {proposal} — every call in this run looks up this case", flush=True)
     main()
