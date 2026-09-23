@@ -321,7 +321,7 @@ def fetch(proposal_id, timeout: float | None = None) -> dict | None:
         url, data=json.dumps(payload).encode(), method="POST",
         headers={"Content-Type": "application/json", "x-api-key": key},
     )
-    limit = timeout or float(os.getenv("METABASE_TIMEOUT_SECS") or 4)
+    limit = timeout or float(os.getenv("METABASE_TIMEOUT_SECS") or 2)
     try:
         with urllib.request.urlopen(req, timeout=limit) as r:
             row = _row_from_dataset(json.loads(r.read()))
