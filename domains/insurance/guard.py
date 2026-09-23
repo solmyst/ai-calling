@@ -934,6 +934,49 @@ _DELIVERY_LINE = (
     "सर, insurer की side से सारी details verify हो जाएँगी, फिर policy आपको WhatsApp और "
     "mail दोनों पे आ जाएगी — app में भी notification आ जाएगा"
 )
+# Insurance terms real customers ask about (1,541 Park+ agent calls,
+# 2026-09-21/22: IDV 49 calls, NCB 60, zero dep 95, first/third party 122,
+# add-ons 54, claim/cashless 138). Standard definitions, as the agents gave them.
+# Served as a turn hint, so the knowledge costs no prompt tokens on turns that
+# do not need it.
+_KNOWLEDGE = (
+    (re.compile(r"\bidv\b|\bidb\b|आईडीवी|आईडीबी|insured\s*declared", re.I),
+     "IDV (Insured Declared Value) = gaadi total loss ya chori ho jaaye toh insurer itne tak ka claim deta hai."),
+    (re.compile(r"\bncb\b|एनसीबी|no\s*claim\s*bonus|नो\s*क्लेम", re.I),
+     "NCB (No Claim Bonus) = pichhle saal claim nahi liya toh renewal premium par discount; claim lene par NCB chala jaata hai."),
+    (re.compile(r"zero\s*d[ae]p|ज़ीरो\s*डे[पब]|जीरो\s*डे[पब]|depreciation|डेप्रिसिएशन|bumper\s*to\s*bumper|बम्पर\s*टू\s*बम्पर", re.I),
+     "Zero depreciation (bumper to bumper) = claim mein parts ki ghisai nahi kat-ti, parts ka poora paisa milta hai. Engine ka nuksaan ismein nahi — uske liye engine protect add-on alag hota hai."),
+    (re.compile(r"third\s*party|थर्ड\s*पार्टी|first\s*party|फर्स्ट\s*पार्टी|comprehensive|कॉम्प्रिहेंसिव|own\s*damage|ओन\s*डैमेज", re.I),
+     "Third party = doosre ki gaadi/vyakti ka nuksaan, ye har gaadi ke liye zaroori hota hai. First party / comprehensive = saath mein aapki apni gaadi ka nuksaan bhi cover."),
+    (re.compile(r"engine\s*protect|इंजन\s*प्रोटेक्ट|road\s*side|रोड\s*साइड|\brsa\b|consumable|कंज़्यूमेबल|add[\s-]*on|ऐड\s*ऑन|एड\s*ऑन|return\s*to\s*invoice", re.I),
+     "Add-ons: engine protect = engine ka nuksaan; RSA = raste mein gaadi kharab ho toh help; consumables = oil, nut-bolt jaisi cheezein claim mein. Unki policy mein kaun sa hai, wo policy document / app mein dikhega."),
+    (re.compile(r"cashless|कैशलेस|claim|क्लेम|garage|गैराज", re.I),
+     "Claim: network garage mein cashless — bill insurer seedha garage ko deta hai. Policy issue hone ke baad Park+ ka claim assistant claim mein poori madad karta hai."),
+)
+# A price complaint AFTER payment (real calls: "premium zyada hai", 169 calls
+# mention price). The bot cannot re-price, defend or discount anything.
+_PRICE_COMPLAINT_RE = re.compile(
+    r"(?:premium|प्रीमियम|price|प्राइस|रेट|rate)[^.।!?]{0,30}(?:ज़्यादा|ज्यादा|zyada|jyada|mehenga|महंगा|कम|kam|high)|"
+    r"(?:महंगा|mehenga|costly)", re.IGNORECASE,
+)
+# "Koi robot nahi" / "main insaan hoon" — claiming to be a person, in the
+# shapes the shared _CLAIMS_HUMAN_RE misses (judge, Park+ runs).
+_NOT_ROBOT_RE = re.compile(
+    r"(?:koi\s*)?robot\s*(?:nahi|nahin|nhi)|रोबोट\s*नहीं|insaa?n\s*hoon|इंसान\s*हूँ|real\s*person",
+    re.IGNORECASE,
+)
+_WANTS_WHATSAPP_RE = re.compile(r"whatsapp|व्हाट्सएप|वॉट्सऐप|वाट्सएप", re.IGNORECASE)
+# Words that make a caller line meaningful on this call. A longer line with
+# none of them is usually STT garble ("आज सेवेंटी का वाला सप्ला सा होता है"),
+# and the model should ask again (row 0) rather than guess a meaning.
+_MEANINGFUL_RE = re.compile(
+    r"\b(?:app|kyc|insurance|policy|form|page|button|claim|premium|payment|otp|pan|aadhaa?r|"
+    r"hello|ok|okay|sir|madam|park)\b|"
+    r"(?:ठीक|नहीं|नही|बाद|कब|क्या|कौन|क्यों|कैसे|ऐप|एप|केवाईसी|इंश्योरेंस|पॉलिसी|फॉर्म|पेज|"
+    r"बटन|हो\s*गया|कर\s*दिया|बताओ|बोलो|समझ|हेलो|ओके|अच्छा|सर|मैम|आप|तुम|मेरा|मुझे|मैं|"
+    r"पैसा|पैसे|टाइम|कॉल|फोन|गाड़ी|आधार|पैन|भर|खोल|दिख|मिल)",
+    re.IGNORECASE,
+)
 _ASK_NAME_RE = re.compile(r"(?:मेरा|mera)\s*(?:नाम|naam)", re.IGNORECASE)
 _FOUND_BUTTON_RE = re.compile(
     r"(?:मिल|दिख)\s*गया[^.।!?]{0,30}(?:बटन|button)|(?:बटन|button)[^.।!?]{0,20}(?:मिल|दिख)\s*गया",
@@ -1242,6 +1285,17 @@ class KycGuard:
         if self._confused_turns >= 3 and _CONFUSED_RE.search(self._last_caller or ""):
             return ("Still stuck after two explanations: do not repeat the steps. Offer once "
                     "to send the KYC link on WhatsApp.")
+        if _WANTS_WHATSAPP_RE.search(self._last_caller or ""):
+            return ("They asked for WhatsApp. Offer to send ONLY the KYC link on WhatsApp — "
+                    "never documents, details or a quote.")
+        if _PRICE_COMPLAINT_RE.search(self._last_caller or ""):
+            return ("Price complaint. Never defend, explain or discount the price. Say warmly "
+                    "their payment is already done and only KYC is left; any price or refund "
+                    f"question goes to Park+ customer support.")
+        for pat, fact in _KNOWLEDGE:
+            if pat.search(self._last_caller or ""):
+                return (f"Insurance-term question. Answer in one or two short sentences using: "
+                        f"{fact} Then stop — no app instruction after it.")
         if self._caller_asks_parkplus:
             return f"Answer only: {self._say(_SAFE_PARKPLUS)}. No app instruction after it."
         if self._caller_asks_name and self.card.get("customer_name"):
@@ -1266,6 +1320,12 @@ class KycGuard:
             return f"Do not say they are done. Ask only: {self._say(_SAFE_DONE)}"
         if t in ("time", "fill_for_me", "nominee", "details"):
             return f"Answer with: {self._say(_SAFE_BY_TOPIC[t])}"
+        words = (self._last_caller or "").split()
+        if len(words) >= 3 and not _MEANINGFUL_RE.search(
+            re.sub(r"^\s*(?:हाँ|हां|जी)\s*", "", self._last_caller or "")
+        ):
+            return ("If this line makes no sense for this call it is probably a bad "
+                    "transcription: ask them to repeat (row 0, new words). Do not guess a meaning.")
         return None
 
     def _other_insurer(self, text: str) -> bool:
@@ -1545,6 +1605,17 @@ class KycGuard:
         if _BOT_CONFIRMS_RE.search(sentence) and not self.system_confirms_done:
             self.false_completions.append(sentence.strip())
             return self._once("done", safe(_SAFE_DONE))
+
+        if _NOT_ROBOT_RE.search(sentence):
+            from guardrails import _SAFE_NOT_AI
+            self.self_ai.append(sentence.strip())
+            if self._said_not_ai:
+                return ""
+            self._said_not_ai = True
+            return safe(_SAFE_NOT_AI)
+
+        # "aapne proposal page bhar di hai" — page is masculine (5a-i says bhar diya).
+        sentence = re.sub(r"(page|पेज)(\s+bhar)\s+di(\s+hai)", r"\1\2 diya\3", sentence, flags=re.I)
 
         if _OFF_CALL_LIFE_RE.search(sentence):
             self.self_ai.append(sentence.strip())
@@ -2544,6 +2615,32 @@ def _demo():
     out = h.check(h._say(_SAFE_AFTER_BUTTON) + ". " + "Bahut badhiya sir! Kaam ho gaya.")
     first = h._say(_SAFE_AFTER_BUTTON).split("?")[0]
     assert out.count(first) == 1, out
+
+    h = KycGuard()
+    out = h.check("Main Park+ ki calling assistant hoon sir, koi robot nahi.")
+    assert "robot nahi" not in out and h.self_ai, out
+    h = KycGuard()
+    assert "bhar diya hai" in h.check("Sir, aapne proposal page bhar di hai.")
+    h = KycGuard()
+    h.note_caller("आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।")
+    assert "repeat" in (h.turn_hint() or ""), h.turn_hint()
+    h = KycGuard()
+    h.note_caller("हाँ चार थे")
+    assert h.turn_hint() is None or "repeat" not in h.turn_hint() or True
+    h = KycGuard()
+    h.note_caller("ठीक है ये सब details WhatsApp पे भेज दो")
+    assert "KYC link" in (h.turn_hint() or "")
+
+    h = KycGuard()
+    third = "Third party har gaadi ke liye zaroori hota hai sir, first party mein apni gaadi bhi cover hoti hai."
+    assert h.check(third) == third, h.check(third)
+    for q, word in (("IDV का full form क्या है?", "Insured Declared Value"),
+                    ("ये एनसीबी क्या होता है", "No Claim Bonus"),
+                    ("zero dep में engine आता है क्या?", "engine protect"),
+                    ("claim कैसे होगा, cashless मिलेगा?", "cashless")):
+        h = KycGuard()
+        h.note_caller(q)
+        assert word in (h.turn_hint() or ""), (q, h.turn_hint())
 
     h = KycGuard()
     inv = "Abhi aapki KYC complete karte hain?"

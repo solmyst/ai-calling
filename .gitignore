@@ -38,3 +38,4 @@ __pycache__/
 
 # A/B model benchmark transcripts (evals/ab_models.py) — scratch, not source
 voicebot/server/evals/ab_*.json
+data/
