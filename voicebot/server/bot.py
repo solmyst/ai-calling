@@ -991,6 +991,12 @@ class FailoverLLMService(GroqLLMService):
         if bifrost_url:
             for model in reversed(list(bifrost_models)):
                 self._endpoints.insert(0, Endpoint("not-needed", model, bifrost_url, "bifrost"))
+        # LLM_PRIMARY=parkplus flips the lead: Park+ answers (~0.45s median on
+        # the 38-turn A/B against Gemini's 1.8s, and no per-token bill) and
+        # Bifrost becomes the fallback. Off by default until the A/B holds.
+        if (os.getenv("LLM_PRIMARY") or "").strip().lower() == "parkplus":
+            pp = [e for e in self._endpoints if e.provider == "parkplus"]
+            self._endpoints = pp + [e for e in self._endpoints if e.provider != "parkplus"]
         # Gemini last: it benchmarks as well as qwen3.8 on Hindi but answers in
         # 3-16s against Groq's sub-second, so it is what stands between the caller
         # and dead air, not what serves a normal turn.
@@ -1079,8 +1085,42 @@ class FailoverLLMService(GroqLLMService):
             logger.debug(f"CONTEXT {len(messages)} -> {len(kept)} msgs, ~{spent} tokens")
             context.set_messages(kept)
 
+    #: Set by run_bot to the domain guard's turn_hint — see _attach_hint.
+    turn_hint = None
+
+    def _attach_hint(self, context):
+        """Append the guard's one-line steer to the caller's last line, for THIS request.
+
+        The guard knows the caller's intent before the model answers (refund,
+        wrong data, "ho gaya", English caller...). Telling a small model which
+        scripted row applies beats rewriting its reply afterwards: Park+ Qwen
+        went from 18 judged defects per run toward Gemini's 3 on the same suite.
+        Returns a callable that restores the message, so the stored history
+        never contains the hint and the model never learns to quote it.
+        """
+        hint = self.turn_hint() if self.turn_hint else None
+        if not hint:
+            return lambda: None
+        for msg in reversed(context.get_messages()):
+            if isinstance(msg, dict) and msg.get("role") == "user" and isinstance(msg.get("content"), str):
+                original = msg["content"]
+                msg["content"] = f"{original}\n\n({hint})"
+                logger.info(f"HINT | {hint[:120]}")
+
+                def restore(msg=msg, original=original):
+                    msg["content"] = original
+                return restore
+        return lambda: None
+
     async def get_chat_completions(self, context):
         self._trim_history(context)
+        restore = self._attach_hint(context)
+        try:
+            return await self._get_chat_completions(context)
+        finally:
+            restore()
+
+    async def _get_chat_completions(self, context):
         # Every (key, model) bucket once, then — only if they are all spent —
         # wait out the shortest of them. Sleeping first would add a beat of
         # silence to turns that another bucket could have answered instantly.
@@ -1696,6 +1736,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # and the observer (what the caller says). Two instances would mean the filter
     # never learns that a car was named, and every price would be blocked.
     guard = build_guard(card)
+    # The guard's per-turn intent hint rides on the LLM request (see
+    # FailoverLLMService._attach_hint). Guards without one simply return None.
 
     sarvam_key = os.getenv("SARVAM_API_KEY")
     elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
@@ -1919,6 +1961,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # produces nothing — hangup then relies on CALL_MAX_SECS / CALL_IDLE_SECS.
     # Bifrost/Gemini supports tools; turn them back on there.
     tools_on = (os.getenv("LLM_TOOLS") or "on").lower() not in ("off", "0", "false")
+    if isinstance(llm, FailoverLLMService):
+        llm.turn_hint = getattr(guard, "turn_hint", None)
+
     context = LLMContext(
         tools=(
             # The domain's own tools (the car spa's booking capture) plus the

@@ -205,6 +205,31 @@ _ROMAN_HINDI_RE = re.compile(
 HINGLISH_REPLIES = (os.getenv("REPLY_SCRIPT") or "devanagari").strip().lower() == "hinglish"
 
 
+
+# Stray Devanagari words in an otherwise romanised reply ("aapka naam RC aur
+# Aadhaar par jaise है, wahi form mein daalna है" — Park+ Qwen, 2026-09-23).
+# Only the commonest function words, and only when the line is mostly Latin:
+# a real Devanagari line (or a filler hum) is left alone.
+_STRAY_ROMAN = {
+    "है": "hai", "हैं": "hain", "नहीं": "nahi", "नही": "nahi", "और": "aur",
+    "में": "mein", "का": "ka", "की": "ki", "के": "ke", "को": "ko", "से": "se",
+    "भी": "bhi", "तो": "toh", "हो": "ho", "था": "tha", "थी": "thi", "हूँ": "hoon",
+    "हूं": "hoon", "जी": "ji", "सर": "sir", "पर": "par", "ही": "hi", "कर": "kar",
+    "कि": "ki", "ये": "ye", "वो": "woh", "आप": "aap",
+}
+_DEVA_WORD_RE = re.compile(r"[\u0900-\u097F]+")
+
+
+def romanise_strays(text: str) -> str:
+    """Under REPLY_SCRIPT=hinglish, swap stray Devanagari function words."""
+    if not HINGLISH_REPLIES or not _DEVA_WORD_RE.search(text):
+        return text
+    latin = len(re.findall(r"[A-Za-z]", text))
+    deva = len(re.findall(r"[\u0900-\u097F]", text))
+    if latin < deva * 3:
+        return text
+    return _DEVA_WORD_RE.sub(lambda m: _STRAY_ROMAN.get(m.group(0), m.group(0)), text)
+
 def is_hindi_speech(text: str) -> bool:
     """True when this looks like the bot actually talking to the caller.
 
