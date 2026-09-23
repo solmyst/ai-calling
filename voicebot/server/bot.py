@@ -65,6 +65,8 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.metrics.metrics import TTFBMetricsData
 from pipecat.frames.frames import (
+    InterruptionFrame,
+    LLMFullResponseStartFrame,
     MetricsFrame,
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
@@ -227,6 +229,10 @@ class FillerInjector(FrameProcessor):
 
 
 class NoiseGate(FrameProcessor):
+    #: Awaited after a transcript is dropped — run_bot uses it to re-answer a
+    #: turn the noise interrupted. See _on_noise_drop there.
+    on_drop = None
+
     """Drops transcripts that are the transcriber talking to itself.
 
     Sits between the STT and the user aggregator, so a dropped line never reaches
@@ -293,6 +299,8 @@ class NoiseGate(FrameProcessor):
         if isinstance(frame, TranscriptionFrame) and self._is_noise(frame.text):
             self.dropped.append(frame.text.strip())
             logger.info(f"NOISE  | dropped {frame.text.strip()!r}")
+            if self.on_drop:
+                await self.on_drop()
             return
         await self.push_frame(frame, direction)
 
@@ -426,6 +434,14 @@ class CallLogObserver(BaseObserver):
         # since Pipecat can emit stop/start between sentences.
         self._speak_t0: float | None = None
         self._spoken_secs = 0.0
+        # FILLER BUG #2, 2026-09-23 (Park+ LLM): the reply text was already
+        # streaming at 0.9s, the filler fired at 1.2s because audio had not
+        # started yet, and the hum played AFTER the reply. A filler is only
+        # for a turn whose reply has not started generating.
+        self._reply_started = False
+        # When the last barge-in happened, for re-answering a turn that a
+        # dropped noise line interrupted — see run_bot's _on_noise_drop.
+        self.last_interruption = 0.0
         # The same domain guard the TTS filter uses. The filter only ever sees what
         # the BOT says, so on its own it cannot know whether the caller ever named
         # a car — and "₹499 (Hyundai Creta के लिए)" for a caller who never said
@@ -479,7 +495,7 @@ class CallLogObserver(BaseObserver):
             return
         # The real reply may have started, or a newer caller turn may have
         # superseded this one, in the time spent sleeping — both mean silence.
-        if turn_id != self._turn_id or self._turn_start is None:
+        if turn_id != self._turn_id or self._turn_start is None or self._reply_started:
             return
         await self._speak_filler(self._pick_filler(1, self.FILLER_TIER1))
 
@@ -492,7 +508,7 @@ class CallLogObserver(BaseObserver):
         # Same staleness check, run again: tier 2 only speaks if the reply is
         # STILL not back after the extra wait — this is what makes it track
         # how overdue the turn actually is, not just a second fixed timer.
-        if turn_id != self._turn_id or self._turn_start is None:
+        if turn_id != self._turn_id or self._turn_start is None or self._reply_started:
             return
         await self._speak_filler(self._pick_filler(2, self.FILLER_TIER2))
 
@@ -519,6 +535,7 @@ class CallLogObserver(BaseObserver):
                     return
                 self.transcript.append(f"Caller: {redact(frame.text.strip())}")
                 self._turn_start = now
+                self._reply_started = False
                 self._schedule_filler()
                 # Just hand it to the guard. This used to read
                 # `self._guard.car_known` first — a car-spa-only attribute — and
@@ -537,6 +554,10 @@ class CallLogObserver(BaseObserver):
             self._said.append(frame.text)
         elif isinstance(frame, VADUserStoppedSpeakingFrame):
             self._vad_stop = time.monotonic()
+        elif isinstance(frame, LLMFullResponseStartFrame):
+            self._reply_started = True
+        elif isinstance(frame, InterruptionFrame):
+            self.last_interruption = time.monotonic()
         elif isinstance(frame, MetricsFrame):
             # Where a slow LATENCY line went: LLM first token vs TTS first audio.
             # Pipecat logs these at DEBUG, which call.log suppresses. Source
@@ -582,6 +603,11 @@ class CallLogObserver(BaseObserver):
                 self.transcript.append(f"Bot: {redact(said)}")
                 if self.on_said:
                     await self.on_said(said)
+
+def _bot_owned_lines() -> set[str]:
+    return {*CallLogObserver.FILLER_TIER1, *CallLogObserver.FILLER_TIER2,
+            IDLE_NUDGE_LINE, TIME_UP_LINE}
+
 
 # Anything the TTS could actually pronounce. Sarvam rejects a chunk with none of
 # it ("400: Text must contain at least one character from the allowed languages"),
@@ -1332,6 +1358,12 @@ class GuardFilter(BaseTextFilter):
         # costing a reconnect mid-call. TTS skips a filter that returns empty.
         if not _SPEAKABLE_RE.search(text):
             return ""
+        # Fillers and the bot's own fixed lines are not model output. Run
+        # through the guard, the hum "उम्म," was taken for a mismatch reply and
+        # replaced with the forward line (live call 2026-09-23, three bogus
+        # GUARDRAIL lines including an ERROR).
+        if text.strip() in _bot_owned_lines():
+            return text
 
         g = self._guard
         before = {name: len(getattr(g, name)) for name, _, _ in self._counters}
@@ -1983,13 +2015,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     )
 
     filler_injector = FillerInjector()
+    noise_gate = NoiseGate()
 
     # Pipeline - assembled from reusable components
     pipeline = Pipeline(
         [
             transport.input(),
             stt,
-            NoiseGate(),
+            noise_gate,
             user_aggregator,
             llm,
             filler_injector,
@@ -2070,6 +2103,25 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             await _hangup("closing line spoken")
 
     call_observer.on_said = _on_bot_said
+
+    # LOST REPLY, VM call 2026-09-23 14:49: a caller's "हम्म" barged in, which
+    # cancelled the reply being generated; NoiseGate then (correctly) dropped
+    # the "हम्म" — so nothing asked the model again and the caller heard
+    # silence until the call timed out. When a dropped line had interrupted,
+    # and the bot is not speaking, answer the caller's last turn again.
+    async def _on_noise_drop() -> None:
+        await asyncio.sleep(0.4)  # let the user aggregator close the empty turn
+        if time.monotonic() - call_observer.last_interruption > 3.0:
+            return
+        if call_observer._speak_t0 is not None:
+            return
+        messages = context.get_messages()
+        last = messages[-1] if messages else {}
+        if isinstance(last, dict) and last.get("role") in ("user", "developer"):
+            logger.info("RERUN  | noise cut the reply off — answering the last turn again")
+            await worker.queue_frames([LLMRunFrame()])
+
+    noise_gate.on_drop = _on_noise_drop
 
     # Barge-in: record only what the caller actually heard. Without this the
     # context kept the whole reply, so after "sir ek minute" cut the bot off in

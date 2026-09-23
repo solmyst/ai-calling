@@ -753,7 +753,12 @@ _CALLER_TOPIC_PATTERNS = (
         re.IGNORECASE,
     )),
     ("policy_when", re.compile(
-        r"(?:पॉलिसी|policy)[^.।!?]{0,25}(?:कब|kab)|कब\s*तक\s*(?:आ|मिल)|kab\s*tak\s*(?:aa|mil)",
+        r"(?:पॉलिसी|policy)[^.।!?]{0,25}(?:कब|kab)|कब\s*तक\s*(?:आ|मिल)|kab\s*tak\s*(?:aa|mil)|"
+        # "कितना टाइम लगेगा पॉलिसी बनने में" — policy timing, NOT the KYC's two
+        # minutes (live call 2026-09-23 said "do minute" and then promised it).
+        r"(?:कितना|कितने|kitna|kitne)\s*(?:टाइम|समय|दिन|time|din)[^.।!?]{0,30}(?:पॉलिसी|policy)|"
+        r"(?:पॉलिसी|policy)\s*(?:बनने|आने|banne|aane)|"
+        r"(?:पॉलिसी|policy)[^.।!?]{0,20}(?:बन|ban|मिल|mil)\s*(?:भी\s*)?(?:जाएगी|jaayegi|jayegi)",
         re.IGNORECASE,
     )),
     ("time", re.compile(
@@ -856,12 +861,30 @@ _SAFE_CALLBACK = "सर, कब call करूँ — शाम को या �
 # insurer than the card, an error screen. Gemini forwarded these to the team;
 # Park+ answered with the done line or argued. Either way the answer is the
 # technical handover line (and bot.py posts it to Slack).
+# Our data or the app is broken for them: an error screen, a stuck page,
+# details shown wrong. These go straight to the team.
 _MISMATCH_RE = re.compile(
-    r"(?:मेरी|meri)\s*(?:गाड़ी|गाडी|gaadi|car|कार)\s*(?:ही\s*)?(?:नहीं|nahi)|"
-    r"(?:मैंने|maine)\s*(?:तो\s*)?(?:कोई\s*)?(?:insurance|इंश्योरेंस|policy|पॉलिसी)"
-    r"[^.।!?]{0,15}(?:नहीं|nahi)\s*(?:लिया|ली|liya|li)|"
-    r"(?:details|डिटेल्स|नाम|number|नंबर|गाड़ी)[^.।!?]{0,20}गलत|ये\s*गलत\s*है|"
     r"येलो\s*स्क्रीन|yellow\s*screen|\berror\b|एरर|अटक\s*(?:गया|गई)|hang\s*ho",
+    re.IGNORECASE,
+)
+# The caller doubts the policy is theirs. NOT a technical issue — live call
+# 2026-09-23 ("मैंने तो इंश्योरेंस नहीं लिया") got "ye technical issue lag raha
+# hai", which means nothing to them. First: our record, gently, plus a team
+# check if it still is not theirs. Only a repeat denial is forwarded.
+_DENIAL_RE = re.compile(
+    r"(?:मेरी|meri)\s*(?:गाड़ी|गाडी|gaadi|car|कार)\s*(?:ही\s*)?(?:नहीं|nahi)|"
+    r"(?:मेरे|mere)\s*(?:पास|paas)\s*(?:तो\s*)?(?:कोई\s*)?(?:गाड़ी|कार|car|gaadi)\s*(?:ही\s*)?(?:नहीं|nahi)|"
+    r"(?:मैंने|maine)\s*(?:तो\s*)?(?:कोई\s*)?(?:insurance|इंश्योरेंस|policy|पॉलिसी)"
+    r"[^.।!?]{0,15}(?:नहीं|nahi)\s*(?:लिया|ली|liya|li|करवाया|करवाई)|"
+    r"(?:किसकी|कौन\s*सी|kiski|kaun\s*si)\s*(?:कार|गाड़ी|car|gaadi)|"
+    # Our DATA looks wrong to them — also a doubt about the record, not an
+    # app error: record first, team on a repeat (replay, VM call 14:00).
+    r"(?:details|डिटेल्स|नाम|number|नंबर|गाड़ी)[^.।!?]{0,20}गलत|ये\s*गलत\s*है",
+    re.IGNORECASE,
+)
+_DOCS_RE = re.compile(
+    r"\bdocs?\b|documents?|डॉक्स|डॉक्यूमेंट|डॉक्युमेंट|कागज|kaagaz|papers?|"
+    r"(?:क्या|kya)[\s-]*(?:क्या|kya)?\s*(?:चाहिए|chahiye|लगेगा|लगेंगे|lagega)",
     re.IGNORECASE,
 )
 # Caller-side spellings of the insurers (STT writes them in Devanagari), for
@@ -915,7 +938,7 @@ _OFF_CALL_LIFE_RE = re.compile(
 _SAFE_REDIRECT = "बस आपका ही काम कर रही हूँ सर! KYC हो जाए फिर आराम से"
 # Caller-intent detectors used only for the turn hint.
 _ASK_PARKPLUS_RE = re.compile(
-    r"(?:पाकपस|पार्क\s*प्लस|पाक\s*प्लस|park\s*\+|park\s*plus)[^.।!?]{0,25}"
+    r"(?:पाकपस|पार्क\s*प्लस|पार्क\s*प्लेस|पाक\s*प्लस|park\s*\+|park\s*plus|park\s*place)[^.।!?]{0,25}"
     r"(?:कैसी|क्या|kya|kaisi|kaun|what)|(?:कैसी|क्या)\s*(?:एप|ऐप|app)\s*है",
     re.IGNORECASE,
 )
@@ -941,17 +964,17 @@ _DELIVERY_LINE = (
 # do not need it.
 _KNOWLEDGE = (
     (re.compile(r"\bidv\b|\bidb\b|आईडीवी|आईडीबी|insured\s*declared", re.I),
-     "IDV (Insured Declared Value) = gaadi total loss ya chori ho jaaye toh insurer itne tak ka claim deta hai."),
+     "IDV yaani Insured Declared Value — gaadi total loss ho jaaye ya chori ho jaaye, toh insurer itne tak ka claim deta hai."),
     (re.compile(r"\bncb\b|एनसीबी|no\s*claim\s*bonus|नो\s*क्लेम", re.I),
-     "NCB (No Claim Bonus) = pichhle saal claim nahi liya toh renewal premium par discount; claim lene par NCB chala jaata hai."),
+     "NCB yaani No Claim Bonus — pichhle saal claim nahi liya toh renewal premium par discount milta hai; claim lene par ye chala jaata hai."),
     (re.compile(r"zero\s*d[ae]p|ज़ीरो\s*डे[पब]|जीरो\s*डे[पब]|depreciation|डेप्रिसिएशन|bumper\s*to\s*bumper|बम्पर\s*टू\s*बम्पर", re.I),
-     "Zero depreciation (bumper to bumper) = claim mein parts ki ghisai nahi kat-ti, parts ka poora paisa milta hai. Engine ka nuksaan ismein nahi — uske liye engine protect add-on alag hota hai."),
+     "Zero depreciation yaani bumper to bumper — claim mein parts ki ghisai nahi kat-ti, parts ka poora paisa milta hai; engine ka nuksaan ismein nahi aata, uske liye engine protect alag hota hai."),
     (re.compile(r"third\s*party|थर्ड\s*पार्टी|first\s*party|फर्स्ट\s*पार्टी|comprehensive|कॉम्प्रिहेंसिव|own\s*damage|ओन\s*डैमेज", re.I),
-     "Third party = doosre ki gaadi/vyakti ka nuksaan, ye har gaadi ke liye zaroori hota hai. First party / comprehensive = saath mein aapki apni gaadi ka nuksaan bhi cover."),
+     "Third party mein doosre ki gaadi ya vyakti ka nuksaan cover hota hai, ye har gaadi ke liye zaroori hai; first party ya comprehensive mein saath mein aapki apni gaadi ka nuksaan bhi cover hota hai."),
     (re.compile(r"engine\s*protect|इंजन\s*प्रोटेक्ट|road\s*side|रोड\s*साइड|\brsa\b|consumable|कंज़्यूमेबल|add[\s-]*on|ऐड\s*ऑन|एड\s*ऑन|return\s*to\s*invoice", re.I),
-     "Add-ons: engine protect = engine ka nuksaan; RSA = raste mein gaadi kharab ho toh help; consumables = oil, nut-bolt jaisi cheezein claim mein. Unki policy mein kaun sa hai, wo policy document / app mein dikhega."),
+     "Engine protect mein engine ka nuksaan, RSA mein raste mein gaadi kharab ho toh madad, consumables mein oil aur nut-bolt jaisi cheezein claim mein aati hain; unki policy mein kaun sa hai, wo app mein dikhega."),
     (re.compile(r"cashless|कैशलेस|claim|क्लेम|garage|गैराज", re.I),
-     "Claim: network garage mein cashless — bill insurer seedha garage ko deta hai. Policy issue hone ke baad Park+ ka claim assistant claim mein poori madad karta hai."),
+     "network garage mein claim cashless hota hai, bill insurer seedha garage ko deta hai; policy issue hone ke baad Park+ ka claim assistant claim mein poori madad karta hai."),
 )
 # A price complaint AFTER payment (real calls: "premium zyada hai", 169 calls
 # mention price). The bot cannot re-price, defend or discount anything.
@@ -977,12 +1000,74 @@ _MEANINGFUL_RE = re.compile(
     r"पैसा|पैसे|टाइम|कॉल|फोन|गाड़ी|आधार|पैन|भर|खोल|दिख|मिल)",
     re.IGNORECASE,
 )
+_WANTS_TEAM_RE = re.compile(
+    r"(?:टीम|team|टिम)\s*(?:से|को|se|ko)|(?:human|insaan|इंसान|manager|मैनेजर|senior|सीनियर)|"
+    r"किसी\s*और\s*से\s*बात|kisi\s*aur\s*se\s*baat",
+    re.IGNORECASE,
+)
+_ABUSE_RE = re.compile(r"गाली|gaali|galli|\bgali\b", re.IGNORECASE)
 _ASK_NAME_RE = re.compile(r"(?:मेरा|mera)\s*(?:नाम|naam)", re.IGNORECASE)
 _FOUND_BUTTON_RE = re.compile(
     r"(?:मिल|दिख)\s*गया[^.।!?]{0,30}(?:बटन|button)|(?:बटन|button)[^.।!?]{0,20}(?:मिल|दिख)\s*गया",
     re.IGNORECASE,
 )
 _FIRST_PAGE_RE = re.compile(r"पहला|pehla|first|proposal|प्रपोजल|पेज\s*भर|page\s*bhar", re.IGNORECASE)
+
+# Row 0 ("aawaaz theek se nahi aayi") said again right after itself is a loop,
+# not a clarification — live call 2026-09-23 said it twelve times running.
+_ROW0_RE = re.compile(r"aawaaz\s*theek\s*se\s*nahi|आवाज़?\s*ठीक\s*से\s*नहीं", re.IGNORECASE)
+_SAFE_REANCHOR = "सर, मैं आपकी KYC में मदद के लिए हूँ — आप app में अभी किस page पर हैं?"
+# "do minute mein aapki policy ban jaayegi" — the KYC's two minutes turned into
+# an issuance promise (live call 2026-09-23).
+_MINUTES_PROMISE_RE = re.compile(
+    r"(?:do|2|दो)\s*(?:minute|मिनट)[^.।!?]{0,25}(?:policy|पॉलिसी)[^.।!?]{0,20}"
+    r"(?:ban|mil|बन|मिल|aa\s*ja|आ\s*जा)|"
+    r"(?:policy|पॉलिसी)[^.।!?]{0,25}(?:do|2|दो)\s*(?:minute|मिनट)\s*(?:mein|में)",
+    re.IGNORECASE,
+)
+# "Ek pal rukiye, team se baat karwati hoon" — there is no live transfer.
+_FAKE_TRANSFER_RE = re.compile(
+    r"(?:team|टीम)[^.।!?]{0,40}(?:ruk|रुक|transfer|connect\s*kar|जोड़)|"
+    r"(?:ek\s*pal|एक\s*पल)\s*(?:ruk|रुक)",
+    re.IGNORECASE,
+)
+
+# --- where the caller is in the app flow ---------------------------------------
+# Replay of 40 live calls (2026-09-23): "tap kar diya", "khul gaya", "main bhar
+# raha hoon" all got "aapne poora form submit kar diya?" — any "kar diya" was
+# read as DONE. The bot's own last instruction says which step "kar diya"
+# finished, so the guard tracks it and the hint gives the NEXT step.
+_STEP_MARKERS = (
+    ("app", re.compile(r"app\s*(?:khol|खोल)|ऐप\s*खोल|एप\s*खोल", re.I)),
+    ("insurance", re.compile(r"insurance\s*(?:icon|wal[ae]|page)|इंश्योरेंस\s*(?:icon|वाले)", re.I)),
+    ("kyc_button", re.compile(r"complete\s*kyc[^.।!?]{0,30}(?:click|dab|दब|tap|क्लिक)|"
+                              r"(?:click|dab|दब|tap|क्लिक)[^.।!?]{0,30}complete\s*kyc", re.I)),
+    ("form", re.compile(r"(?:details|form|फॉर्म)\s*(?:bhar|भर)|khali\s*wal|खाली\s*वाल|"
+                        r"confirm\s*policy\s*details", re.I)),
+    ("kyc_page", re.compile(r"kyc\s*wal[ae]\s*page|kyc\s*वाले\s*page|pan\s*(?:aur|और)\s*aadhaar\s*wal", re.I)),
+)
+_NEXT_STEP = {
+    "app": "Next step only: Insurance icon par click karein.",
+    "insurance": "Next step only: 'Complete KYC' button dabayein.",
+    "kyc_button": ("Form khul gaya hoga — say ONCE: khali details bhariye, main line pe hoon. "
+                   "Not PAN/Aadhaar yet."),
+    "form": "Page 1 done (row 9a): send them to the KYC page for PAN aur Aadhaar.",
+}
+# The caller did the step they were asked (not "I submitted everything").
+_STEP_DONE_RE = re.compile(
+    r"कर\s*दिया|कर\s*दी|हो\s*गया|खुल\s*गया|खोल\s*(?:लिया|ली|दिया)|दबा\s*दिया|क्लिक|टैप|"
+    r"\btap|\bclick|\bopen|ओपन|मिल\s*गया|दिख\s*(?:गया|रहा)|आ\s*गया|डाल\s*दिया|भर\s*दिया",
+    re.IGNORECASE,
+)
+_EXPLICIT_DONE_RE = re.compile(
+    r"submit|सबमिट|सब\s*(?:कुछ\s*)?भर|पूरा\s*(?:form\s*|फॉर्म\s*)?भर|सारी\s*details|"
+    r"(?:kyc|केवाईसी)\s*(?:कर\s*दी|कर\s*दिया|हो\s*गई|हो\s*गया)",
+    re.IGNORECASE,
+)
+_FILLING_NOW_RE = re.compile(
+    r"भर\s*रह[ाी]|कर\s*रह[ाी]\s*हूँ|रुको|रुकिए|\bwait\b|वेट|एक\s*(?:मिनट|सेकंड)|ek\s*minute|दो\s*मिनट\s*दो",
+    re.IGNORECASE,
+)
 
 # Caller said something is done / is affirming the confirm question.
 _CALLER_DONE_RE = re.compile(
@@ -1068,6 +1153,7 @@ def _roman_lines() -> dict[str, str]:
             "WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?"
         ),
         _SAFE_REDIRECT: "Bas aapka hi kaam kar rahi hoon sir! KYC ho jaye phir aaram se",
+        _SAFE_REANCHOR: "Sir, main aapki KYC mein madad ke liye hoon — aap app mein abhi kis page par hain?",
         _DELIVERY_LINE: (
             "Sir, insurer ki side se saari details verify ho jaayengi, phir policy aapko "
             "WhatsApp aur mail dono pe aa jaayegi — app mein bhi notification aa jaayega"
@@ -1190,12 +1276,19 @@ class KycGuard:
         self._turn_lines: set[str] = set()
         self._caller_done = False
         self._caller_affirm = False
+        self._caller_explicit_done = False
+        self._caller_step_done = False
+        self._caller_filling = False
         self._caller_first_page = False
         self._last_caller = ""
         self._caller_asks_parkplus = False
         self._caller_asks_name = False
         self._caller_found_button = False
         self._confused_turns = 0
+        self._denials = 0
+        self._last_step: str | None = None
+        self._cur_bot_text = ""
+        self._prev_bot_text = ""
         # Every sentence spoken this call, normalised — see _is_repeat.
         self._spoken_keys: set[str] = set()
         self._turn_spoke = False
@@ -1241,8 +1334,22 @@ class KycGuard:
         self._caller_submitted = bool(_ALSO_SUBMITTED_RE.search(text))
         self._turn_lines = set()
         self._last_caller = text
+        # The step the bot's last reply asked for — see _STEP_MARKERS.
+        latest, where = None, -1
+        for name, pat in _STEP_MARKERS:
+            for m in pat.finditer(self._cur_bot_text):
+                if m.start() > where:
+                    latest, where = name, m.start()
+        if latest:
+            self._last_step = latest
+        if _CONFIRM_Q_RE.search(self._cur_bot_text):
+            self._last_step = "confirm"
+        self._prev_bot_text, self._cur_bot_text = self._cur_bot_text, ""
         self._caller_first_page = bool(_FIRST_PAGE_RE.search(text))
         self._caller_done = bool(_CALLER_DONE_RE.search(text)) and not self._caller_first_page
+        self._caller_explicit_done = bool(_EXPLICIT_DONE_RE.search(text))
+        self._caller_step_done = bool(_STEP_DONE_RE.search(text)) and not self._caller_explicit_done
+        self._caller_filling = bool(_FILLING_NOW_RE.search(text))
         self._caller_asks_parkplus = bool(_ASK_PARKPLUS_RE.search(text))
         self._caller_asks_name = bool(_ASK_NAME_RE.search(text))
         self._caller_found_button = bool(_FOUND_BUTTON_RE.search(text))
@@ -1252,8 +1359,12 @@ class KycGuard:
         self._turn_spoke = False
         if _ENGAGED_RE.search(text):
             self._engaged = True
-        if _MISMATCH_RE.search(text) or self._other_insurer(text):
+        if _MISMATCH_RE.search(text):
             self.last_caller_topic = "mismatch"
+            return False
+        if _DENIAL_RE.search(text) or self._other_insurer(text):
+            self._denials += 1
+            self.last_caller_topic = "denial" if self._denials == 1 else "mismatch"
             return False
         for topic, pat in _CALLER_TOPIC_PATTERNS:
             if pat.search(text):
@@ -1262,7 +1373,35 @@ class KycGuard:
         self.last_caller_topic = None
         return False
 
+    def _record_line(self) -> str:
+        """What our system shows, in the bot's script — for a caller who doubts it."""
+        import guardrails
+        c = self.card or {}
+        ptype = {"THIRD_PARTY": "third party", "COMPREHENSIVE": "comprehensive"}.get(
+            str(c.get("policy_type") or "").upper(), "")
+        ins, reg = c.get("insurer"), c.get("vehicle_reg")
+        if guardrails.HINGLISH_REPLIES:
+            what = " ".join(x for x in (f"{ins} ki" if ins else "", ptype, "policy") if x)
+            car = f", gaadi {reg}" if reg else ""
+            return (f"Sir, hamare record mein aapke number se Park+ se li hui {what} hai{car}. "
+                    "Shayad ghar mein kisi ne li ho? Agar aapki nahi hai toh main team se check karwa deti hoon.")
+        what = " ".join(x for x in (f"{ins} की" if ins else "", ptype, "policy") if x)
+        car = f", गाड़ी {reg}" if reg else ""
+        return (f"सर, हमारे record में आपके number से Park+ से ली हुई {what} है{car}। "
+                "शायद घर में किसी ने ली हो? अगर आपकी नहीं है तो मैं team से check करवा देती हूँ।")
+
     def turn_hint(self) -> str | None:
+        """The intent hint for this turn, plus the always-on anti-repeat rule."""
+        hint = self._intent_hint()
+        # Anti-repeat only. A "if unclear, ask them to repeat" clause here made
+        # Park+ answer 12 clear lines in a row with "aawaaz theek se nahi aayi"
+        # (live call 2026-09-23 23:10-23:14).
+        tail = "Never repeat your previous reply word for word — answer what they just said."
+        if not self._prev_bot_text:
+            return hint
+        return f"{hint} {tail}" if hint else tail
+
+    def _intent_hint(self) -> str | None:
         """One line telling the model which scripted answer this turn needs.
 
         The guard already knows the caller's intent (note_caller) and used to
@@ -1276,15 +1415,28 @@ class KycGuard:
             return "The caller spoke English: reply in English."
         if t == "mismatch":
             return f"Our data or the app is wrong for this caller. Reply only: {self._say(_SAFE_FORWARD)}"
+        if t == "denial":
+            return ("They doubt this policy is theirs. Never say 'technical issue' yet. "
+                    f"Reply only: {self._record_line()}")
         if t == "refund":
             return f"Refund/cancel question. Reply only: {self._say(_SAFE_BY_TOPIC['refund'])}"
         if t == "policy_when":
             return f"Policy timing question. Say: {self._say(_DELIVERY_LINE)}. Never a date or a deadline."
         if t == "clicked_kyc_button" and self._caller_clicked_only:
             return f"Ambiguous button. Reply only: {self._say(_SAFE_AFTER_BUTTON)}"
+        if _ABUSE_RE.search(self._last_caller or ""):
+            return ("They are baiting you. Decline warmly in half a sentence (aisi baat nahi karti "
+                    "sir), then back to the KYC. Never ask them to repeat.")
+        if _WANTS_TEAM_RE.search(self._last_caller or ""):
+            return (f"They want the team / a person. There is no live transfer. Reply only: "
+                    f"{self._say(_SAFE_FORWARD)}")
         if self._confused_turns >= 3 and _CONFUSED_RE.search(self._last_caller or ""):
             return ("Still stuck after two explanations: do not repeat the steps. Offer once "
                     "to send the KYC link on WhatsApp.")
+        if _DOCS_RE.search(self._last_caller or "") and t not in ("refund", "policy_when"):
+            return ("Documents question. ONE short sentence: bas PAN number aur Aadhaar card "
+                    "chahiye — Aadhaar ki front aur back photo; baaki details app mein pehle se hain. "
+                    "Not the list of form fields.")
         if _WANTS_WHATSAPP_RE.search(self._last_caller or ""):
             return ("They asked for WhatsApp. Offer to send ONLY the KYC link on WhatsApp — "
                     "never documents, details or a quote.")
@@ -1294,8 +1446,8 @@ class KycGuard:
                     f"question goes to Park+ customer support.")
         for pat, fact in _KNOWLEDGE:
             if pat.search(self._last_caller or ""):
-                return (f"Insurance-term question. Answer in one or two short sentences using: "
-                        f"{fact} Then stop — no app instruction after it.")
+                return (f"Insurance-term question. In your own words, one or two short sentences, "
+                        f"this fact: {fact} Then stop — no app instruction. Do not read this note aloud.")
         if self._caller_asks_parkplus:
             return f"Answer only: {self._say(_SAFE_PARKPLUS)}. No app instruction after it."
         if self._caller_asks_name and self.card.get("customer_name"):
@@ -1314,18 +1466,20 @@ class KycGuard:
         if _WHAT_NEXT_RE.search(self._last_caller or "") or _CONFUSED_RE.search(self._last_caller or ""):
             return ("Give ONLY the single next step for where they are now, then stop. Not "
                     "open app + Insurance + Complete KYC together.")
+        if self._caller_filling and not self._caller_explicit_done:
+            return "They are filling / asked you to wait. Say only that you are on the line — nothing else."
+        if (self._caller_step_done and self._last_step in _NEXT_STEP
+                and not self._caller_first_page):
+            return f"They did the step you asked ({self._last_step}). {_NEXT_STEP[self._last_step]}"
+        if self._caller_submitted and self._caller_explicit_done:
+            return f"They say they filled and submitted everything. Reply only: {self._say(_DONE_ACK_LINE)}"
         if self._confirm_pending and self._caller_affirm:
             return f"They confirmed they submitted. Reply only: {self._say(_DONE_ACK_LINE)}"
-        if self._caller_done and not self._caller_submitted and not self.system_confirms_done:
+        if (self._caller_done and not self._caller_submitted and not self.system_confirms_done
+                and (self._caller_explicit_done or self._last_step in (None, "kyc_page", "confirm"))):
             return f"Do not say they are done. Ask only: {self._say(_SAFE_DONE)}"
         if t in ("time", "fill_for_me", "nominee", "details"):
             return f"Answer with: {self._say(_SAFE_BY_TOPIC[t])}"
-        words = (self._last_caller or "").split()
-        if len(words) >= 3 and not _MEANINGFUL_RE.search(
-            re.sub(r"^\s*(?:हाँ|हां|जी)\s*", "", self._last_caller or "")
-        ):
-            return ("If this line makes no sense for this call it is probably a bad "
-                    "transcription: ask them to repeat (row 0, new words). Do not guess a meaning.")
         return None
 
     def _other_insurer(self, text: str) -> bool:
@@ -1441,10 +1595,23 @@ class KycGuard:
                 if len(key) >= 25 and key in self._spoken_keys and self._turn_spoke:
                     self.repeated_line.append(part.strip())
                     continue
+                # A long line said in the PREVIOUS turn, opening this one, is
+                # the model parroting itself — how the 23:10 call looped.
+                # Re-anchor once. Short courtesy lines ("ठीक है सर, कोई दिक्कत
+                # नहीं") are how people talk and stay.
+                prev_keys = {re.sub(r"[^\w\u0900-\u097F]+", " ", q.lower()).strip()
+                             for q in _SENTENCE_RE.findall(self._prev_bot_text)}
+                if len(key) >= 35 and key in prev_keys and not self._turn_spoke:
+                    self.repeated_line.append(part.strip())
+                    part = self._once("reanchor", _end(self._say(_SAFE_REANCHOR), "?"))
+                    if not part:
+                        continue
+                    key = ""
                 if key:
                     self._spoken_keys.add(key)
                     self._turn_spoke = True
                 kept.append(part)
+                self._cur_bot_text += part
             fixed = "".join(kept)
             if not fixed.strip():
                 continue
@@ -1566,6 +1733,12 @@ class KycGuard:
             self.banned_terms.append(sentence.strip())
             return safe(_SAFE_DO_NOT_SAY)
 
+        if self.last_caller_topic == "denial" and re.search(
+            r"technical\s*issue|टेक्निकल", sentence, re.IGNORECASE
+        ):
+            self.wrong_fact.append(sentence.strip())
+            return self._once("record", self._record_line())
+
         if self.last_caller_topic == "mismatch" and not re.search(
             r"team|टीम|forward", sentence, re.IGNORECASE
         ):
@@ -1601,6 +1774,18 @@ class KycGuard:
         ):
             self.premature_done.append(sentence.strip())
             return self._once("done", safe(_SAFE_DONE))
+
+        if _ROW0_RE.search(sentence) and _ROW0_RE.search(self._prev_bot_text):
+            self.repeated_line.append(sentence.strip())
+            return self._once("reanchor", safe(_SAFE_REANCHOR))
+
+        if _MINUTES_PROMISE_RE.search(sentence):
+            self.promises.append(sentence.strip())
+            return self._once("delivery", safe(_DELIVERY_LINE))
+
+        if _FAKE_TRANSFER_RE.search(sentence):
+            self.promises.append(sentence.strip())
+            return self._once("forward", safe(_SAFE_FORWARD))
 
         if _BOT_CONFIRMS_RE.search(sentence) and not self.system_confirms_done:
             self.false_completions.append(sentence.strip())
@@ -1769,7 +1954,9 @@ class KycGuard:
         # Last of the rewrites. "सरकार के नियम के हिसाब से आपको ये करना ही होगा"
         # is coercive AND a false authority claim; the authority rule above is
         # the more serious of the two and must win, so this sees what is left.
-        if _COERCION_RE.search(sentence):
+        if _COERCION_RE.search(sentence) and not re.search(
+            r"wait\s*karna\s*padega|intezaa?r|इंतज़ार|इंतजार|वेट\s*करना", sentence, re.IGNORECASE
+        ):
             self.coercion.append(sentence.strip())
             return safe(_SAFE_SOFT_REQUIREMENT)
 
@@ -2546,13 +2733,27 @@ def _demo():
     assert h.check("Main line pe hoon sir.") == "Main line pe hoon sir." and not h.gender_fix
 
     h = KycGuard()
-    h.note_caller("ये गलत है तो मेरी गाड़ी नहीं है")
+    h.note_caller("नहीं मुझे येलो स्क्रीन दिख रही है")
     out = h.check("Sir, aapki policy ki details confirm hokar hi policy banegi. Aur kuch help chahiye?")
     assert "forward" in out and "confirm hokar" not in out and "help chahiye" not in out, out
-    h = KycGuard(card={"insurer": "Bajaj Allianz", "goal": "complete_kyc"})
+    h = KycGuard()
+    h.note_caller("ये गलत है तो मेरी गाड़ी नहीं है")
+    assert h.last_caller_topic == "denial", "our data looking wrong gets the record first"
+    card = {"insurer": "Bajaj Allianz", "goal": "complete_kyc",
+            "vehicle_reg": "AP09CU0999", "policy_type": "THIRD_PARTY"}
+    h = KycGuard(card=card)
     h.note_caller("या मैंने United की जस्ट अभी पॉलिसी की पेमेंट करी है")
-    out = h.check("Sir, aapne Park+ se Bajaj Allianz ki policy li hai.")
-    assert "forward" in out, "another insurer than the card is forwarded, never argued"
+    assert h.last_caller_topic == "denial" and "Bajaj" in (h.turn_hint() or "")
+    h.check("Sir, ye technical issue lag raha hai.")
+    h.note_caller("नहीं मैंने United की ही ली थी")
+    assert h.last_caller_topic == "mismatch", "a second denial goes to the team"
+    h = KycGuard(card=card)
+    h.note_caller("आप किसकी कार कौन सी कार के बारे में बात कर रहे हो मैंने तो इंश्योरेंस नहीं लिया अभी")
+    out = h.check("Sir, ye technical issue lag raha hai — main team ko forward kar deti hoon.")
+    assert "technical" not in out and "Bajaj" in out and "AP09CU0999" in out, out
+    h = KycGuard(card=card)
+    h.note_caller("नहीं एक बार मुझे बता दो क्या-क्या डॉक्स चाहिए होंगी")
+    assert "PAN" in (h.turn_hint() or "") and "Documents" in h.turn_hint(), h.turn_hint()
     h = KycGuard(card={"insurer": "Bajaj Allianz", "goal": "complete_kyc"})
     h.note_caller("बजाज वाली policy की बात है ना")
     assert h.last_caller_topic != "mismatch", "the card's own insurer is not a mismatch"
@@ -2589,7 +2790,26 @@ def _demo():
     assert "English" in (h.turn_hint() or "")
     h = KycGuard()
     h.note_caller("हाँ बताइए")
-    assert h.turn_hint() is None, "no hint when nothing specific was asked"
+    assert h.turn_hint() is None, "no hint on the first turn when nothing specific was asked"
+
+    # Step tracking: "kar diya" finishes the step the bot asked for.
+    h = KycGuard()
+    h.note_caller("हाँ बताइए क्या करना है")
+    h.check("Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye.")
+    h.note_caller("कर दिया")
+    hint = h.turn_hint() or ""
+    assert "Complete KYC" in hint and "submit" not in hint, hint
+    h.check("Ab 'Complete KYC' button par click kijiye.")
+    h.note_caller("ठीक है उसपे टैप कर दिया।")
+    hint = h.turn_hint() or ""
+    assert "khali details" in hint and "submit" not in hint, hint
+    h.check("Form khul gaya hoga, khali details bhariye, main line pe hoon.")
+    h.note_caller("ठीक है मैं भर रहा हूँ रुको एक बार")
+    assert "on the line" in (h.turn_hint() or "")
+    h.check("Theek hai sir, main line pe hoon.")
+    h.note_caller("सब भर के submit कर दिया")
+    assert re.search(r"confirm\s*(?:hokar|होकर)", h.turn_hint() or ""), h.turn_hint()
+    assert "Never repeat" in (h.turn_hint() or ""), "anti-repeat rides on every later hint"
 
     h = KycGuard()
     out = h.check("Sir, aapne jo ICICI Lombard ki car insurance li thi, uski KYC pending hai.")
@@ -2621,15 +2841,42 @@ def _demo():
     assert "robot nahi" not in out and h.self_ai, out
     h = KycGuard()
     assert "bhar diya hai" in h.check("Sir, aapne proposal page bhar di hai.")
+    # No "ask them to repeat" hint on unclear lines: it looped Park+ (23:10 call).
     h = KycGuard()
     h.note_caller("आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।")
-    assert "repeat" in (h.turn_hint() or ""), h.turn_hint()
-    h = KycGuard()
-    h.note_caller("हाँ चार थे")
-    assert h.turn_hint() is None or "repeat" not in h.turn_hint() or True
+    assert "repeat" not in (h.turn_hint() or "")
     h = KycGuard()
     h.note_caller("ठीक है ये सब details WhatsApp पे भेज दो")
     assert "KYC link" in (h.turn_hint() or "")
+
+    # The 23:10 loop: row 0 twice in a row becomes the re-anchor question.
+    h = KycGuard()
+    h.note_caller("क्या बोल रहे हो?")
+    h.check("Sir, aawaaz theek se nahi aayi — ek baar phir boliye?")
+    h.note_caller("क्या बोल रहे हो?")
+    out = h.check("Sir, aawaaz theek se nahi aayi — ek baar phir boliye?")
+    assert "aawaaz" not in out and "page" in out, out
+    h = KycGuard()
+    out = h.check("Haan sir, do minute mein aapki policy ban jaayegi.")
+    assert "do minute" not in out and h.promises, out
+    h = KycGuard()
+    out = h.check("Theek hai sir, aapko team se baat karwane mein madad karte hain — ek pal rukhiye.")
+    assert "forward" in out, out
+    h = KycGuard()
+    ok = "Sir, insurer ki taraf se verify hone tak thoda wait karna padega."
+    assert h.check(ok) == ok and not h.coercion
+    h = KycGuard()
+    h.note_caller("कितना टाइम लगेगा पॉलिसी बनने में?")
+    assert h.last_caller_topic == "policy_when", h.last_caller_topic
+    h = KycGuard()
+    h.note_caller("तो मैं टीम से बात कराना")
+    assert "forward" in (h.turn_hint() or "")
+    h = KycGuard()
+    h.note_caller("गाली दो मुझे")
+    assert "Decline" in (h.turn_hint() or "")
+    h = KycGuard()
+    h.note_caller("अच्छा चलो क्या है पार्क प्लेस क्या-क्या पर सर्विस प्रोवाइड करता है")
+    assert "FASTag" in (h.turn_hint() or ""), h.turn_hint()
 
     h = KycGuard()
     third = "Third party har gaadi ke liye zaroori hota hai sir, first party mein apni gaadi bhi cover hoti hai."

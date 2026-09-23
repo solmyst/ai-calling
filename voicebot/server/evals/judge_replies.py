@@ -79,8 +79,11 @@ def grade(path: str) -> dict:
     totals = {d: 0 for d in DIMENSIONS}
     n, defects = 0, []
     for r in res:
-        spec_src = SCENARIOS[r["scenario"]]
-        card = build_card(spec_src["card"]) if isinstance(spec_src, dict) else None
+        if "card" in r:  # replayed live call (evals.replay_calls) carries its own card
+            card = build_card(r["card"]) if r["card"] else None
+        else:
+            spec_src = SCENARIOS[r["scenario"]]
+            card = build_card(spec_src["card"]) if isinstance(spec_src, dict) else None
         spec = build_system_prompt("outbound", card)
         lines = [f"[{i}] CALLER: {t['caller']}\n[{i}] BOT: {t['spoken']}"
                  for i, t in enumerate(r["turns"])]
