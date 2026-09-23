@@ -1,0 +1,1572 @@
+[
+ {
+  "caller": "या मेरे को इंश्योरेंस कराना ही नहीं है मैंने गलती से पे कर दिया तो रिफंड कर दो",
+  "prev": "",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "शाम को बाद बजे करो",
+  "prev": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain.",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko shaam ko call kar loongi — bas itna bata doon, KYC ho jaane par hi aapki policy ban paayegi. Dhanyavaad."
+ },
+ {
+  "caller": "ये बात क्यों बोला सर जयंत क्यों बोला भाई",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko shaam ko call kar loongi — bas itna bata doon, KYC ho jaane par hi aapki policy ban paayegi. Dhanyavaad.",
+  "reply": "Maafi chahti hoon sir, aawaaz theek se nahi aayi — ek baar phir boliyega?"
+ },
+ {
+  "caller": "उसे आज बात करनी है उसे",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main unse kab baat karoon? Bas bata dijiye, main usi time call kar loongi."
+ },
+ {
+  "caller": "Hello.",
+  "prev": "Theek hai sir, koi dikkat nahi. Main unse kab baat karoon? Bas bata dijiye, main usi time call kar loongi.",
+  "reply": "Hello sir! I am calling from Park+ regarding your car insurance KYC which is pending. If you are free now, it will only take two minutes to complete."
+ },
+ {
+  "caller": "हाँ खोल रहा हूँ कहाँ पे जाना है ये बताओ पहले",
+  "prev": "Hello sir! I am calling from Park+ regarding your car insurance KYC which is pending. If you are free now, it will only take two minutes to complete.",
+  "reply": "Sir, pehle Park+ app kholiye aur Insurance icon par click kijiye. Phir mujhe bataiye ki page khul gaya ya nahi."
+ },
+ {
+  "caller": "नहीं है वो चेंज हो गया है डीजीओ से",
+  "prev": "",
+  "reply": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?"
+ },
+ {
+  "caller": "हेलो",
+  "prev": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?",
+  "reply": "Aawaaz aa rahi hai sir? Main pooch rahi thi ki kya aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai?"
+ },
+ {
+  "caller": "तुमने किस related मेरे को call किया है?",
+  "prev": "Aawaaz aa rahi hai sir? Main pooch rahi thi ki kya aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai?",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon."
+ },
+ {
+  "caller": "हेलो।",
+  "prev": "",
+  "reply": "Namaste sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "अरे ये लोग देखो ना।",
+  "prev": "Namaste sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, main koi OTP ya document nahi maangungi. Sab aapke app mein hi hoga, bas do minute ka kaam hai. Abhi kar lein?"
+ },
+ {
+  "caller": "हाँ जी हाँ",
+  "prev": "Sir, main koi OTP ya document nahi maangungi. Sab aapke app mein hi hoga, bas do minute ka kaam hai. Abhi kar lein?",
+  "reply": "Bahut badhiya sir! Sabse pehle aap Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye."
+ },
+ {
+  "caller": "अरे, बहुत ज़्यादा ही साउंड आ रही है इसमें।",
+  "prev": "Bahut badhiya sir! Sabse pehle aap Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye.",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Main line pe hi hoon."
+ },
+ {
+  "caller": "जो फट गई है।",
+  "prev": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Main line pe hi hoon.",
+  "reply": "Sir, aawaaz mein thodi dikkat hai lagta hai. Aap ek baar Park+ app khol lijiye, do minute mein KYC ho jayegi."
+ },
+ {
+  "caller": "हेलो।",
+  "prev": "Sir, aawaaz mein thodi dikkat hai lagta hai. Aap ek baar Park+ app khol lijiye, do minute mein KYC ho jayegi.",
+  "reply": "Namaste sir, meri aawaaz aa rahi hai aapko? Aap Park+ app khol lijiye, hum abhi KYC complete kar lete hain."
+ },
+ {
+  "caller": "हां, तो आपने बेसिकली कैसे कॉल किया मुझे?",
+  "prev": "Namaste sir, meri aawaaz aa rahi hai aapko? Aap Park+ app khol lijiye, hum abhi KYC complete kar lete hain.",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Usi ko complete karwane ke liye call kiya hai, bas do minute lagenge."
+ },
+ {
+  "caller": "क्या आपने क्यों बोल किया मुझे?",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Usi ko complete karwane ke liye call kiya hai, bas do minute lagenge.",
+  "reply": "Sir, aapne jo car insurance liya tha, uski KYC complete hue bina policy issue nahi ho sakti. Isiliye call kiya hai taaki aapki policy jaldi ban jaye."
+ },
+ {
+  "caller": "क्या चीज़ कह रहे हो, बोलो।",
+  "prev": "Sir, aapne jo car insurance liya tha, uski KYC complete hue bina policy issue nahi ho sakti. Isiliye call kiya hai taaki aapki policy jaldi ban jaye.",
+  "reply": "Sir, aapne jo car insurance kharida tha, uski KYC pending hai. Bas do minute mein app se ho jayegi, abhi karwa doon?"
+ },
+ {
+  "caller": "और क्या है ये?",
+  "prev": "Sir, aapne jo car insurance kharida tha, uski KYC pending hai. Bas do minute mein app se ho jayegi, abhi karwa doon?",
+  "reply": "Sir, ye aapke car insurance ko complete karne ke liye KYC process hai. Iske bina insurance company policy issue nahi kar sakti, bas do minute ka kaam hai."
+ },
+ {
+  "caller": "हेलो।",
+  "prev": "Sir, ye aapke car insurance ko complete karne ke liye KYC process hai. Iske bina insurance company policy issue nahi kar sakti, bas do minute ka kaam hai.",
+  "reply": "Namaste sir, meri aawaaz aa rahi hai? Aap Park+ app khol lijiye, hum abhi do minute mein aapki car insurance ki KYC complete kar lete hain."
+ },
+ {
+  "caller": "हेलो, आपने क्यों कॉल किया मुझे?",
+  "prev": "Namaste sir, meri aawaaz aa rahi hai? Aap Park+ app khol lijiye, hum abhi do minute mein aapki car insurance ki KYC complete kar lete hain.",
+  "reply": "Sir, aapne jo car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hoti, policy document nahi milega — isiliye call kiya hai taaki abhi do minute mein karwa doon."
+ },
+ {
+  "caller": "आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।",
+  "prev": "Sir, aapne jo car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hoti, policy document nahi milega — isiliye call kiya hai taaki abhi do minute mein",
+  "reply": "Sir, aawaaz clear nahi aayi — ek baar phir boliyega? Aap bas Park+ app khol lijiye, do minute mein KYC ho jayegi."
+ },
+ {
+  "caller": "आप कितने गंदा ले रहे हैं ये तो।",
+  "prev": "Sir, aawaaz clear nahi aayi — ek baar phir boliyega? Aap bas Park+ app khol lijiye, do minute mein KYC ho jayegi.",
+  "reply": "Sir, main toh bas aapki pending KYC complete karwane ke liye help kar rahi hoon taaki aapki policy issue ho sake. Bas do minute ka kaam hai sir."
+ },
+ {
+  "caller": "हेलो। व्हाट्सएप पे अगर वो लिस्ट ओपन हो रहा है।",
+  "prev": "Sir, main toh bas aapki pending KYC complete karwane ke liye help kar rahi hoon taaki aapki policy issue ho sake. Bas do minute ka kaam hai sir.",
+  "reply": "Sir, main aapko WhatsApp par KYC ka link bhej deti hoon — aap wahin se direct complete kar lijiye, do minute lagenge."
+ },
+ {
+  "caller": "हेलो।",
+  "prev": "Sir, main aapko WhatsApp par KYC ka link bhej deti hoon — aap wahin se direct complete kar lijiye, do minute lagenge.",
+  "reply": "Namaste sir, meri aawaaz aa rahi hai? Main aapko WhatsApp par KYC ka link bhej rahi hoon, aap us par click karke do minute mein complete kar lijiye."
+ },
+ {
+  "caller": "व्हाट्सएप के बाहर ओपन कर रहे हैं तो वो",
+  "prev": "Namaste sir, meri aawaaz aa rahi hai? Main aapko WhatsApp par KYC ka link bhej rahi hoon, aap us par click karke do minute mein complete kar lijiye.",
+  "reply": "Sir, main aapko WhatsApp par direct KYC ka link bhej deti hoon. Aap us link par click karke do minute mein details bhar sakte hain."
+ },
+ {
+  "caller": "हेलो",
+  "prev": "",
+  "reply": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "हां, मैंने ऐप खोल लिया, अब क्या करना है?",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, app par aapko Insurance ka icon dikhega, us par click kijiye."
+ },
+ {
+  "caller": "हेलो।",
+  "prev": "Sir, app par aapko Insurance ka icon dikhega, us par click kijiye.",
+  "reply": "Sir, aawaaz aa rahi hai aapko? Insurance wale page par 'Complete KYC' ka button dikhega, us par click kar dijiye."
+ },
+ {
+  "caller": "Hello.",
+  "prev": "",
+  "reply": "Hello sir! Your car insurance KYC is pending. It will only take two minutes, can we complete it right now?"
+ },
+ {
+  "caller": "हाँ आपने क्यों कॉल किया?",
+  "prev": "Hello sir! Your car insurance KYC is pending. It will only take two minutes, can we complete it right now?",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon."
+ },
+ {
+  "caller": "अच्छा इंश्योरेंस के लिए कॉल किया आपने मुझे बताओ कैसे करना है मुझे",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon.",
+  "reply": "Sir, sabse pehle aap apne phone mein Park+ app kholiye aur wahan Insurance icon par click kijiye. Phir mujhe bataiyega."
+ },
+ {
+  "caller": "हाँ मैंने खोल लिया होता हो क्या करना है?",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye."
+ },
+ {
+  "caller": "ठीक है उसपे टैप कर दिया।",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye.",
+  "reply": "Sir, ab aapko screen par 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "ठीक है मैंने कर दिया हूँ मुझे क्या करना है?",
+  "prev": "Sir, ab aapko screen par 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon, agar koi dikkat ho toh mujhe bata dena."
+ },
+ {
+  "caller": "हाँ मैंने खोल लिया क्या करना है मुझे",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye."
+ },
+ {
+  "caller": "ठीक है क्लिक कर दिया मैंने इन्श्योरेंस वाला आइकन पे अब क्या करना है?",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye.",
+  "reply": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "ठीक है मैंने कर दिया",
+  "prev": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main help kar doongi."
+ },
+ {
+  "caller": "ठीक है ये आरसी में ये उन्हें डिटेल्स में क्या डालना है मेरा मेरा नाम डालो या फिर मेरे अपनी पत्नी का",
+  "prev": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main",
+  "reply": "Sir, gaadi ke maalik ka naam daalna hai — jinke naam par RC hai, unhi ka naam aur details yahan bhariye."
+ },
+ {
+  "caller": "और जिसका मैंने इंश्योरेंस लिया है या फिर जिसका आरसीएम मेरे पास",
+  "prev": "Sir, gaadi ke maalik ka naam daalna hai — jinke naam par RC hai, unhi ka naam aur details yahan bhariye.",
+  "reply": "Sir, jinke naam par gaadi ki RC hai, unhi ka naam aur details yahan bharni hain. Unhi ke documents se KYC hogi."
+ },
+ {
+  "caller": "ठीक है मैंने डाल दिया डियो में क्या करना है?",
+  "prev": "Sir, jinke naam par gaadi ki RC hai, unhi ka naam aur details yahan bharni hain. Unhi ke documents se KYC hogi.",
+  "reply": "Sir, DOB mein gaadi ke maalik ki janm tithi yaani date of birth daalni hai. Ek baar dhyan se sahi date select kar lijiye."
+ },
+ {
+  "caller": "अगर मैं अपनी शादी की सालग्रह डाल दूँ तो",
+  "prev": "Sir, DOB mein gaadi ke maalik ki janm tithi yaani date of birth daalni hai. Ek baar dhyan se sahi date select kar lijiye.",
+  "reply": "Nahi sir, shaadi ki saalgirah nahi daalni hai. Jo gaadi ke maalik ke Aadhaar card par date of birth likhi hai, wahi daaliye."
+ },
+ {
+  "caller": "हेलो अरे मैं बोल रहा था कि मेरे को पता ही नहीं है मेरी डेट ऑफ बर्थ क्या है उसे वो कौन सा आईडेंटिफाई करेगी मेरे के लिए मार्केट से गया",
+  "prev": "Sir, unse baat kara dijiye, main samjha deti hoon. Woh number mujhe phone par nahi chahiye sir — app mein safe tareeke se daal dijiye, Insurance section mein Co",
+  "reply": "Namaste sir, koi baat nahi. Aapke Aadhaar card par jo bhi date of birth likhi hai, wahi dekhkar yahan daal dijiye — wahi sahi mani jaayegi."
+ },
+ {
+  "caller": "फर्स्ट वीक में क्रॉस हो रहे सेकंड वीक में",
+  "prev": "Namaste sir, koi baat nahi. Aapke Aadhaar card par jo bhi date of birth likhi hai, wahi dekhkar yahan daal dijiye — wahi sahi mani jaayegi.",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega?"
+ },
+ {
+  "caller": "लिखा हुआ ही नहीं है, लिखा हुआ ही नहीं है, उस पर तो बस येर लिखा हुआ है, मंथ और डेट कैसे पता होगी मेरे को?",
+  "prev": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega?",
+  "reply": "Sir, agar Aadhaar par sirf saal likha hai, toh aapke kisi aur document jaise PAN card par poori date of birth hogi — wahi dekhkar daal dijiye."
+ },
+ {
+  "caller": "ठीक है मैंने ये काम कर दिया आगे क्या करना है?",
+  "prev": "Sir, agar Aadhaar par sirf saal likha hai, toh aapke kisi aur document jaise PAN card par poori date of birth hogi — wahi dekhkar daal dijiye.",
+  "reply": "Sir, aapne proposal page bhar diya hai. Ab KYC wale page pe aa jaiye aur PAN, Aadhaar wala form bhar dijiye. Kuch bhi dikkat ho toh bataiyega, main help karungi."
+ },
+ {
+  "caller": "नहीं अभी तो मैंने डियो भी डाला है गाली तुमने केवाईसी भी वो कर दी",
+  "prev": "Sir, aapne proposal page bhar diya hai. Ab KYC wale page pe aa jaiye aur PAN, Aadhaar wala form bhar dijiye. Kuch bhi dikkat ho toh bataiyega, main help karungi",
+  "reply": "Aisi baat nahi hai sir, main toh bas aapki help kar rahi hoon. Agar date of birth bhar di hai, toh baaki khali fields jaise email aur address bharkar Next par click kijiye."
+ },
+ {
+  "caller": "ठीक है मैं भर रहा हूँ रुको बनने तो भर रहा हूँ भर रहा हूँ हाँ ये वाली तो फील बढ़ दी आप क्या करना है",
+  "prev": "Aisi baat nahi hai sir, main toh bas aapki help kar rahi hoon. Agar date of birth bhar di hai, toh baaki khali fields jaise email aur address bharkar Next par c",
+  "reply": "Sir, ab screen par 'Next' ya 'Complete KYC' ka button dikh raha hoga — us par click kijiye taaki hum KYC wale page par chal sakein."
+ },
+ {
+  "caller": "अरे नहीं बट मैं बोल रहा था मेरे पास डॉक्यूमेंट्स नहीं है तो क्या करूँ?",
+  "prev": "Sir, ab screen par 'Next' ya 'Complete KYC' ka button dikh raha hoga — us par click kijiye taaki hum KYC wale page par chal sakein.",
+  "reply": "Sir, KYC ke liye bas PAN number aur Aadhaar card chahiye hoga. Agar abhi paas nahi hai, toh photo phone mein ho toh usse bhi ho jayega."
+ },
+ {
+  "caller": "ये क्या हुआ? नहीं मेरे पास सात दिन",
+  "prev": "Khali wale bhariye sir — owner's name, email, address aur nominee details. KYC ke liye PAN aur Aadhaar number app mein hi daalna hai, mujhe call pe mat bataiye.",
+  "reply": "Sir, koi baat nahi. Agar abhi documents nahi hain, toh main baad mein call kar loongi — aap bata dijiye kab call karoon?"
+ },
+ {
+  "caller": "हाँ बोलिए",
+  "prev": "",
+  "reply": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "ठीक है कर लिया आगे बताओ",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, pehle Park+ app kholiye aur Insurance icon par click kijiye. Phir mujhe bataiye ki page khul gaya?"
+ },
+ {
+  "caller": "ये दिक्कत आती है जब भी आप तो ये तो ना बनाया नहीं है ना क्यों भाई इतना तो बन नहीं जाएगा ये तो ऐसी चीजें बोल रहा है कि",
+  "prev": "Sir, pehle Park+ app kholiye aur Insurance icon par click kijiye. Phir mujhe bataiye ki page khul gaya?",
+  "reply": "Sir, main koi OTP ya document nahi maang rahi hoon. Sab aapke app mein hi secure tarike se hoga, aap khud apne haath se karenge. Ek baar app khol lijiye."
+ },
+ {
+  "caller": "नहीं ना फिर वो कॉन्टेक्स्ट पीछे का नहीं ले रहा है तो फिर नॉट डिजाइन्ड भाई ये जैसे असल में तो",
+  "prev": "Sir, main koi OTP ya document nahi maang rahi hoon. Sab aapke app mein hi secure tarike se hoga, aap khud apne haath se karenge. Ek baar app khol lijiye.",
+  "reply": "Sir, main aapki help ke liye hi call par hoon. Aap ek baar Park plus app khol lijiye, do minute mein saara kaam ho jayega aur koi dikkat nahi aayegi."
+ },
+ {
+  "caller": "नहीं है बनाना यूज़र को टू टेकर टाइम बट बन जाएगा",
+  "prev": "Sir, main aapki help ke liye hi call par hoon. Aap ek baar Park plus app khol lijiye, do minute mein saara kaam ho jayega aur koi dikkat nahi aayegi.",
+  "reply": "Sir, main line pe hi hoon, aap aaram se app khol lijiye. Jaise hi Insurance page khul jaye, mujhe bataiyega."
+ },
+ {
+  "caller": "हाँ मैंने खोल लिया",
+  "prev": "Sir, aapke app mein status dikh jayega par abhi KYC pending hai.",
+  "reply": "Bahut badhiya sir! Ab app mein Insurance icon par click kijiye, phir wahan aapko 'Complete KYC' ka button dikhega — usi pe click kar dijiye."
+ },
+ {
+  "caller": "हाँ मैंने कर दिया अब क्या करना है?",
+  "prev": "Bahut badhiya sir! Ab app mein Insurance icon par click kijiye, phir wahan aapko 'Complete KYC' ka button dikhega — usi pe click kar dijiye.",
+  "reply": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main help kar doongi."
+ },
+ {
+  "caller": "अरे यार इसमें मैं वो बताऊँगा आरसी में क्या किसका डालना है मेरा डालना है या फिर किसी और का डालना है?",
+  "prev": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main",
+  "reply": "Sir, RC par jiska naam likha hai, yaani jo gaadi ke maalik hain, unhi ki details dalengi. Unhi ka naam, DOB aur address bharna hai."
+ },
+ {
+  "caller": "लिंक चेक करोगे?",
+  "prev": "I am really sorry for the trouble, sir. Is baar hum ise poora complete kar dete hain taaki aapko baar-baar call na aaye. Aap proposal page bhar kar ab KYC wale ",
+  "reply": "Sir, main call par aapka link check nahi kar sakti. Aap app mein details bhar dijiye, wahan submit hote hi system mein update ho jayega. Kuch dikkat aa rahi hai toh mujhe bataiye."
+ },
+ {
+  "caller": "विचार है कि वह",
+  "prev": "Sir, main call par aapka link check nahi kar sakti. Aap app mein details bhar dijiye, wahan submit hote hi system mein update ho jayega. Kuch dikkat aa rahi hai",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aap abhi kaun se screen par hain?"
+ },
+ {
+  "caller": "डीओ भी क्या होता है?",
+  "prev": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aap abhi kaun se screen par hain?",
+  "reply": "Sir, DOB ka matlab Date of Birth hai, yaani gaadi ke maalik ki janam tithi. Jo unke Aadhaar card par likhi hai, wahi yahan daal dijiye."
+ },
+ {
+  "caller": "अच्छा ठीक है और फिर मुझे ये बताओ कि बाकी और जैसे पैंक कार्ड है मेरे पास तो पैंक कार्ड का मतलब क्या होता है पहले ये बताओ तो मेरे को फिर मैं बताऊँगा",
+  "prev": "Sir, DOB ka matlab Date of Birth hai, yaani gaadi ke maalik ki janam tithi. Jo unke Aadhaar card par likhi hai, wahi yahan daal dijiye.",
+  "reply": "Sir, PAN card sarkar ka pehchaan patra hai. KYC page par aapko sirf apna PAN number likhna hai, iski photo upload karne ki zaroorat nahi hai."
+ },
+ {
+  "caller": "नहीं क्या है बोलो",
+  "prev": "Sir, PAN card sarkar ka pehchaan patra hai. KYC page par aapko sirf apna PAN number likhna hai, iski photo upload karne ki zaroorat nahi hai.",
+  "reply": "Sir, PAN card ek permanent account number hota hai jo sarkar deti hai. Aapko app mein bas apna PAN number type karna hai, koi photo nahi chahiye."
+ },
+ {
+  "caller": "हाँ जी",
+  "prev": "Sir, PAN card ek permanent account number hota hai jo sarkar deti hai. Aapko app mein bas apna PAN number type karna hai, koi photo nahi chahiye.",
+  "reply": "Sir, PAN number daalne ke baad, niche Aadhaar number aur uski front aur back photo upload kar dijiye. Kuch dikkat aaye toh batana, main line par hoon."
+ },
+ {
+  "caller": "तेरा पहला वाला स्नू है, उसको फास्ट कर दे, फिर सही हो जाएगा.",
+  "prev": "Sir, PAN number daalne ke baad, niche Aadhaar number aur uski front aur back photo upload kar dijiye. Kuch dikkat aaye toh batana, main line par hoon.",
+  "reply": "Sir, main yahan se speed fast nahi kar sakti, par aap jaise hi details bharenge, process turant aage badh jayega. Aapne Aadhaar aur PAN details daal di hain?"
+ },
+ {
+  "caller": "हाँ हाँ ये स्लो है तेरा STD तो STD में दो इश्यू हैं अगर मैं",
+  "prev": "Sir, main yahan se speed fast nahi kar sakti, par aap jaise hi details bharenge, process turant aage badh jayega. Aapne Aadhaar aur PAN details daal di hain?",
+  "reply": "Sir, agar app mein koi issue aa raha hai toh ek baar app band karke dobara kholiye. Phir bhi na ho toh main aapko WhatsApp par KYC ka link bhej deti hoon."
+ },
+ {
+  "caller": "तुम्हें क्यों बुद्धता बहुत हो सकता है? पहले इसमें कम रख।",
+  "prev": "Sir, agar app mein koi issue aa raha hai toh ek baar app band karke dobara kholiye. Phir bhi na ho toh main aapko WhatsApp par KYC ka link bhej deti hoon.",
+  "reply": "Sir, main koi OTP ya document nahi maang rahi hoon, sab aapke app mein hi safe hoga. Aap bas app mein details bhar dijiye, do minute ka kaam hai."
+ },
+ {
+  "caller": "साइन कर दे कर दूँ मतलब साइलेंस में फिर बाहर से नोइज़ बहुत ले लेगा नहीं तो",
+  "prev": "Sir, main koi OTP ya document nahi maang rahi hoon, sab aapke app mein hi safe hoga. Aap bas app mein details bhar dijiye, do minute ka kaam hai.",
+  "reply": "Sir, aap aaram se details bhar lijiye, main line par hi hoon. Agar koi dikkat aaye toh mujhe bataiyega, main aapki help karungi."
+ },
+ {
+  "caller": "आंकड़ दिया आगे बताओ।",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye."
+ },
+ {
+  "caller": "हाँ दिख रहा है, दिख रहा है बताओ।",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye.",
+  "reply": "Sir, insurance wale page par aapko 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "मुझे ये बताओ पैन कार्ड क्या होता है?",
+  "prev": "Sir, insurance wale page par aapko 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, PAN card sarkar ka pehchaan patra hota hai jo tax aur financial transactions ke liye zaroori hai. KYC complete karne ke liye iska number app mein daalna hoga."
+ },
+ {
+  "caller": "अच्छा ठीक है और आधार कार्ड",
+  "prev": "Sir, PAN card sarkar ka pehchaan patra hota hai jo tax aur financial transactions ke liye zaroori hai. KYC complete karne ke liye iska number app mein daalna ho",
+  "reply": "Sir, Aadhaar card bhi sarkar ka pehchaan patra hai. KYC form mein iska number aur photo app mein upload karni hogi."
+ },
+ {
+  "caller": "तो दोनों चीजें लगेगी क्या पैन कार्ड भी लगेगा और आधार कार्ड भी लगेगा क्या?",
+  "prev": "Sir, Aadhaar card bhi sarkar ka pehchaan patra hai. KYC form mein iska number aur photo app mein upload karni hogi.",
+  "reply": "Haan sir, dono cheezein lagengi. App mein PAN card ka sirf number daalna hai aur Aadhaar card ka number aur photo dono upload karni hogi."
+ },
+ {
+  "caller": "और उसमें तो लिखा है कि कोई भी एक चूज़ करो।",
+  "prev": "Haan sir, dono cheezein lagengi. App mein PAN card ka sirf number daalna hai aur Aadhaar card ka number aur photo dono upload karni hogi.",
+  "reply": "Sir, insurer ke rules ke hisaab se dono details zaroori hain. Aap app mein PAN aur Aadhaar dono ki details bhar dijiye, do minute mein ho jayega."
+ },
+ {
+  "caller": "अब मेरा हाँ ना जा रहे हो मोनिका जी",
+  "prev": "Sir, insurer ke rules ke hisaab se dono details zaroori hain. Aap app mein PAN aur Aadhaar dono ki details bhar dijiye, do minute mein ho jayega.",
+  "reply": "Sir, main Shreya bol rahi hoon. Aap form khol lijiye, agar koi bhi dikkat aaye toh mujhe bataiye — main line pe hi hoon."
+ },
+ {
+  "caller": "अरे मैं को ये बताओ क्या पासपोर्ट देकर कंपनी है क्या?",
+  "prev": "Sir, main aapki help ke liye hi line par hoon. Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?",
+  "reply": "Sir, passport se KYC nahi ho payegi. Insurer ke rules ke hisaab se PAN aur Aadhaar card hi lagega."
+ },
+ {
+  "caller": "नहीं मैं पूछ रहा हूँ कि पार्क प्लस बेकार कंपनी है क्या?",
+  "prev": "Sir, passport se KYC nahi ho payegi. Insurer ke rules ke hisaab se PAN aur Aadhaar card hi lagega.",
+  "reply": "Nahi sir, Park+ car owners ka bahut bada aur bharosemand app hai. Isme FASTag, parking, challan aur insurance jaisi saari services ek hi jagah mil jaati hain."
+ },
+ {
+  "caller": "और वही तो वो डिलीवरी करेंगे इसको अच्छा करना है ना पर हाँ पर वो वैल्यू के लिए बन जाएगा पर फिर बहुत ज़्यादा टाइम भी नहीं ले",
+  "prev": "Nahi sir, Park+ car owners ka bahut bada aur bharosemand app hai. Isme FASTag, parking, challan aur insurance jaisi saari services ek hi jagah mil jaati hain.",
+  "reply": "Sir, bilkul sahi keh rahe hain. Bas do minute ka kaam hai, abhi complete kar lijiye phir policy jaldi ban kar aapke WhatsApp aur mail par aa jaayegi."
+ },
+ {
+  "caller": "या तुमने कॉल क्यों किया है मुझे क्यों कॉल किया है तुमने",
+  "prev": "Hello sir! Your car insurance KYC is pending. It will only take two minutes, can we complete it right now?",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hoti, policy issue nahi ho payegi. Bas do minute ka kaam hai, abhi karwa doon?"
+ },
+ {
+  "caller": "यार मेरे को अभी करना है बाद में भी कर सकता हूँ",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hoti, policy issue nahi ho payegi. Bas do minute ka kaam hai, abhi karwa d",
+  "reply": "Sir, baad mein bhi kar sakte hain, par jab tak KYC nahi hogi, policy document nahi milega. Bas do minute lagenge, abhi kar lein toh tension khatam ho jaayegi?"
+ },
+ {
+  "caller": "I don't make your question.",
+  "prev": "",
+  "reply": "No problem, sir. I am calling because the KYC for your car insurance is pending. It will only take two minutes to complete it in the Park+ app. Shall we do it now?"
+ },
+ {
+  "caller": "तुमने मुझे क्यों कॉल किया है?",
+  "prev": "No problem, sir. I am calling because the KYC for your car insurance is pending. It will only take two minutes to complete it in the Park+ app. Shall we do it n",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hogi, policy issue nahi ho payegi. Bas do minute ka kaam hai, abhi karwa doon?"
+ },
+ {
+  "caller": "बस तुम अभी जाते हो या फिर मैं बाद में कर सकता हूँ उनके वाईसी का",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Jab tak KYC nahi hogi, policy issue nahi ho payegi. Bas do minute ka kaam hai, abhi karwa d",
+  "reply": "Sir, aap baad mein bhi kar sakte hain, koi dikkat nahi hai. Par jab tak KYC complete nahi hogi, policy document nahi milega. Agar aap abhi free hain toh do minute mein ho jayega."
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, aap baad mein bhi kar sakte hain, koi dikkat nahi hai. Par jab tak KYC complete nahi hogi, policy document nahi milega. Agar aap abhi free hain toh do minu",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aap abhi KYC karna chahte hain ya main baad mein call karoon?"
+ },
+ {
+  "caller": "या तुम बाद में कॉल कर सकते हो क्या अभी मैं बिजी था मैं",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?"
+ },
+ {
+  "caller": "अभी भी कुछ होता है इनके लिए।",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?",
+  "reply": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi kar lein ya baad mein call karoon?"
+ },
+ {
+  "caller": "यार तुम बाद में कॉल कर लेना।",
+  "prev": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi kar lein ya baad mein call",
+  "reply": "Theek hai sir, main aapko thodi der baad ya kal subah call kar loongi. Bas dhyan rakhiyega ki KYC ke bina policy issue nahi ho payegi. Dhanyavaad!"
+ },
+ {
+  "caller": "यार टिकट चलो बुक कराओ मेरे को क्या-क्या करना होगा?",
+  "prev": "Theek hai sir, main aapko thodi der baad ya kal subah call kar loongi. Bas dhyan rakhiyega ki KYC ke bina policy issue nahi ho payegi. Dhanyavaad!",
+  "reply": "Sir, sabse pehle aap apne phone mein Park+ app kholiye aur wahan Insurance icon par click kijiye. Phir mujhe bataiye ki kya dikh raha hai."
+ },
+ {
+  "caller": "हाँ जो कॉल किया आपने",
+  "prev": "",
+  "reply": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "या बाद में कर सकते हैं पन अभी नहीं करेंगे",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."
+ },
+ {
+  "caller": "यार तुम थोड़ी देर बात कॉल करने ला हमें मेरे पास बिल्कुल भी टाइम नहीं है।",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy b",
+  "reply": "Theek hai sir, main aapko thodi der baad call kar loongi. Shaam ko paanch baje ke aas-paas call karoon ya usse pehle?"
+ },
+ {
+  "caller": "नहीं यहाँ मेरे को नहीं करनी बोली सिर्फ रिफंड कर दो तुम मेरा",
+  "prev": "Theek hai sir, main aapko thodi der baad call kar loongi. Shaam ko paanch baje ke aas-paas call karoon ya usse pehle?",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "या ठीक है तो चलो बताओ मैं केवैसी करता हूँ फिर रेफंड के लिए बात कर लूँगा तुम्हारी टीम से",
+  "prev": "Sir, main aapki KYC mein madad ke liye hoon — aap app mein abhi kis page par hain? Aap Park+ app ke support section mein jaakar request daal dijiye, team aapki ",
+  "reply": "Bahut badhiya sir! Pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye."
+ },
+ {
+  "caller": "हाँ ठीक है खुल गया मेरा इंश्योरेंस पेज",
+  "prev": "Bahut badhiya sir! Pehle Park+ app kholkar Insurance icon par click kijiye, phir mujhe bataiye.",
+  "reply": "Sir, insurance wale page par aapko 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "हाँ कर दिया मैंने क्लिक अब क्या करना है?",
+  "prev": "Sir, insurance wale page par aapko 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main help kar doongi."
+ },
+ {
+  "caller": "ठीक है मैं कंटिन्यू कर रहा हूँ तुम लाइन पे ही रहना ठीक है जाना मत",
+  "prev": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon. Agar kuch bhi help aur kuch bhi dikkat hogi, toh mujhe bata dena. Main",
+  "reply": "Bilkul sir, main line par hi hoon. Aap aaram se details bhar lijiye, koi bhi dikkat aaye toh mujhe bataiyega."
+ },
+ {
+  "caller": "अब तो सही रिस्पांस दे रही है ना, अब तो डिले नहीं है।",
+  "prev": "Bilkul sir, main line par hi hoon. Aap aaram se details bhar lijiye, koi bhi dikkat aaye toh mujhe bataiyega.",
+  "reply": "Haan sir, ab bilkul sahi chal raha hai. Aap aaram se form bhariye, main yahin line par hoon."
+ },
+ {
+  "caller": "Okay, sir.",
+  "prev": "",
+  "reply": "Sir, your car insurance KYC is pending. It will only take two minutes, shall we do it right now?"
+ },
+ {
+  "caller": "क्रेड हाँ क्रेड का भी",
+  "prev": "Sir, your car insurance KYC is pending. It will only take two minutes, shall we do it right now?",
+  "reply": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega?"
+ },
+ {
+  "caller": "ओके या तुमने क्यों कॉल किया मुझे ये बताओगे?",
+  "prev": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega?",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Usi ko complete karwane ke liye call kiya hai, bas do minute lagenge."
+ },
+ {
+  "caller": "आप मुझे लिंक दे दिया अभी तो मैं नहीं बताऊँगी। हेलो",
+  "prev": "Sir, ho sakta hai pehle poori na hui ho ya koi detail pending reh gayi ho.",
+  "reply": "Theek hai ma'am, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap us link par click karke aaram se apni details bhar dijiyega."
+ },
+ {
+  "caller": "रिलैक्स ही दिया था मुझसे और थैंक यू सर",
+  "prev": "Theek hai ma'am, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap us link par click karke aaram se apni details bhar dijiyega.",
+  "reply": "Dhanyavaad, thank you for choosing Park+."
+ },
+ {
+  "caller": "इसे गेंदम ने क्यों कॉल किया है?",
+  "prev": "",
+  "reply": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon."
+ },
+ {
+  "caller": "कौन सी पॉलिसी की बात कर रहे हो तुम?",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon.",
+  "reply": "Sir, aapne jo Park+ app se car insurance liya tha, main usi ki baat kar rahi hoon. KYC pending hone ki wajah se policy issue nahi ho paayi hai."
+ },
+ {
+  "caller": "हाँ खुल गया मेरा",
+  "prev": "Sir, agar aapne pehla page bhar diya hai toh bahut badhiya. Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?",
+  "reply": "Bahut badhiya sir! Agar app khul gaya hai toh 'Complete KYC' par click karke PAN aur Aadhaar ki details bhar dijiye. Main line par hi hoon, koi dikkat aaye toh batana."
+ },
+ {
+  "caller": "ठीक है ये फॉर्म तो बढ़ दिया आपके करना है।",
+  "prev": "Bahut badhiya sir! Agar app khul gaya hai toh 'Complete KYC' par click karke PAN aur Aadhaar ki details bhar dijiye. Main line par hi hoon, koi dikkat aaye toh ",
+  "reply": "Sir, agar aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai, toh bas do minute wait kijiye. KYC verify hote hi policy aapke WhatsApp aur mail par aa jaayegi."
+ },
+ {
+  "caller": "नहीं ठीक है",
+  "prev": "Sir, agar aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai, toh bas do minute wait kijiye. KYC verify hote hi policy aapke WhatsApp aur mai",
+  "reply": "Theek hai sir, toh main call disconnect kar rahi hoon. Agar koi aur help chahiye ho toh batayega. Dhanyavaad, thank you for choosing Park+."
+ },
+ {
+  "caller": "या बाद में कर सकते हैं कि अभी मैं फ्री नहीं हूँ।",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."
+ },
+ {
+  "caller": "यार चलो ठीक है अभी करा दो फिर एक यार एक चीज हो तो पाकपेस कैसे आता है?",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy b",
+  "reply": "Bahut badhiya sir! Park+ app kholkar sabse pehle Insurance icon par click kijiye, phir mujhe bataiye. Aur aapne jo pucha, Park+ car owners ka app hai jahan FASTag, parking aur insurance sab ek jagah milta hai."
+ },
+ {
+  "caller": "नहीं मैं पूछ रहा हूँ पाकपस कैसी एप है?",
+  "prev": "Bahut badhiya sir! Park+ app kholkar sabse pehle Insurance icon par click kijiye, phir mujhe bataiye. Aur aapne jo pucha, Park+ car owners ka app hai jahan FAST",
+  "reply": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah mil jata hai."
+ },
+ {
+  "caller": "चलो मैंने कल लिया यार एक चीज बताओ ये आधार कार्ड क्या होता है?",
+  "prev": "Bilkul sahi kaha sir, sorry. App khul gaya hai toh ab insurance wale page par dekhiye — wahan 'Complete KYC' ka button dikhega, us par click kijiye.",
+  "reply": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details aur photo aapko app mein daalni hogi."
+ },
+ {
+  "caller": "यार मुझे तुमसे बात करनी है ये तुम मत करो भाई तुम बार-बार ये",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details aur photo aapko app mein daalni hogi.",
+  "reply": "Sir, main toh bas aapki help karne ke liye call par hoon taaki aapki policy jaldi ban jaye. Aap bataiye, abhi screen par kya dikh raha hai?"
+ },
+ {
+  "caller": "तुम्हें पता है मेरी पॉलिसी के कबाद हो रही है?",
+  "prev": "Sir, main toh bas aapki help karne ke liye call par hoon taaki aapki policy jaldi ban jaye. Aap bataiye, abhi screen par kya dikh raha hai?",
+  "reply": "Sir, jaise hi aap KYC complete kar denge, insurer ki side se details verify hote hi policy aapko WhatsApp aur mail par mil jaayegi. App mein bhi notification aa jaayega."
+ },
+ {
+  "caller": "यार तुम मेरे को अब जेटलाल कहके बोलो अनुरशि मत बोलो",
+  "prev": "Sir, jaise hi aap KYC complete kar denge, insurer ki side se details verify hote hi policy aapko WhatsApp aur mail par mil jaayegi. App mein bhi notification aa",
+  "reply": "Theek hai Jethalal ji, bilkul. Abhi aapko screen par kya dikh raha hai? Hum do minute mein KYC complete kar lete hain."
+ },
+ {
+  "caller": "क्या बोलूँ यार हम बार-बार रिपीटेड करते हैं एक-एक चीज को बार-बार कार इंश्योरेंस से इंश्योरेंस है कर वो अच्छा नहीं लग रहा है",
+  "prev": "Theek hai Jethalal ji, bilkul. Abhi aapko screen par kya dikh raha hai? Hum do minute mein KYC complete kar lete hain.",
+  "reply": "Jethalal ji, main samajh sakti hoon. Ab seedhe kaam ki baat karte hain — aap abhi form ke kaun se page par hain?"
+ },
+ {
+  "caller": "हमें कर दूँगा भैया मेरा मन से नहीं अभी बाद में कर सकते हैं यार मैं अभी मन से नहीं कर रहा मेरा ना बहुत ऐसा जीत सो रखा है",
+  "prev": "Jethalal ji, main samajh sakti hoon. Ab seedhe kaam ki baat karte hain — aap abhi form ke kaun se page par hain?",
+  "reply": "Koi baat nahi Jethalal ji, main samajh sakti hoon. Aap aaram se baad mein kar lijiye — main aapko kal kis time call karoon?"
+ },
+ {
+  "caller": "मैं नहीं चाहता कराना भी",
+  "prev": "Koi baat nahi Jethalal ji, main samajh sakti hoon. Aap aaram se baad mein kar lijiye — main aapko kal kis time call karoon?",
+  "reply": "Theek hai Jethalal ji, koi dikkat nahi hai. Bas itna dhyan rakhiyega ki bina KYC ke policy issue nahi ho payegi. Main aapko kal shaam ko ek baar connect kar loon?"
+ },
+ {
+  "caller": "आह ठीक है यार अभी मैं फ्री नहीं हूँ थोड़ी देर में कर सकते हो क्या तुम?",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?"
+ },
+ {
+  "caller": "यार थोड़ी से बाद में कर लेना चलो तुम",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?",
+  "reply": "Theek hai sir, main aapko thodi der baad call kar loongi. Shaam ko paanch baje ke aas-paas call karoon ya usse pehle?"
+ },
+ {
+  "caller": "यार वो तो मुझे पता है वैसे यार कि वैसे की ज़रूरत नहीं पड़ती मेरे को जितना पता है पॉलिसी तो मेरी ऐसी बन जाती है",
+  "prev": "Theek hai sir, main aapko thodi der baad call kar loongi. Shaam ko paanch baje ke aas-paas call karoon ya usse pehle?",
+  "reply": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi kar lein?"
+ },
+ {
+  "caller": "ना अभी तो मेरे पास टाइम नहीं है बाद में ही कर लेना तुम",
+  "prev": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi kar lein?",
+  "reply": "Koi baat nahi sir, main baad mein call kar loongi. Bas itna bata doon ki KYC ho jaane par hi aapki policy ban paayegi. Kal subah call karoon aapko?"
+ },
+ {
+  "caller": "या तुम कल कर लेना मुझे फिर",
+  "prev": "Koi baat nahi sir, main baad mein call kar loongi. Bas itna bata doon ki KYC ho jaane par hi aapki policy ban paayegi. Kal subah call karoon aapko?",
+  "reply": "Theek hai sir, main aapko kal subah call kar loongi. Thank you, apna samay dene ke liye."
+ },
+ {
+  "caller": "तो मानलो एक जैसे 12 बजे से पहले वाला पत्र",
+  "prev": "",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aapke car insurance ki KYC pending hai, do minute mein ho jayegi."
+ },
+ {
+  "caller": "एक जब अंदर में बात जाएगा ही जाएगा।",
+  "prev": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aapke car insurance ki KYC pending hai, do minute mein ho jayegi.",
+  "reply": "Sir, mujhe aapki baat samajh nahi aayi. Aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "इसमें एक्जेक्टली जैसे मान लो ये टूविंटर स्कैन रहता है जब सेशन एंट्री में",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi. Aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, main aapki baat samajh nahi paa rahi hoon. Bas do minute ka kaam hai — aap Park+ app khol lijiye, main aapko guide kar deti hoon."
+ },
+ {
+  "caller": "Hello.",
+  "prev": "",
+  "reply": "Hello sir! Your car insurance KYC is pending. It will only take two minutes to complete, shall we do it right now?"
+ },
+ {
+  "caller": "यार अभी तो टाइम नहीं है बाद में कर सकते हैं क्या?",
+  "prev": "Hello sir! Your car insurance KYC is pending. It will only take two minutes to complete, shall we do it right now?",
+  "reply": "Theek hai sir, koi dikkat nahi. Aap bata dijiye kab call karoon? Bas do minute ka kaam hai, tab tak policy hold par rahegi."
+ },
+ {
+  "caller": "यार बाद में कर लो वैसे ये बताओ कि मेरे को करना क्या-क्या होगा मेरे को क्या-क्या चीज़ रिक्वायरमेंट होगी ऐसे मेरे को पता नहीं है कि वैसे मैं पहली बार कर रहा हूँ",
+  "prev": "Theek hai sir, koi dikkat nahi. Aap bata dijiye kab call karoon? Bas do minute ka kaam hai, tab tak policy hold par rahegi.",
+  "reply": "Sir, bahut aasan hai. Khali fields jaise owner's name, DOB, email aur nominee details bharni hain. KYC ke liye PAN aur Aadhaar number app mein daalna hoga. Mujhe call par koi detail nahi batani hai."
+ },
+ {
+  "caller": "यार मैं अभी तो नहीं करना चाह रहा बाद में कर सकते हो या फिर तुम्हें डॉक्यूमेंट दे देता हूँ तुम कर दो",
+  "prev": "Sir, bahut aasan hai. Khali fields jaise owner's name, DOB, email aur nominee details bharni hain. KYC ke liye PAN aur Aadhaar number app mein daalna hoga. Mujh",
+  "reply": "Sir, privacy ki wajah se main aapke documents nahi le sakti, ye sab app mein hi secure tareeqe se hoga. Aap bata dijiye kab free hain, main tab call kar loongi?"
+ },
+ {
+  "caller": "नहीं चलो ठीक है अभी बताओ क्या-क्या प्रोसेस करना है कैसे प्रोसेस करना है",
+  "prev": "Sir, privacy ki wajah se main aapke documents nahi le sakti, ye sab app mein hi secure tareeqe se hoga. Aap bata dijiye kab free hain, main tab call kar loongi?",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye. Phir khali fields jaise owner's name, email aur nominee details bharni hain, aur PAN-Aadhaar number app mein daalna hai. Mujhe call par kuch nahi batana hai."
+ },
+ {
+  "caller": "यार एक से रुको इंश्योरेंस का ऐप नहीं चल रहा है ये पार्क प्लस है भाई ऐप तो करना ही इंश्योरेंस का लक्ष्य ऐप है",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye. Phir khali fields jaise owner's name, email aur nominee details bharni hain, aur PAN-Aadhaar numbe",
+  "reply": "Sir, Park plus app ke andar hi Insurance ka icon milega, alag se koi app nahi chahiye. Aap app kholiye, main line par hoon."
+ },
+ {
+  "caller": "अरे बाहर की नोइज़ दे रहा है नहीं अबे आप नहीं दे रहे हो",
+  "prev": "That is great to hear, sir! Let me know once you are there.",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aapko meri aawaaz aa rahi hai?"
+ },
+ {
+  "caller": "या मैं बोला था क्यों कॉल किया था आपने?",
+  "prev": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega? Aapko meri aawaaz aa rahi hai?",
+  "reply": "Sir, aapne jo Park+ se {insurer} ka car insurance liya tha, uski KYC pending hai. KYC complete hue bina policy issue nahi ho payegi, isiliye call kiya hai."
+ },
+ {
+  "caller": "कहाँ से बात कर रहे हैं मैंने तो नहीं लिया पीछे भी नहीं लिया पॉलिसी मैंने बनाई नहीं मेरे पास तो कार ही नहीं है",
+  "prev": "Sir, aapne jo Park+ se {insurer} ka car insurance liya tha, uski KYC pending hai. KYC complete hue bina policy issue nahi ho payegi, isiliye call kiya hai.",
+  "reply": "Sir, hamare record mein aapke number se Park+ se li hui {insurer} ki {ptype} policy hai. Shayad ghar mein kisi ne li ho? Agar aapki nahi hai toh main team se check karwa deti hoon."
+ },
+ {
+  "caller": "अरे हाँ मेरे को याद आया मेरी ही कार थी हाँ बोलो",
+  "prev": "Sir, hamare record mein aapke number se Park+ se li hui {insurer} ki {ptype} policy hai. Shayad ghar mein kisi ne li ho? Agar aapki nahi hai toh main team se ch",
+  "reply": "Koi baat nahi sir! Aap jaldi se Park+ app khol lijiye aur Insurance icon par click kijiye. Do minute mein KYC ho jayegi."
+ },
+ {
+  "caller": "क्या करवाना था?",
+  "prev": "Koi baat nahi sir! Aap jaldi se Park+ app khol lijiye aur Insurance icon par click kijiye. Do minute mein KYC ho jayegi.",
+  "reply": "Sir, aapke car insurance ki KYC pending hai. Aap Park+ app kholkar Insurance icon par click kijiye, phir wahan 'Complete KYC' ka button dikhega."
+ },
+ {
+  "caller": "हाँ खोल लिया मैंने बाक प्लस है वो आप क्या करना है?",
+  "prev": "Sir, aapke car insurance ki KYC pending hai. Aap Park+ app kholkar Insurance icon par click kijiye, phir wahan 'Complete KYC' ka button dikhega.",
+  "reply": "Sir, ab aapko screen par 'Complete KYC' ka button dikh raha hoga, us par click kar dijiye. Form khul jayega."
+ },
+ {
+  "caller": "या तुम लिंक सेंड कर सकते हो कि यार मेरा थोड़ा सा फोन में दिक्कत आ रही है तो मैं अपनी बहन को भेज देता हूँ वो कर देगी।",
+  "prev": "Sir, ab aapko screen par 'Complete KYC' ka button dikh raha hoga, us par click kar dijiye. Form khul jayega.",
+  "reply": "Bilkul sir, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap unhe forward kar dena, woh usi link se poori KYC kar sakti hain."
+ },
+ {
+  "caller": "ठीक है चलो मैं खुल के कर रहा हूँ बताओ मेरे को क्या-क्या डॉक्युमेंट्स होगे चाहिए होंगे",
+  "prev": "Bilkul sir, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap unhe forward kar dena, woh usi link se poori KYC kar sakti hain.",
+  "reply": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar card ki front aur back photo upload karni hogi, aur PAN ka sirf number daalna hai."
+ },
+ {
+  "caller": "आदार की में थोड़ी जरूरत पड़ेगी",
+  "prev": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar card ki front aur back photo upload karni hogi, aur PAN ka sirf number daalna hai.",
+  "reply": "Haan sir, Aadhaar card ki front aur back photo upload karni hogi aur number daalna hoga. Bas dhyan rakhiyega ki Aadhaar par jo naam hai, wahi policy mein bhi ho."
+ },
+ {
+  "caller": "यार तुम देवराई से छोड़ो भाई मैं तुमसे अब प्यार हो गया मुझे तो",
+  "prev": "Haan sir, Aadhaar card ki front aur back photo upload karni hogi aur number daalna hoga. Bas dhyan rakhiyega ki Aadhaar par jo naam hai, wahi policy mein bhi ho",
+  "reply": "Aap bahut acche hain sir, par abhi pehle aapka insurance complete karwa dete hain. Form khul gaya hoga, aap details bharna start kar dijiye. Main line pe hoon, koi dikkat ho toh batana."
+ },
+ {
+  "caller": "अरे केवाई से हो गया छोड़ो हम बातें करते हैं और बताओ क्या चल रहा है तुम्हारा",
+  "prev": "Aap bahut acche hain sir, par abhi pehle aapka insurance complete karwa dete hain. Form khul gaya hoga, aap details bharna start kar dijiye. Main line pe hoon, ",
+  "reply": "Sir, baatein baad mein karenge, pehle aapka kaam zaroori hai. Aapne proposal page bhar diya hai, ab KYC wale page par PAN aur Aadhaar ki details daal kar complete kar lijiye."
+ },
+ {
+  "caller": "छोड़ो यार कि वैसे हो गया क्या ही है यार वो टाइम पास है यार छोड़ो",
+  "prev": "Sir, baatein baad mein karenge, pehle aapka kaam zaroori hai. Aapne proposal page bhar diya hai, ab KYC wale page par PAN aur Aadhaar ki details daal kar comple",
+  "reply": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai kya? Agar submit ho gaya hai toh hi policy ban paayegi."
+ },
+ {
+  "caller": "यार ठीक है ना कि वैसे तो बंदी रहेगी बाद में बना लेंगे क्या कर रहा है?",
+  "prev": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya hai kya? Agar submit ho gaya hai toh hi policy ban paayegi.",
+  "reply": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi khatam kar lete hain?"
+ },
+ {
+  "caller": "अभी छोड़ो यार वो सुनकर तो तुम मेरे को मेरे को चाहिए नहीं पॉलिसी",
+  "prev": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai, abhi khatam kar lete hain?",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "हाँ चार थे उसके",
+  "prev": "",
+  "reply": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "हाँ और ये दिखाइए चारों एक्जिस्ट करते हैं कि ये दिल्ली के हैं बस ये एक्जिस्ट करता है कि नहीं वो दिखा देना",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, main yahan se screen nahi dikha paungi. Aap Park+ app kholiye, wahan Insurance icon par click karke apni policy aur KYC ki details dekh sakte hain."
+ },
+ {
+  "caller": "हाँ मैं पार्क प्लेस के इंश्योरेंस पेज पे आ गया बताओ मुझे क्या-क्या स्टेप्स करने हैं",
+  "prev": "Sir, main yahan se screen nahi dikha paungi. Aap Park+ app kholiye, wahan Insurance icon par click karke apni policy aur KYC ki details dekh sakte hain.",
+  "reply": "Sir, insurance wale page par aapko 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "अच्छा तो बताओ कैसे स्टेप्स करने हैं क्या-क्या करना है मुझे",
+  "prev": "Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi — do minute ka kaam hai, bataiye kab karwa dein? Bas do minute ka kaam hai, abhi kar lijiye",
+  "reply": "Sir, 'Complete KYC' par click karte hi form khul jayega. Pehle page par owner's name, DOB, email aur nominee details bharni hain. Phir 'Next' par click karna hai."
+ },
+ {
+  "caller": "अच्छा यार एक जो चीज़ है ये होता हो कि इसका कुछ फाइन वगैरह भी होता है कि कंप्लीट के वैसे क्या कर लेट करता हूँ तब मैं",
+  "prev": "Sir, 'Complete KYC' par click karte hi form khul jayega. Pehle page par owner's name, DOB, email aur nominee details bharni hain. Phir 'Next' par click karna ha",
+  "reply": "Sir, koi fine ya penalty toh nahi hai — par jab tak KYC complete nahi hogi, tab tak aapki policy issue nahi ho payegi. Isliye abhi kar lena hi behtar hai."
+ },
+ {
+  "caller": "अच्छा मैं भी तो पेंसिल निकाला होगा।",
+  "prev": "Sir, koi fine ya penalty toh nahi hai — par jab tak KYC complete nahi hogi, tab tak aapki policy issue nahi ho payegi. Isliye abhi kar lena hi behtar hai.",
+  "reply": "Theek hai sir, aap aaram se PAN card nikal lijiye. Main line pe hi hoon, jab mil jaye toh mujhe bataiyega."
+ },
+ {
+  "caller": "चलो क्या-क्या चीजें चाहिए चलो प्रपोजल पेज पे आ गया हूँ मैं इनको बताऊँ क्या-क्या चीजें चाहिए",
+  "prev": "Theek hai sir, aap aaram se PAN card nikal lijiye. Main line pe hi hoon, jab mil jaye toh mujhe bataiyega.",
+  "reply": "Sir, jo fields khali hain unhe bhar dijiye — jaise owner's name, DOB, email, address aur nominee details. Pehle se bhari details sirf check kar lijiye aur niche tick karke Next daba dijiye."
+ },
+ {
+  "caller": "ठीक है मैं भर रहा हूँ उनको रुको एक बार",
+  "prev": "Sir, jo fields khali hain unhe bhar dijiye — jaise owner's name, DOB, email, address aur nominee details. Pehle se bhari details sirf check kar lijiye aur niche",
+  "reply": "Bilkul sir, aap aaram se details bhar lijiye. Main line par hi hoon, agar koi bhi dikkat aaye toh mujhe bataiyega."
+ },
+ {
+  "caller": "तो ये योजना से बात है।",
+  "prev": "Bilkul sir, aap aaram se details bhar lijiye. Main line par hi hoon, agar koi bhi dikkat aaye toh mujhe bataiyega.",
+  "reply": "Sir, aap details bhar rahe hain na? Koi bhi help chahiye ho toh mujhe bataiyega, main line par hi hoon."
+ },
+ {
+  "caller": "यार कितना टाइम लगेगा कि वैसे करने में?",
+  "prev": "",
+  "reply": "Sir, do minute hi lagenge, abhi karwa deti hoon."
+ },
+ {
+  "caller": "या बाद में कॉल कर सकते हैं अभी मेरे पास टाइम नहीं है",
+  "prev": "Sir, do minute hi lagenge, abhi karwa deti hoon.",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."
+ },
+ {
+  "caller": "या एक काम करते हैं चलो ठीक है मेरे को अगर दो मिनट लगेंगे तो अभी करा देते हैं अभी कर देते हैं बताओ मुझे क्या-क्या डॉक्यूमेंट चाहिए होंगे",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy b",
+  "reply": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo lagegi, baaki details app mein pehle se hain. Mujhe koi document nahi chahiye, sab app mein hi hoga."
+ },
+ {
+  "caller": "ठीक है मैंने खोली मेरे को डॉक्यूमेंट के बारे में पूछना है ऐसा कि आके डॉक्यूमेंट चाहिए होंगे",
+  "prev": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo lagegi, baaki details app mein pehle se hain. Mujhe koi document nahi chahiye",
+  "reply": "Sir, aapko bas apna PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back side ki photo upload karni hogi, baaki details app mein hi bharni hain."
+ },
+ {
+  "caller": "कौन सी पॉलिसी की बात हो रही है?",
+  "prev": "",
+  "reply": "Sir, aapne Park+ se {insurer} ki jo comprehensive car insurance policy li hai, usi ki KYC pending hai. Bas do minute ka kaam hai, abhi karwa doon?"
+ },
+ {
+  "caller": "Okay.",
+  "prev": "Sir, aapne Park+ se {insurer} ki jo comprehensive car insurance policy li hai, usi ki KYC pending hai. Bas do minute ka kaam hai, abhi karwa doon?",
+  "reply": "Great! Please open the Park+ app on your phone and click on the Insurance icon. Let me know once the page opens."
+ },
+ {
+  "caller": "यार मेरे को तो याद नहीं शायद मैंने पॉलिसी खरीदी कब क्वालिटी खरीदी थी तुम बताओगे",
+  "prev": "Great! Please open the Park+ app on your phone and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Sir, aapne haal hi mein ye policy li hai. Jab tak KYC nahi hoti, policy document nahi milega. Bas do minute lagenge, app khol lijiye abhi karwa deti hoon."
+ },
+ {
+  "caller": "ठीक है बताओ क्या-क्या स्टेप्स हैं मेरे को एक बार डॉक्युमेंट बता दो ठीक मैं डॉक्युमेंट इकट्ठे कर लेता हूँ फिर तुम स्टेप्स होता देना",
+  "prev": "Sir, aapne haal hi mein ye policy li hai. Jab tak KYC nahi hoti, policy document nahi milega. Bas do minute lagenge, app khol lijiye abhi karwa deti hoon.",
+  "reply": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo upload karni hogi, baaki details app mein pehle se hain. Aap ready hain toh app khol lijiye."
+ },
+ {
+  "caller": "ठीक है मैंने ओपन कर लिया हाँ मेरे पास डॉक्यूमेंट आ गया पिकना",
+  "prev": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo upload karni hogi, baaki details app mein pehle se hain. Aap ready hain toh a",
+  "reply": "Bahut badhiya sir! Ab app mein Insurance icon par click kijiye, wahan aapko 'Complete KYC' ka button dikhega. Us par click kar dijiye."
+ },
+ {
+  "caller": "हाँ कुल मिलाकर मेरी",
+  "prev": "Bahut badhiya sir! Ab app mein Insurance icon par click kijiye, wahan aapko 'Complete KYC' ka button dikhega. Us par click kar dijiye.",
+  "reply": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "ठीक है कर दिया मैंने",
+  "prev": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, form khul gaya hoga. Aap ab isme details bharna start kar dijiye. Main line pe hoon, agar kuch bhi dikkat hogi toh mujhe bata dena."
+ },
+ {
+  "caller": "या तुम बाद में कॉल कर सकते हो अभी तो मेरे पास टाइम नहीं है",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."
+ },
+ {
+  "caller": "एक चीज होता हूँ मेरे को क्या-क्या डॉक्यूमेंट रिक्वायर्ड होंगे मैं निकाल के रख लेता हूँ चलो अभी कर लेते हैं।",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy b",
+  "reply": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo upload karni hogi, baaki details app mein pehle se hain. Aap Park+ app khol lijiye."
+ },
+ {
+  "caller": "कि तुम मेरे को लिंक व्हाट्सएप पे भेज सकते हो क्या कि यूएसई की",
+  "prev": "Sir, bas PAN number aur Aadhaar card chahiye hoga. Aadhaar ki front aur back photo upload karni hogi, baaki details app mein pehle se hain. Aap Park+ app khol l",
+  "reply": "Haan sir, main aapko sirf KYC ka link WhatsApp par bhej deti hoon. Aap us link par click karke do minute mein details bhar sakte hain. Main abhi bhejoon?"
+ },
+ {
+  "caller": "क्विक रिस्पांस ही है और आधार कार्ड भी चाहिए होता है या फिर मतलब पेन कार्ड से हो जाता है मेरा और आधार में इमेज भी चाहिए",
+  "prev": "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina policy issue nahi ho paati. Ye details app mein bilkul safe rahengi.",
+  "reply": "Sir, PAN aur Aadhaar dono chahiye honge. PAN ka sirf number daalna hai, aur Aadhaar card ki front aur back photo upload karni hogi. Dono zaroori hain."
+ },
+ {
+  "caller": "यार ये मेरी कौन सी पॉलिसी के लिए कॉल किया है तुमने? एक बार मेरे को पॉलिसी के बारे में बताना।",
+  "prev": "Sir, PAN aur Aadhaar dono chahiye honge. PAN ka sirf number daalna hai, aur Aadhaar card ki front aur back photo upload karni hogi. Dono zaroori hain.",
+  "reply": "Sir, aapne Park+ se {insurer} ki jo comprehensive car insurance policy li hai, ye usi ki KYC ke liye hai. Iske bina policy issue nahi ho paayegi."
+ },
+ {
+  "caller": "आधार",
+  "prev": "Hello sir! Your car insurance KYC is pending. It will only take two minutes to complete, shall we do it right now?",
+  "reply": "Sir, Aadhaar aur PAN card ki details aapko Park+ app ke KYC form mein bharni hain. Aap apna Aadhaar number mujhe call par mat bataiye, sab app mein hi safe rahega."
+ },
+ {
+  "caller": "ठीक है यार मैं मतलब पांच मिनट तो मैं एक बार मेरे को डॉक्यूमेंट बता दो कौन-कौन से डॉक्यूमेंट चाहिए फिर करवा दो तुम मेरी",
+  "prev": "",
+  "reply": "Sir, bas PAN number aur Aadhaar card chahiye — Aadhaar ki front aur back photo lagegi. Baaki details app mein pehle se hain."
+ },
+ {
+  "caller": "ठीक है मेरे को पैन की इमेज चाहिएगी दोनों की इमेज चाहिएगी क्योंकि पैन मेरे पास फिजिकल नहीं है मेरे पास खाली आधार कार्ड फिजिकल में",
+  "prev": "Sir, bas PAN number aur Aadhaar card chahiye — Aadhaar ki front aur back photo lagegi. Baaki details app mein pehle se hain.",
+  "reply": "Sir, PAN ki photo nahi chahiye — bas PAN number type karna hoga. Aadhaar ki front aur back photo lagegi, agar phone mein photo hai toh woh bhi chal jaayegi."
+ },
+ {
+  "caller": "चलो ठीक है बताओ क्या क्या",
+  "prev": "Haan sir, main Park+ se hi bol rahi hoon. Aapne Park+ se jo {insurer} ka car insurance liya tha, usi ki KYC ke liye call kiya hai.",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye. Phir wahan khali fields jaise owner's name, email aur nominee details bharni hain, aur KYC ke liye PAN aur Aadhaar number daalna hai."
+ },
+ {
+  "caller": "मैं बोलता हूँ ना मेरी पॉलिसी का बताओ मेरी पॉलिसी का ऑर्डर आईडी बताना",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye. Phir wahan khali fields jaise owner's name, email aur nominee details bharni hain, aur KYC ke liye",
+  "reply": "Sir, mere paas order ID toh nahi hai, par aapki {insurer} ki {ptype} car insurance policy pending hai. App kholte hi aapko iski details dikh jaayengi."
+ },
+ {
+  "caller": "नहीं दे रखा है पर उसको प्रपोजल आईडी देनी पड़ेगी।",
+  "prev": "Sir, mere paas order ID toh nahi hai, par aapki {insurer} ki {ptype} car insurance policy pending hai. App kholte hi aapko iski details dikh jaayengi.",
+  "reply": "Sir, mere paas proposal ID nahi hai. Aap jaise hi Park+ app mein Insurance icon par click karenge, aapko wahan 'Complete KYC' ka button dikh jaayega. Usi se ho jaayega."
+ },
+ {
+  "caller": "मोटर फिल्फिल्मेंट टेबल पे चेक करना मेरे मोबाईल नंबर से यूजर आईडी उसके बाद उसकी टेबल पे ओर्डर आईडी अब वाला मैं",
+  "prev": "Sir, mere paas proposal ID nahi hai. Aap jaise hi Park+ app mein Insurance icon par click karenge, aapko wahan 'Complete KYC' ka button dikh jaayega. Usi se ho ",
+  "reply": "Sir, main call center se bol rahi hoon aur mere paas system ka access nahi hai. Aap app kholenge toh wahan aapko saari details aur order apne aap dikh jaayega."
+ },
+ {
+  "caller": "मुझे नहीं पता मेरी प्रीवियस पॉलिसी कहां से थी क्या भरूँ",
+  "prev": "Sir, mere paas aapka poora naam nahi dikh raha hai.",
+  "reply": "Sir, previous policy ki details form par pehle se bhari hui hain, aapko unhe badalna nahi hai. Aap bas baaki khali fields bhar dijiye."
+ },
+ {
+  "caller": "अरे वो पीड़ित सेवा डालेगी।",
+  "prev": "Sir, previous policy ki details form par pehle se bhari hui hain, aapko unhe badalna nahi hai. Aap bas baaki khali fields bhar dijiye.",
+  "reply": "Sir, aapko sirf khali fields bharni hain. Previous policy details pehle se bhari hui hain, unhe chhedne ki zaroorat nahi hai."
+ },
+ {
+  "caller": "ये गलत है तो मेरी गाड़ी नहीं है",
+  "prev": "Sir, aapko sirf khali fields bharni hain. Previous policy details pehle se bhari hui hain, unhe chhedne ki zaroorat nahi hai.",
+  "reply": "Sir, hamare record mein aapke number se Park+ se li hui {insurer} ki {ptype} policy hai. Shayad ghar mein kisi aur ne li ho? Agar aapki nahi hai toh main team se check karwa deti hoon."
+ },
+ {
+  "caller": "किसको बताओगे?",
+  "prev": "Sir, hamare record mein aapke number se Park+ se li hui {insurer} ki {ptype} policy hai. Shayad ghar mein kisi aur ne li ho? Agar aapki nahi hai toh main team s",
+  "reply": "Sir, main apni internal support team ko forward kar rahi hoon. Woh check karke aapko confirm kar denge ki ye policy kiski hai."
+ },
+ {
+  "caller": "मुझे चलान के बारे में पूछा था, चलान बढ़ जोगे तो मेरा",
+  "prev": "Sir, agar button click nahi ho raha hai toh pehle declaration wale checkbox par tick kar lijiye. Uske baad click ho jaayega.",
+  "reply": "Sir, challan toh aap Park+ app se hi bhar sakte hain. Abhi pehle car insurance ki KYC complete kar lijiye, bas do minute ka kaam hai."
+ },
+ {
+  "caller": "नहीं नहीं हाँ सही है fast tag recharge",
+  "prev": "Sir, challan toh aap Park+ app se hi bhar sakte hain. Abhi pehle car insurance ki KYC complete kar lijiye, bas do minute ka kaam hai.",
+  "reply": "Sir, FASTag recharge bhi aap Park+ app se hi kar sakte hain. Abhi pehle car insurance ki pending KYC complete kar lijiye, bas do minute lagenge."
+ },
+ {
+  "caller": "नहीं नहीं सही है फास्ट टैग बीच में अबे तो",
+  "prev": "Sir, FASTag recharge bhi aap Park+ app se hi kar sakte hain. Abhi pehle car insurance ki pending KYC complete kar lijiye, bas do minute lagenge.",
+  "reply": "Sir, FASTag recharge toh app par ho hi jaayega. Abhi pehle car insurance ki KYC complete kar lijiye taaki aapki policy issue ho sake. Bas do minute lagenge."
+ },
+ {
+  "caller": "मैं मैंने सबमिट बटन दबाया और ये कि वाईकी पेज लिखा है ये क्यों हो रहा है?",
+  "prev": "Sir, FASTag recharge toh app par ho hi jaayega. Abhi pehle car insurance ki KYC complete kar lijiye taaki aapki policy issue ho sake. Bas do minute lagenge.",
+  "reply": "Bahut badhiya sir! Aapki policy ki details confirm hokar policy ban jaayegi — WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?"
+ },
+ {
+  "caller": "डॉक्यूमेंट दी कस्टमर ने। ये डॉक्यूमेंट डालेगा उसमें? नहीं ये डॉक्यूमेंट वगैरह नहीं डालेगा। ये आपसे ले लेगा और एजेंट डालेगा डॉक्यूमेंट।",
+  "prev": "Bahut badhiya sir! Aapki policy ki details confirm hokar policy ban jaayegi — WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?",
+  "reply": "Sir, agent nahi daal sakta — privacy ki wajah se aapko khud hi app mein Aadhaar aur PAN upload karna hoga. Main koi document nahi le sakti."
+ },
+ {
+  "caller": "बोल देगा वैसे तो हमने क्या कि नहीं हो रहा मुझे रिफंड दे दो",
+  "prev": "Sir, agent nahi daal sakta — privacy ki wajah se aapko khud hi app mein Aadhaar aur PAN upload karna hoga. Main koi document nahi le sakti.",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "नाइंटी परसेंट केसेस में कोई दिक्कत नहीं आएगी, लेकिन टेन परसेंट में फंसेंगे, वो ही फंसेंगे, क्योंकि व्हीकल नंबर, व्हीकल क्लास",
+  "prev": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain.",
+  "reply": "Sir, aap bilkul chinta mat kijiye. Agar koi bhi dikkat aati hai toh hamari team poori help karegi. Aap bas ek baar app mein KYC complete kar lijiye."
+ },
+ {
+  "caller": "आप अनुस्को जानते हैं? नहीं इसको तुम बात ट्रेन कर सकते हो ना अपना जो डेटा है",
+  "prev": "Sir, aap bilkul chinta mat kijiye. Agar koi bhi dikkat aati hai toh hamari team poori help karegi. Aap bas ek baar app mein KYC complete kar lijiye.",
+  "reply": "Sir, main toh bas aapki car insurance KYC complete karwane mein help kar rahi hoon. Aap app kholkar do minute mein ise poora kar lijiye."
+ },
+ {
+  "caller": "या बाद में कर सकते हैं कि अभी मैं फ्री नहीं हूँ।",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Kab call karoon?"
+ },
+ {
+  "caller": "यार अभी नहीं यार बाद में करूँगा मैं",
+  "prev": "Theek hai sir, koi dikkat nahi. Kab call karoon?",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy ban paayegi."
+ },
+ {
+  "caller": "मैं नहीं चाहता कराना अभी मन नहीं है",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon? Bas itna bata doon sir, KYC ho jaane par hi aapki policy b",
+  "reply": "Koi baat nahi sir — shaam ko karoon ya kal?"
+ },
+ {
+  "caller": "कौन सी पॉलिसी की बात कर रहे हो तुम?",
+  "prev": "Sir, aapne jo Park+ se car insurance liya tha, uski KYC pending hai. Bas do minute ka kaam hai, abhi karwa deti hoon.",
+  "reply": "Sir, aapne jo Park+ app se car insurance liya tha, usi ki policy ki baat kar rahi hoon. KYC complete na hone ki wajah se policy issue nahi ho paayi hai."
+ },
+ {
+  "caller": "वीकल नंबर बता सकते हो?",
+  "prev": "Sir, aapne jo Park+ app se car insurance liya tha, usi ki policy ki baat kar rahi hoon. KYC complete na hone ki wajah se policy issue nahi ho paayi hai.",
+  "reply": "Sir, aawaaz theek se nahi aayi — ek baar phir boliyega?"
+ },
+ {
+  "caller": "हाँ मैंने ऐप खोल लिया, अब क्या करना है?",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app mein Insurance icon par click kijiye. Phir mujhe bataiye ki kya dikh raha hai."
+ },
+ {
+  "caller": "नहीं मैं पूछ रहा हूँ पाकपस कैसी एप है?",
+  "prev": "Sir, pehle Park+ app mein Insurance icon par click kijiye. Phir mujhe bataiye ki kya dikh raha hai.",
+  "reply": "Sir, Park+ car owners ka app hai — FASTag, parking, challan aur insurance sab ek jagah."
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Sir, Park+ car owners ka app hai — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, 'Complete KYC' par click kijiye. Uske baad jo form khule, usme owner's name, DOB, email aur address jaise khali fields bhar dijiye."
+ },
+ {
+  "caller": "मेरा आधार नंबर लिख लो, 4321 8765 1234",
+  "prev": "",
+  "reply": "Sir, Aadhaar aur PAN app ke KYC form mein bharna hai — number mujhe call pe mat bataiye. Privacy ki wajah se ye sab app mein hi hota hai, main yahan se nahi bhar sakti."
+ },
+ {
+  "caller": "अच्छा ये बताओ पॉलिसी कब तक आ जाएगी, कल तक?",
+  "prev": "OTP kisi ko mat bataiye sir, mujhe bhi nahi.",
+  "reply": "Sir, insurer ki side se saari details verify ho jaayengi, phir policy aapko WhatsApp aur mail dono pe aa jaayegi — app mein bhi notification aa jaayega."
+ },
+ {
+  "caller": "मेरा पैसा फँस गया क्या? रिफंड मिलेगा?",
+  "prev": "Sir, insurer ki side se saari details verify ho jaayengi, phir policy aapko WhatsApp aur mail dono pe aa jaayegi — app mein bhi notification aa jaayega.",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "मैंने KYC कर दी है, हो गया ना अब?",
+  "prev": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain.",
+  "reply": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?"
+ },
+ {
+  "caller": "यार एक चीज बताओ ये आधार कार्ड क्या होता है?",
+  "prev": "",
+  "reply": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details app mein daalni hoti hain."
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details app mein daalni hoti hain.",
+  "reply": "Main Park+ ki calling assistant Shreya hoon sir. Chaliye, pehle aapke car insurance ki KYC complete kar lete hain."
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Main Park+ ki calling assistant Shreya hoon sir. Chaliye, pehle aapke car insurance ki KYC complete kar lete hain.",
+  "reply": "Bas aapka hi kaam kar rahi hoon sir! KYC complete ho jaye phir aaram se match dekhiyega. Abhi app khol lijiye."
+ },
+ {
+  "caller": "वीकल नंबर बता सकते हो कौन सी गाड़ी की बात है?",
+  "prev": "",
+  "reply": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai."
+ },
+ {
+  "caller": "किस कंपनी का insurance है?",
+  "prev": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai.",
+  "reply": "Aapka insurance {insurer} se hai, sir. Bas do minute ka kaam hai, abhi KYC complete kar lete hain?"
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hai, sir. Bas do minute ka kaam hai, abhi KYC complete kar lete hain?",
+  "reply": "Aapka naam sir hai. Humare paas yahi naam registered hai. Abhi KYC complete kar lein?"
+ },
+ {
+  "caller": "हाँ",
+  "prev": "",
+  "reply": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "हाँ",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye."
+ },
+ {
+  "caller": "ठीक है",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye.",
+  "reply": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye."
+ },
+ {
+  "caller": "हो गया",
+  "prev": "Sir, insurance wala page khul gaya? Us par 'Complete KYC' ka button dikhega — usi pe click kijiye.",
+  "reply": "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?"
+ },
+ {
+  "caller": "मुझे समझ नहीं आया क्या करना है",
+  "prev": "",
+  "reply": "Sir, sabse pehle aap apne phone mein Park+ app kholiye. App khulte hi mujhe bataiyega, main aage ka step bata dungi."
+ },
+ {
+  "caller": "अरे यार समझ नहीं आ रहा, क्या करूँ मैं",
+  "prev": "Sir, aap pehle apne phone mein Park+ app kholiye.",
+  "reply": "Koi baat nahi sir, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap us link par click karke direct page par pahunch jaayenge. Bhej doon sir?"
+ },
+ {
+  "caller": "Hello, can you tell me what is this call about?",
+  "prev": "",
+  "reply": "Sir, this call is about your car insurance that you bought on Park+. The payment is done, but the KYC is pending, so the policy cannot be issued yet. It will only take two minutes."
+ },
+ {
+  "caller": "Okay so what exactly do I need to do now?",
+  "prev": "Sir, this call is about your car insurance that you bought on Park+. The payment is done, but the KYC is pending, so the policy cannot be issued yet. It will on",
+  "reply": "Sir, please open the Park+ app and click on the Insurance icon. Let me know once the page opens."
+ },
+ {
+  "caller": "मतलब app khol ke KYC karna hai na?",
+  "prev": "Sir, please open the Park+ app and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Haan sir, bilkul sahi. App kholkar Insurance icon par click kijiye, phir wahan 'Complete KYC' ka button dikhega — us par click kar dijiye."
+ },
+ {
+  "caller": "आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।",
+  "prev": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega?",
+  "reply": "Sir, mujhe aapki baat samajh nahi aayi — ek baar phir se bata denge kya?"
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — ek baar phir se bata denge kya?",
+  "reply": "Sir, aawaaz thodi kat rahi hai — aap ek baar phir se bolenge please?"
+ },
+ {
+  "caller": "मुझे मेरा रिफंड दे दो, मुझे नहीं करना",
+  "prev": "",
+  "reply": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."
+ },
+ {
+  "caller": "नहीं मुझे येलो स्क्रीन दिख रही है वेट वी आर चेकिंग देख रहे हैं",
+  "prev": "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain.",
+  "reply": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge."
+ },
+ {
+  "caller": "यार मेरे पास मेरा आधार है नहीं खो गया है",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?"
+ },
+ {
+  "caller": "या तुम मेरा चालान पे कर दोगे क्या?",
+  "prev": "Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?",
+  "reply": "Sir, challan payment toh aap Park+ app ke home screen se khud hi kar sakte hain. Abhi hum aapke car insurance ki pending KYC complete kar lein?"
+ },
+ {
+  "caller": "ये गलत है तो मेरी गाड़ी नहीं है",
+  "prev": "Sir, challan payment toh aap Park+ app ke home screen se khud hi kar sakte hain. Abhi hum aapke car insurance ki pending KYC complete kar lein?",
+  "reply": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge."
+ },
+ {
+  "caller": "तुम कस्टमर सपोर्ट ही तो",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Main calling assistant hoon sir. Refund aur cancellation ka kaam doosri team dekhti hai, main unhe aapki request forward kar deti hoon."
+ },
+ {
+  "caller": "ये IDV का full form क्या है?",
+  "prev": "",
+  "reply": "Sir, IDV ka matlab Insured Declared Value hota hai. Agar gaadi chori ho jaaye ya total loss ho, toh insurance company maximum itne tak ka hi claim deti hai."
+ },
+ {
+  "caller": "अच्छा और NCB क्या होता है?",
+  "prev": "Sir, IDV ka matlab Insured Declared Value hota hai. Agar gaadi chori ho jaaye ya total loss ho, toh insurance company maximum itne tak ka hi claim deti hai.",
+  "reply": "Sir, NCB ka matlab No Claim Bonus hota hai. Agar aapne pichhle saal koi claim nahi liya, toh renewal premium par discount milta hai, par claim lene par ye zero ho jata hai."
+ },
+ {
+  "caller": "मेरी zero dep वाली है ना, उसमें engine आता है?",
+  "prev": "Sir, NCB ka matlab No Claim Bonus hota hai. Agar aapne pichhle saal koi claim nahi liya, toh renewal premium par discount milta hai, par claim lene par ye zero ",
+  "reply": "Sir, zero dep mein parts ki ghisai ka poora paisa milta hai, par engine ka nuksaan ismein cover nahi hota. Engine ke nuksaan ke liye engine protect add-on alag se lena hota hai."
+ },
+ {
+  "caller": "claim कैसे होगा, cashless मिलेगा?",
+  "prev": "Sir, zero dep mein parts ki ghisai ka poora paisa milta hai, par engine ka nuksaan ismein cover nahi hota. Engine ke nuksaan ke liye engine protect add-on alag ",
+  "reply": "Sir, network garage mein cashless claim mil jayega, jahan bill insurer seedha garage ko deta hai. Policy issue hone ke baad Park+ ka dedicated claim assistant poore claim mein aapki help karega."
+ },
+ {
+  "caller": "third party और first party में क्या फर्क है?",
+  "prev": "Sir, network garage mein cashless claim mil jayega, jahan bill insurer seedha garage ko deta hai. Policy issue hone ke baad Park+ ka dedicated claim assistant p",
+  "reply": "Sir, third party mein sirf doosre ki gaadi ya vyakti ka nuksaan cover hota hai, jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan bhi cover hota hai."
+ },
+ {
+  "caller": "premium बहुत ज़्यादा लग गया यार, कम हो सकता था",
+  "prev": "Sir, third party mein sirf doosre ki gaadi ya vyakti ka nuksaan cover hota hai, jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan",
+  "reply": "Sir, premium toh payment ke time hi fix hota hai aur aapka payment ho chuka hai. Agar aapko price se koi dikkat hai, toh aap Park+ customer support se baat kar sakte hain."
+ },
+ {
+  "caller": "हाँ मैंने पहला पेज भर दिया है",
+  "prev": "",
+  "reply": "Sir, aapne proposal page bhar diya hai. Ab KYC wale page pe aa jaiye aur PAN, Aadhaar wala form bhar dijiye. Kuch bhi dikkat ho toh bataiyega, main help karungi."
+ },
+ {
+  "caller": "सब भर के submit भी कर दिया",
+  "prev": "Sir, ek baat confirm kar loon — PAN aur Aadhaar ki details bhar di thi aapne? Agar haan toh kaam ho gaya, nahi toh woh form bhar dijiye.",
+  "reply": "Bahut badhiya sir! Aapki policy ki details confirm hokar policy ban jaayegi — WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?"
+ },
+ {
+  "caller": "ठीक है बाय",
+  "prev": "Bahut badhiya sir! Aapki policy ki details confirm hokar policy ban jaayegi — WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?",
+  "reply": "Dhanyavaad, thank you for choosing Park+."
+ },
+ {
+  "caller": "हाँ मैंने ऐप खोल लिया, अब क्या करना है?",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app ke home screen par Insurance icon par click kijiye. Phir mujhe bataiye ki kya dikh raha hai."
+ },
+ {
+  "caller": "नहीं मैं पूछ रहा हूँ पाकपस कैसी एप है?",
+  "prev": "Sir, pehle Park+ app ke home screen par Insurance icon par click kijiye. Phir mujhe bataiye ki kya dikh raha hai.",
+  "reply": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah."
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, us 'Complete KYC' button par click kijiye. Uske baad 'Confirm policy details' ka page khul jayega, jismein aapko khali fields bharni hain."
+ },
+ {
+  "caller": "यार एक चीज बताओ ये आधार कार्ड क्या होता है?",
+  "prev": "",
+  "reply": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details aur photo app mein daalni hoti hain."
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details aur photo app mein daalni hoti hain.",
+  "reply": "Sir, main Park+ ki calling assistant Shreya hoon. Aapke car insurance ki KYC pending hai, do minute mein ho jayegi — abhi kar lein?"
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Sir, main Park+ ki calling assistant Shreya hoon. Aapke car insurance ki KYC pending hai, do minute mein ho jayegi — abhi kar lein?",
+  "reply": "Sir, main toh bas aapka hi kaam kar rahi hoon! KYC complete ho jaye phir aap aaram se match dekhiyega. Abhi app khol lijiye?"
+ },
+ {
+  "caller": "किस कंपनी का insurance है?",
+  "prev": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai.",
+  "reply": "Aapka insurance {insurer} se hai, sir. Bas do minute lagenge, abhi KYC complete karwa doon?"
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hai, sir. Bas do minute lagenge, abhi KYC complete karwa doon?",
+  "reply": "Aapka naam sir hai. Aapki isi profile par car insurance ki KYC pending hai, jo do minute mein ho jayegi."
+ },
+ {
+  "caller": "हाँ",
+  "prev": "Sir, aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?",
+  "reply": "Sir, pehle Park+ app kholiye aur Insurance icon par click kijiye. Phir mujhe bataiye."
+ },
+ {
+  "caller": "मुझे समझ नहीं आया क्या करना है",
+  "prev": "",
+  "reply": "Sir, sabse pehle aap apne phone mein Park+ app kholiye. App khulte hi mujhe bataiyega, main aage ka step batati hoon."
+ },
+ {
+  "caller": "हाँ पर मुझे समझ नहीं आ रहा, फिर से बताओ",
+  "prev": "Sir, sabse pehle aap apne phone mein Park+ app kholiye. App khulte hi mujhe bataiyega, main aage ka step batati hoon.",
+  "reply": "Sir, koi baat nahi. Aap sabse pehle apne phone mein Park+ app khol lijiye. App khulte hi mujhe bataiyega."
+ },
+ {
+  "caller": "अरे यार समझ नहीं आ रहा, क्या करूँ मैं",
+  "prev": "Sir, koi baat nahi. Aap sabse pehle apne phone mein Park+ app khol lijiye. App khulte hi mujhe bataiyega.",
+  "reply": "Sir, koi dikkat nahi hai. Main aapko WhatsApp par direct KYC ka link bhej deti hoon, aap us par click karke aaram se kar lijiye. Bhej doon sir?"
+ },
+ {
+  "caller": "क्रेड हाँ क्रेड का भी",
+  "prev": "",
+  "reply": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega aap kya keh rahe the?"
+ },
+ {
+  "caller": "आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।",
+  "prev": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega aap kya keh rahe the?",
+  "reply": "Sir, mujhe aapki baat samajh nahi aayi — thoda saaf bolenge please? Aapke car insurance ki KYC pending hai, bas do minute ka kaam hai."
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — thoda saaf bolenge please? Aapke car insurance ki KYC pending hai, bas do minute ka kaam hai.",
+  "reply": "Sir, aawaaz thodi kat rahi hai aur clear nahi aa rahi. Ek baar phir se batayenge aap kya keh rahe hain?"
+ },
+ {
+  "caller": "या तुम मेरा चालान पे कर दोगे क्या?",
+  "prev": "Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?",
+  "reply": "Sir, challan payment toh aap Park+ app ke home screen se khud hi kar sakte hain. Abhi aapke car insurance ki KYC pending hai, use pehle complete kar lein?"
+ },
+ {
+  "caller": "तुम कस्टमर सपोर्ट ही तो",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Main calling assistant hoon sir. Refund aur cancel ke liye main aapki request team ko forward kar deti hoon, woh aapse connect kar lenge."
+ },
+ {
+  "caller": "अच्छा और NCB क्या होता है?",
+  "prev": "Sir, IDV ka matlab Insured Declared Value hota hai. Agar gaadi chori ho jaaye ya total loss ho, toh insurance company maximum itne tak ka hi claim deti hai.",
+  "reply": "Sir, NCB ka matlab No Claim Bonus hota hai. Agar aapne pichhle saal koi claim nahi liya, toh renewal premium par discount milta hai. Claim lene par ye zero ho jata hai."
+ },
+ {
+  "caller": "मेरी zero dep वाली है ना, उसमें engine आता है?",
+  "prev": "Sir, NCB ka matlab No Claim Bonus hota hai. Agar aapne pichhle saal koi claim nahi liya, toh renewal premium par discount milta hai. Claim lene par ye zero ho j",
+  "reply": "Sir, zero dep mein parts ki ghisai ka paisa nahi kat-ta aur poora claim milta hai. Par engine ke nuksaan ke liye engine protect add-on alag se lena hota hai, woh ismein nahi aata."
+ },
+ {
+  "caller": "claim कैसे होगा, cashless मिलेगा?",
+  "prev": "Sir, zero dep mein parts ki ghisai ka paisa nahi kat-ta aur poora claim milta hai. Par engine ke nuksaan ke liye engine protect add-on alag se lena hota hai, wo",
+  "reply": "Sir, network garage mein cashless claim mil jayega, jahan bill ka bhugtan insurance company seedhe garage ko karegi. Policy issue hone ke baad Park+ ka dedicated claim assistant poore process mein aapki help karega."
+ },
+ {
+  "caller": "third party और first party में क्या फर्क है?",
+  "prev": "Sir, network garage mein cashless claim mil jayega, jahan bill ka bhugtan insurance company seedhe garage ko karegi. Policy issue hone ke baad Park+ ka dedicate",
+  "reply": "Sir, third party mein sirf doosri gaadi ya vyakti ka nuksaan cover hota hai, jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan bhi cover hota hai."
+ },
+ {
+  "caller": "premium बहुत ज़्यादा लग गया यार, कम हो सकता था",
+  "prev": "Sir, third party mein sirf doosri gaadi ya vyakti ka nuksaan cover hota hai, jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan bh",
+  "reply": "Sir, premium toh aap pehle hi pay kar chuke hain aur ab bas KYC pending hai. Agar aapko price se koi dikkat hai, toh aap Park+ customer support par baat kar sakte hain."
+ },
+ {
+  "caller": "या बाद में कर सकते हैं कि अभी मैं फ्री नहीं हूँ।",
+  "prev": "",
+  "reply": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?"
+ },
+ {
+  "caller": "यार अभी नहीं यार बाद में करूँगा मैं",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?",
+  "reply": "Theek hai sir, koi baat nahi. Bas itna bata doon ki KYC ho jaane par hi aapki policy ban paayegi. Kal subah call karoon ya shaam ko?"
+ },
+ {
+  "caller": "मैं नहीं चाहता कराना अभी मन नहीं है",
+  "prev": "Theek hai sir, koi baat nahi. Bas itna bata doon ki KYC ho jaane par hi aapki policy ban paayegi. Kal subah call karoon ya shaam ko?",
+  "reply": "Koi baat nahi sir — main aapko baad mein connect kar loongi. Bas itna dhyan rakhiyega ki jab tak KYC nahi hoti, policy document nahi milega. Kal kis time call karoon?"
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, us 'Complete KYC' button par click kijiye. Uske baad 'Confirm policy details' ka page khulega, jismein aapko owner's name, DOB aur nominee jaisi khali details bharni hain."
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details app mein daalni hoti hain.",
+  "reply": "Main Park+ ki calling assistant Shreya hoon sir. Aapke car insurance ki KYC pending hai, do minute mein ho jayega — abhi kar lein?"
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Main Park+ ki calling assistant Shreya hoon sir. Aapke car insurance ki KYC pending hai, do minute mein ho jayega — abhi kar lein?",
+  "reply": "Bas aapka hi kaam kar rahi hoon sir! KYC complete ho jaye phir aaram se match dekhiyega. Abhi app khol lijiye?"
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hai, sir. Bas do minute lagenge, abhi KYC complete karwa doon?",
+  "reply": "Aapka naam sir hai. Aapki isi profile par car insurance ki KYC pending hai, do minute mein ho jayega."
+ },
+ {
+  "caller": "मुझे समझ नहीं आया क्या करना है",
+  "prev": "",
+  "reply": "Sir, pehle aap apne phone mein Park+ app khol lijiye. Phir mujhe bataiye."
+ },
+ {
+  "caller": "हाँ पर मुझे समझ नहीं आ रहा, फिर से बताओ",
+  "prev": "Sir, pehle aap apne phone mein Park+ app khol lijiye. Phir mujhe bataiye.",
+  "reply": "Sir, pehle aap apne phone mein Park+ app khol lijiye. Uske baad main aapko aage ka step batati hoon."
+ },
+ {
+  "caller": "अरे यार समझ नहीं आ रहा, क्या करूँ मैं",
+  "prev": "Sir, pehle aap apne phone mein Park+ app khol lijiye. Uske baad main aapko aage ka step batati hoon.",
+  "reply": "Koi baat nahi sir, main aapko WhatsApp par KYC ka link bhej deti hoon. Aap us link par click karke direct apna form bhar sakte hain. Bhej doon sir?"
+ },
+ {
+  "caller": "Hello, can you tell me what is this call about?",
+  "prev": "",
+  "reply": "Sir, this call is about your car insurance that you bought on Park+. The payment is done, but the KYC is still pending, so the policy cannot be issued yet."
+ },
+ {
+  "caller": "आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।",
+  "prev": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega?",
+  "reply": "Sir, mujhe aapki baat samajh nahi aayi — ek baar thoda saaf bolenge please?"
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — ek baar thoda saaf bolenge please?",
+  "reply": "Sir, aawaaz thodi kat rahi hai — ek baar phir se bolenge please?"
+ },
+ {
+  "caller": "तुम कस्टमर सपोर्ट ही तो",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Main Park+ ki calling assistant hoon sir. Refund aur cancellation ka kaam hamari support team alag se dekhti hai, isliye main yahan se request nahi daal sakti."
+ },
+ {
+  "caller": "claim कैसे होगा, cashless मिलेगा?",
+  "prev": "Sir, zero dep mein parts ki ghisai ka paisa nahi kat-ta aur poora claim milta hai. Par engine ke nuksaan ke liye engine protect add-on alag se lena hota hai, wo",
+  "reply": "Sir, network garage mein cashless claim mil jayega, jahan bill ka bhugtan insurance company seedhe garage ko karegi. Policy issue hone ke baad Park+ ka claim assistant claim mein aapki poori madad karega."
+ },
+ {
+  "caller": "premium बहुत ज़्यादा लग गया यार, कम हो सकता था",
+  "prev": "Sir, third party mein sirf doosre ki gaadi ya vyakti ka nuksaan cover hota hai, jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan",
+  "reply": "Sir, premium toh payment ke time hi fix ho jata hai aur aapka payment ho chuka hai. Agar aapko price se koi dikkat hai, toh aap Park+ customer support se baat kar sakte hain."
+ },
+ {
+  "caller": "ठीक है ये सब details WhatsApp पे भेज दो",
+  "prev": "Sir, premium toh payment ke time hi fix ho jata hai aur aapka payment ho chuka hai. Agar aapko price se koi dikkat hai, toh aap Park+ customer support se baat k",
+  "reply": "Sir, main aapko sirf KYC ka link WhatsApp par bhej deti hoon — baaki sab usi link se ho jayega. Main abhi bhejoon?"
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Sir, Park+ car owners ka app hai — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Bahut badhiya sir! Us 'Complete KYC' button par click kijiye, jisse proposal form khul jayega. Usme jo bhi fields khali hain, unhe bhar dijiye."
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details aur photo app mein daalni hoti hain.",
+  "reply": "Sir, main Park+ ki calling assistant Shreya hoon. Aapke car insurance ki KYC pending hai, do minute mein ho jayega — abhi kar lein?"
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Sir, main Park+ ki calling assistant Shreya hoon. Aapke car insurance ki KYC pending hai, do minute mein ho jayega — abhi kar lein?",
+  "reply": "Sir, match toh chalta rahega, pehle aapka insurance complete karwa deti hoon. Park+ app kholkar Insurance icon par click kijiye, phir bataiye."
+ },
+ {
+  "caller": "किस कंपनी का insurance है?",
+  "prev": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai.",
+  "reply": "Aapka insurance {insurer} se hai, sir. Bas iski KYC pending hai, jo do minute mein ho jaayegi."
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hai, sir. Bas iski KYC pending hai, jo do minute mein ho jaayegi.",
+  "reply": "Aapka naam sir hai. Humare record mein yahi naam registered hai."
+ },
+ {
+  "caller": "मतलब app khol ke KYC karna hai na?",
+  "prev": "Sir, please open the Park+ app and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Haan sir, bilkul sahi. App kholkar Insurance icon par click kijiye, wahan aapko 'Complete KYC' ka button dikhega. Us par click karke details bhar dijiye."
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — ek baar thoda saaf bolenge please?",
+  "reply": "Sir, aawaaz clear nahi aa rahi hai. Aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "तुम कस्टमर सपोर्ट ही तो",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Main calling assistant hoon sir. Refund aur cancellation ka kaam doosri team dekhti hai, main unhe forward kar deti hoon."
+ },
+ {
+  "caller": "मेरी zero dep वाली है ना, उसमें engine आता है?",
+  "prev": "Sir, NCB ka matlab No Claim Bonus hota hai. Agar aapne pichhle saal koi claim nahi liya, toh renewal premium par discount milta hai. Claim lene par ye zero ho j",
+  "reply": "Sir, zero dep mein parts ki ghisai ka paisa nahi kat-ta aur poora claim milta hai. Par engine ke nuksaan ke liye alag se engine protect add-on lena hota hai, ismein engine cover nahi hota."
+ },
+ {
+  "caller": "claim कैसे होगा, cashless मिलेगा?",
+  "prev": "Sir, zero dep mein parts ki ghisai ka paisa nahi kat-ta aur poora claim milta hai. Par engine ke nuksaan ke liye alag se engine protect add-on lena hota hai, is",
+  "reply": "Sir, network garage mein cashless claim mil jayega, jahan bill ka bhugtan insurance company seedha garage ko karegi. Policy issue hone ke baad Park+ ka dedicated claim assistant poore claim mein aapki help karega."
+ },
+ {
+  "caller": "third party और first party में क्या फर्क है?",
+  "prev": "Sir, network garage mein cashless claim mil jayega, jahan bill ka bhugtan insurance company seedha garage ko karegi. Policy issue hone ke baad Park+ ka dedicate",
+  "reply": "Sir, third party mein sirf doosre ki gaadi ya vyakti ka nuksaan cover hota hai jo ki zaroori hai. First party ya comprehensive mein aapki apni gaadi ka nuksaan bhi cover hota hai."
+ },
+ {
+  "caller": "ठीक है ये सब details WhatsApp पे भेज दो",
+  "prev": "Sir, premium toh payment ke time hi fix hota hai aur aapka payment ho chuka hai. Agar aapko price se koi dikkat hai, toh aap Park+ customer support se baat kar ",
+  "reply": "Sir, main aapko sirf KYC ka link WhatsApp par bhej deti hoon — baaki sab usi link se ho jayega. Main abhi bhejoon sir?"
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, us 'Complete KYC' button par click kijiye. Uske baad 'Confirm policy details' ka page khulega, jismein aapko khali fields jaise owner's name, DOB aur nominee details bharni hain."
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Main Park+ ki calling assistant Shreya hoon sir. Aapke car insurance ki KYC pending hai, do minute mein ho jayega — abhi kar lein?",
+  "reply": "Sir, main toh bas aapka hi kaam kar rahi hoon. KYC complete ho jaye phir aap aaram se match dekhiyega. Abhi app khol lein?"
+ },
+ {
+  "caller": "किस कंपनी का insurance है?",
+  "prev": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai.",
+  "reply": "Aapka insurance {insurer} se hua hai, sir. Bas iski KYC pending hai, jo do minute mein ho jaayegi."
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hua hai, sir. Bas iski KYC pending hai, jo do minute mein ho jaayegi.",
+  "reply": "Aapka naam sir hai. Humare paas yahi naam registered hai."
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — ek baar thoda saaf bolenge please?",
+  "reply": "Sir, aawaaz thodi kat rahi hai — aap bas itna bata dijiye ki kya aap abhi free hain? Do minute mein aapki KYC karwa deti hoon."
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, us 'Complete KYC' button par click kijiye. Uske baad 'Confirm policy details' ka page khulega, jismein aapko owner's name, DOB aur nominee jaise khali fields bharne hain."
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details app mein daalni hoti hain.",
+  "reply": "Main Park+ ki calling assistant Shreya hoon sir. Chaliye, pehle aapki KYC complete karwa deti hoon."
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Main Park+ ki calling assistant Shreya hoon sir. Chaliye, pehle aapki KYC complete karwa deti hoon.",
+  "reply": "Bas aapka hi kaam kar rahi hoon sir! KYC complete ho jaye phir aaram se match dekhiyega. Aapne Park+ app khol liya hai?"
+ },
+ {
+  "caller": "मुझे समझ नहीं आया क्या करना है",
+  "prev": "",
+  "reply": "Sir, sabse pehle aap apne phone mein Park+ app kholiye. App khulne par mujhe bataiyega, main aage ka step bata dungi."
+ },
+ {
+  "caller": "अरे यार समझ नहीं आ रहा, क्या करूँ मैं",
+  "prev": "Sir, koi baat nahi. Aap sabse pehle apne phone mein Park+ app khol lijiye. App khulte hi mujhe bataiyega.",
+  "reply": "Sir, agar app mein dikkat aa rahi hai toh main aapko WhatsApp par KYC ka link bhej deti hoon. Aap wahan se aaram se kar lijiye, bhejoon sir?"
+ },
+ {
+  "caller": "मतलब app khol ke KYC karna hai na?",
+  "prev": "Sir, please open the Park+ app and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Haan sir, bilkul sahi. App kholkar Insurance icon par click kijiye, phir wahan 'Complete KYC' ka button dikhega — usi par click karna hai."
+ },
+ {
+  "caller": "तुम कस्टमर सपोर्ट ही तो",
+  "prev": "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge.",
+  "reply": "Main calling assistant hoon sir. Refund aur cancellation ka kaam doosri team dekhti hai, main aapki request unhe forward kar deti hoon."
+ },
+ {
+  "caller": "यार अभी नहीं यार बाद में करूँगा मैं",
+  "prev": "Theek hai sir, koi dikkat nahi. Main aapko baad mein connect kar loongi — aap bata dijiye kab karoon?",
+  "reply": "Theek hai sir, koi baat nahi. Bas itna bata doon ki KYC ho jaane par hi aapki policy ban paayegi. Shaam ko call karoon ya kal subah?"
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, us button par click kijiye. Uske baad 'Confirm policy details' ka page khulega, jisme khali fields jaise owner's name, DOB aur nominee details bharni hain."
+ },
+ {
+  "caller": "हाँ मैंने ऐप खोल लिया, अब क्या करना है?",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app mein Insurance icon par click kijiye. Phir batayiye, insurance wala page khul gaya?"
+ },
+ {
+  "caller": "ठीक है मिल गया कंप्लीट केवाईसी वाला बटन, आगे बताओ",
+  "prev": "Park+ car owners ka app hai sir — FASTag, parking, challan aur insurance sab ek jagah.",
+  "reply": "Sir, usi 'Complete KYC' button par click kijiye. Uske baad 'Confirm policy details' ka page khul jayega, jismein aapko khali fields bharni hain."
+ },
+ {
+  "caller": "अच्छा ये बताओ पॉलिसी कब तक आ जाएगी, कल तक?",
+  "prev": "OTP kisi ko mat bataiye sir, mujhe bhi nahi.",
+  "reply": "Sir, KYC hote hi insurer ki taraf se aapki policy ban jaayegi aur WhatsApp aur mail dono pe aa jaayegi. Bas do minute ka kaam hai, abhi kar lete hain?"
+ },
+ {
+  "caller": "अच्छा तुम्हारा नाम क्या है, तुम इंसान हो या रोबोट?",
+  "prev": "Sir, Aadhaar card sarkar ka pehchaan patra hai. KYC complete karne ke liye isi ki details app mein daalni hoti hain.",
+  "reply": "Main Park+ ki calling assistant Shreya hoon sir. Chaliye, pehle aapki KYC complete karwa deti hoon. Aapne Park+ app khol liya hai?"
+ },
+ {
+  "caller": "मुझे समझ नहीं आया क्या करना है",
+  "prev": "",
+  "reply": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye. Bas do minute ka kaam hai."
+ },
+ {
+  "caller": "हाँ पर मुझे समझ नहीं आ रहा, फिर से बताओ",
+  "prev": "Sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye. Bas do minute ka kaam hai.",
+  "reply": "Sir, sabse pehle apne phone mein Park+ app kholiye. Usme aapko Insurance ka icon dikhega, us par click kijiye. Phir mujhe bataiye kya dikh raha hai."
+ },
+ {
+  "caller": "Okay so what exactly do I need to do now?",
+  "prev": "Sir, this call is about your car insurance that you bought on Park+. The payment is done, but the KYC is pending, so the policy cannot be issued yet. It will on",
+  "reply": "Sir, please open the Park+ app on your phone and click on the Insurance icon. Let me know once the page opens."
+ },
+ {
+  "caller": "मतलब app khol ke KYC karna hai na?",
+  "prev": "Sir, please open the Park+ app on your phone and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Haan sir, bilkul sahi. App kholkar Insurance icon par click kijiye, wahan aapko 'Complete KYC' ka button dikhega. Us par click kar dijiye."
+ },
+ {
+  "caller": "क्रेड हाँ क्रेड का भी",
+  "prev": "",
+  "reply": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega? Aapke car insurance ki KYC pending hai, do minute mein ho jayega."
+ },
+ {
+  "caller": "आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।",
+  "prev": "Sir, aapki aawaaz theek se nahi aayi — ek baar phir boliyega? Aapke car insurance ki KYC pending hai, do minute mein ho jayega.",
+  "reply": "Sir, mujhe aapki baat samajh nahi aayi — ek baar phir se bolenge? Bas do minute ka kaam hai, aapki pending KYC abhi complete karwa deti hoon."
+ },
+ {
+  "caller": "हाँ रीजनिंग फटी हुई थी।",
+  "prev": "Sir, mujhe aapki baat samajh nahi aayi — ek baar phir se bolenge? Bas do minute ka kaam hai, aapki pending KYC abhi complete karwa deti hoon.",
+  "reply": "Sir, aawaaz thodi kat rahi hai. Aapke car insurance ki KYC pending hai — do minute mein ho jayega, abhi kar lete hain?"
+ },
+ {
+  "caller": "या तुम मेरा चालान पे कर दोगे क्या?",
+  "prev": "Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?",
+  "reply": "Sir, main toh sirf insurance KYC ke liye call kar rahi hoon. Challan pay karne ke liye aap Park+ app par jaakar check kar sakte hain."
+ },
+ {
+  "caller": "क्रिकेट देख रहे हो आज का मैच?",
+  "prev": "Sir, main Park+ ki calling assistant Shreya hoon. Aapke car insurance ki KYC pending hai, do minute mein ho jayegi — abhi kar lein?",
+  "reply": "Sir, main toh bas aapka hi kaam kar rahi hoon. KYC complete ho jaye phir aap aaram se match dekhiyega — abhi app khol lijiye?"
+ },
+ {
+  "caller": "किस कंपनी का insurance है?",
+  "prev": "sir, aapki gaadi ka number {reg} hai. Iska {insurer} se insurance hua hai, bas iski KYC pending hai.",
+  "reply": "Aapka insurance {insurer} se hai, sir. Bas do minute mein iski KYC complete kar lijiye taaki policy issue ho sake."
+ },
+ {
+  "caller": "अच्छा मेरा नाम बताओ तो जरा",
+  "prev": "Aapka insurance {insurer} se hai, sir. Bas do minute mein iski KYC complete kar lijiye taaki policy issue ho sake.",
+  "reply": "Aapka naam sir hai. Humare paas yahi details registered hain. Kya hum abhi KYC complete kar lein?"
+ },
+ {
+  "caller": "मतलब app khol ke KYC karna hai na?",
+  "prev": "Sir, please open the Park+ app on your phone and click on the Insurance icon. Let me know once the page opens.",
+  "reply": "Haan sir, bilkul sahi. App kholte hi insurance wale page par aapko 'Complete KYC' ka button dikhega, bas us par click kar dijiye."
+ }
+]

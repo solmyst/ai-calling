@@ -19,7 +19,10 @@ on a recorded call. Same reasoning as the price guard, higher stakes.
 import functools
 import io
 import json
+import math
 import re
+from collections import Counter
+from pathlib import Path
 
 from domain import CONTEXT_FILE
 
@@ -767,7 +770,7 @@ _CALLER_TOPIC_PATTERNS = (
         re.IGNORECASE,
     )),
     ("details", re.compile(
-        r"क्या[\s\-]*क्या|details\s*बता|डिटेल्स\s*बता|क्या\s*भरना|"
+        r"क्या[\s\-]*क्या\s*(?:भरना|डालना|details|डिटेल|fill)|details\s*बता|डिटेल्स\s*बता|क्या\s*भरना|"
         r"details\s*(?:कैसे|क्या)|डिटेल्स\s*(?:कैसे|क्या)",
         re.IGNORECASE,
     )),
@@ -936,6 +939,70 @@ _OFF_CALL_LIFE_RE = re.compile(
     re.IGNORECASE,
 )
 _SAFE_REDIRECT = "बस आपका ही काम कर रही हूँ सर! KYC हो जाए फिर आराम से"
+# --- Gemini's replies as examples for smaller models ---------------------------
+# Park+'s Qwen copies examples far better than it follows rules. Gemini judges
+# ~99 on replayed real calls, so its clean replies (evals/build_gold.py, held-out
+# sessions only) are retrieved by similarity to the caller's line and attached
+# to the turn hint. Card facts are placeholders, filled from THIS call's card.
+_GOLD_FILE = Path(__file__).with_name("gold_replies.json")
+
+
+def _grams(text: str) -> Counter:
+    t = re.sub(r"[^\w\u0900-\u097F ]+", " ", text.lower())
+    t = " " + re.sub(r"\s+", " ", t).strip() + " "
+    return Counter(t[i:i + 3] for i in range(len(t) - 2))
+
+
+@functools.lru_cache(maxsize=1)
+def _gold_index():
+    if not _GOLD_FILE.exists():
+        return [], [], {}
+    bank = json.loads(_GOLD_FILE.read_text())
+    grams = [_grams(x["caller"]) for x in bank]
+    df = Counter(g for gs in grams for g in gs)
+    n = max(len(bank), 1)
+    idf = {g: math.log(n / c) + 1.0 for g, c in df.items()}
+    norms = [math.sqrt(sum((v * idf[g]) ** 2 for g, v in gs.items())) or 1.0 for gs in grams]
+    return bank, grams, (idf, norms)
+
+
+def gold_examples(caller: str, card: dict | None, k: int = 3, min_sim: float = 0.22) -> list[tuple[str, str]]:
+    """The k clean Gemini replies whose caller line is most like this one."""
+    bank, grams, extra = _gold_index()
+    if not bank or not caller.strip():
+        return []
+    idf, norms = extra
+    q = _grams(caller)
+    qn = math.sqrt(sum((v * idf.get(g, 1.0)) ** 2 for g, v in q.items())) or 1.0
+    scored = []
+    for i, gs in enumerate(grams):
+        dot = sum(v * gs[g] * idf[g] ** 2 for g, v in q.items() if g in gs)
+        sim = dot / (qn * norms[i])
+        if sim >= min_sim:
+            scored.append((sim, i))
+    card = card or {}
+    fill = {
+        "{insurer}": card.get("insurer"),
+        "{reg}": card.get("vehicle_reg"),
+        "{ptype}": {"THIRD_PARTY": "third party", "COMPREHENSIVE": "comprehensive"}.get(
+            str(card.get("policy_type") or "").upper()),
+    }
+    out, replies = [], set()
+    for _, i in sorted(scored, reverse=True):
+        reply = bank[i]["reply"]
+        if any(ph in reply and not val for ph, val in fill.items()):
+            continue  # a fact this call's card does not have — never teach it
+        for ph, val in fill.items():
+            if val:
+                reply = reply.replace(ph, val)
+        if reply not in replies:
+            replies.add(reply)
+            out.append((bank[i]["caller"], reply))
+        if len(out) == k:
+            break
+    return out
+
+
 # Caller-intent detectors used only for the turn hint.
 _ASK_PARKPLUS_RE = re.compile(
     r"(?:पाकपस|पार्क\s*प्लस|पार्क\s*प्लेस|पाक\s*प्लस|park\s*\+|park\s*plus|park\s*place)[^.।!?]{0,25}"
@@ -967,7 +1034,7 @@ _KNOWLEDGE = (
      "IDV yaani Insured Declared Value — gaadi total loss ho jaaye ya chori ho jaaye, toh insurer itne tak ka claim deta hai."),
     (re.compile(r"\bncb\b|एनसीबी|no\s*claim\s*bonus|नो\s*क्लेम", re.I),
      "NCB yaani No Claim Bonus — pichhle saal claim nahi liya toh renewal premium par discount milta hai; claim lene par ye chala jaata hai."),
-    (re.compile(r"zero\s*d[ae]p|ज़ीरो\s*डे[पब]|जीरो\s*डे[पब]|depreciation|डेप्रिसिएशन|bumper\s*to\s*bumper|बम्पर\s*टू\s*बम्पर", re.I),
+    (re.compile(r"zero\s*d[ae]p|ज़ीरो\s*डे[पब]|जीरो\s*डे[पब]|depreciation|डेप्रिसिएशन|bumper|बम्पर|बंपर", re.I),
      "Zero depreciation yaani bumper to bumper — claim mein parts ki ghisai nahi kat-ti, parts ka poora paisa milta hai; engine ka nuksaan ismein nahi aata, uske liye engine protect alag hota hai."),
     (re.compile(r"third\s*party|थर्ड\s*पार्टी|first\s*party|फर्स्ट\s*पार्टी|comprehensive|कॉम्प्रिहेंसिव|own\s*damage|ओन\s*डैमेज", re.I),
      "Third party mein doosre ki gaadi ya vyakti ka nuksaan cover hota hai, ye har gaadi ke liye zaroori hai; first party ya comprehensive mein saath mein aapki apni gaadi ka nuksaan bhi cover hota hai."),
@@ -1003,6 +1070,25 @@ _MEANINGFUL_RE = re.compile(
 _WANTS_TEAM_RE = re.compile(
     r"(?:टीम|team|टिम)\s*(?:से|को|se|ko)|(?:human|insaan|इंसान|manager|मैनेजर|senior|सीनियर)|"
     r"किसी\s*और\s*से\s*बात|kisi\s*aur\s*se\s*baat",
+    re.IGNORECASE,
+)
+_WHICH_POLICY_RE = re.compile(
+    r"(?:कौन\s*सी|किस|kaun\s*si|kis)\s*(?:पॉलिसी|policy|इंश्योरेंस|insurance)|"
+    r"(?:पॉलिसी|policy)[^.।!?]{0,15}(?:बारे|bare)\s*(?:में|mein)\s*बात",
+    re.IGNORECASE,
+)
+_IS_REQUIRED_RE = re.compile(
+    r"(?:ज़रूरी|जरूरी|zaroori|jaruri|mandatory|compulsory)[^.।!?]{0,20}(?:है|hai|क्या|kya|थोड़ी|thodi)|"
+    r"(?:क्यों|kyun|kyon)\s*(?:करना|karna|करनी|karni)",
+    re.IGNORECASE,
+)
+_UPSET_RE = re.compile(
+    r"धमकी|dhamki|गुस्सा|gussa|पागल|pagal|irritat|परेशान|pareshan|तंग|बकवास|bakwas|"
+    r"ऐसे\s*क्यों\s*बोल|तरीके\s*से\s*बोल",
+    re.IGNORECASE,
+)
+_QWORD_RE = re.compile(
+    r"क्या|कैसे|कब|कौन|क्यों|कितन|कहाँ|kya|kaise|kab|kaun|kyun|kitn|kahan|\?",
     re.IGNORECASE,
 )
 _ABUSE_RE = re.compile(r"गाली|gaali|galli|\bgali\b", re.IGNORECASE)
@@ -1286,6 +1372,10 @@ class KycGuard:
         self._caller_found_button = False
         self._confused_turns = 0
         self._denials = 0
+        self._busy_turns = 0
+        # (heard, not heard) of the reply the caller cut off — set by bot.py.
+        self.cut_off: tuple[str, str] | None = None
+        self._awaiting_reply = False
         self._last_step: str | None = None
         self._cur_bot_text = ""
         self._prev_bot_text = ""
@@ -1321,6 +1411,11 @@ class KycGuard:
         Clears the topic when nothing matches, so a prior nominee ask cannot
         poison the next turn's guard rewrite.
         """
+        # Two quick transcripts before the bot replies are ONE turn to answer:
+        # the hint used to see only the last fragment and answer only that.
+        if getattr(self, "_awaiting_reply", False) and self._last_caller:
+            text = f"{self._last_caller} {text}"
+        self._awaiting_reply = True
         self._caller_english = self._caller_spoke_english(text)
         self._turn_refused_otp = False
         # Latches on and never off: once they are in, they are in.
@@ -1390,13 +1485,43 @@ class KycGuard:
         return (f"सर, हमारे record में आपके number से Park+ से ली हुई {what} है{car}। "
                 "शायद घर में किसी ने ली हो? अगर आपकी नहीं है तो मैं team से check करवा देती हूँ।")
 
-    def turn_hint(self) -> str | None:
-        """The intent hint for this turn, plus the always-on anti-repeat rule."""
+    def turn_hint(self, examples: bool = False) -> str | None:
+        """The intent hint for this turn, plus the always-on anti-repeat rule.
+
+        examples=True (bot.py sets it for the Park+ endpoint) also attaches
+        Gemini's replies to the most similar caller lines — see gold_examples.
+        """
         hint = self._intent_hint()
+        extra = []
+        # More than one question in the turn: answer them all, in order.
+        clauses = [c.strip() for c in re.split(r"[?।.,]|\s(?:और|aur|फिर|phir|or|नहीं\s*सॉरी)\s", self._last_caller or "")
+                   if c.strip() and _QWORD_RE.search(c)]
+        if len(clauses) >= 2:
+            extra.append("They asked " + str(len(clauses)) + " things: answer EACH, in their order, one short "
+                         "sentence each — " + " | ".join(f'"{c[:70]}"' for c in clauses[:4]) + ".")
+        # Their last reply was cut off (bot.py sets this on a barge-in).
+        if self.cut_off:
+            heard, unheard = self.cut_off
+            self.cut_off = None
+            extra.append(("They interrupted you" + (f" after \"{heard[-60:]}\"" if heard else " before hearing anything")
+                          + f" and did NOT hear: \"{unheard[:160]}\". Answer what they said first; then, if it "
+                          "still matters, bring the missed point back in one line (e.g. 'Sir, main ye bata rahi thi ki ...')."))
+        if extra:
+            hint = " ".join(([hint] if hint else []) + extra)
+        if examples:
+            ex = gold_examples(self._last_caller or "", self.card)
+            if ex:
+                shots = " | ".join(f'Caller: "{c[:80]}" -> You: "{r}"' for c, r in ex)
+                hint = (f"{hint} " if hint else "") + (
+                    "Good replies to similar lines (same style and length; answer what THIS "
+                    f"caller said): {shots}")
         # Anti-repeat only. A "if unclear, ask them to repeat" clause here made
         # Park+ answer 12 clear lines in a row with "aawaaz theek se nahi aayi"
         # (live call 2026-09-23 23:10-23:14).
-        tail = "Never repeat your previous reply word for word — answer what they just said."
+        # Multi-question: STT gives no punctuation, so splitting a line into
+        # questions never fired on real calls — the rule rides on every turn.
+        tail = ("Never repeat your previous reply word for word. If they asked more than one "
+                "thing, answer each, in the order they asked, one short sentence each.")
         if not self._prev_bot_text:
             return hint
         return f"{hint} {tail}" if hint else tail
@@ -1424,9 +1549,22 @@ class KycGuard:
             return f"Policy timing question. Say: {self._say(_DELIVERY_LINE)}. Never a date or a deadline."
         if t == "clicked_kyc_button" and self._caller_clicked_only:
             return f"Ambiguous button. Reply only: {self._say(_SAFE_AFTER_BUTTON)}"
+        if _UPSET_RE.search(self._last_caller or ""):
+            return ("They are upset with how you sound. Apologise once, warmly and briefly; no "
+                    "pressure, no 'do minute'; offer to call back at a better time.")
+        if _IS_REQUIRED_RE.search(self._last_caller or "") and t not in ("refund", "denial", "mismatch"):
+            return f"They ask if KYC is necessary. Say gently, one line: {self._say(_SAFE_AUTHORITY)}."
         if _ABUSE_RE.search(self._last_caller or ""):
             return ("They are baiting you. Decline warmly in half a sentence (aisi baat nahi karti "
                     "sir), then back to the KYC. Never ask them to repeat.")
+        if _WHICH_POLICY_RE.search(self._last_caller or "") and t != "denial":
+            return f"They ask which policy. Tell them our record, one line: {self._record_line().split('.')[0]}."
+        if t == "busy":
+            self._busy_turns += 1
+            if self._busy_turns == 1:
+                return f"They are busy. Reply only (row 1a): {self._say(_SAFE_BY_TOPIC['busy'])}"
+            return ("They want to do it later. Agree warmly and ask WHEN to call (row 1b) — "
+                    "never push 'abhi kar lete hain'.")
         if _WANTS_TEAM_RE.search(self._last_caller or ""):
             return (f"They want the team / a person. There is no live transfer. Reply only: "
                     f"{self._say(_SAFE_FORWARD)}")
@@ -1612,6 +1750,7 @@ class KycGuard:
                     self._turn_spoke = True
                 kept.append(part)
                 self._cur_bot_text += part
+                self._awaiting_reply = False
             fixed = "".join(kept)
             if not fixed.strip():
                 continue
@@ -2877,6 +3016,46 @@ def _demo():
     h = KycGuard()
     h.note_caller("अच्छा चलो क्या है पार्क प्लेस क्या-क्या पर सर्विस प्रोवाइड करता है")
     assert "FASTag" in (h.turn_hint() or ""), h.turn_hint()
+
+    # Gold examples: retrieved by similarity, card facts filled from THIS card.
+    ex = gold_examples("यार अभी टाइम नहीं है बाद में कर सकते हैं क्या?", None)
+    assert ex and all("{" not in r for _, r in ex), ex
+    h = KycGuard(card={"insurer": "Bajaj Allianz", "goal": "complete_kyc"})
+    h.note_caller("नहीं नहीं कौन सी पॉलिसी के बारे में बात कर रहे हो")
+    assert "Bajaj" in (h.turn_hint() or ""), h.turn_hint()
+    h = KycGuard()
+    h.note_caller("नहीं बम्पर के बारे में बात कर लो")
+    assert "depreciation" in (h.turn_hint() or "").lower(), h.turn_hint()
+    h = KycGuard()
+    h.note_caller("नहीं एक काम करते हैं अपन बाद में कर सकते हैं क्या?")
+    first = h.turn_hint() or ""
+    h.note_caller("अभी मेरे पास बिल्कुल भी टाइम नहीं है")
+    assert "1a" in first and "WHEN" in (h.turn_hint() or ""), (first, h.turn_hint())
+    h = KycGuard()
+    h.note_caller("यार अभी टाइम नहीं है बाद में कर सकते हैं क्या?")
+    assert "Good replies" in (h.turn_hint(examples=True) or "")
+
+    h = KycGuard()
+    h.note_caller("तो ये कौन सी पॉलिसी है नहीं सॉरी इसका कि वो तो मेरे को ये वैसे करना जरूरी है क्या?")
+    hint = h.turn_hint() or ""
+    assert "IRDAI" in hint and "EACH" in hint, hint
+    h = KycGuard()
+    h.note_caller("अच्छा kitna time lagega")
+    h.note_caller("और documents kya chahiye")
+    hint = h.turn_hint() or ""
+    assert "EACH" in hint and "documents" in hint.lower(), hint
+    h = KycGuard()
+    h.note_caller("तुम धमकी कैसे दे रहे हो मुझे")
+    assert "Apologise" in (h.turn_hint() or "")
+    h = KycGuard()
+    h.cut_off = ("Sir, aapke car insurance ki", "KYC pending hai, do minute lagenge.")
+    h.note_caller("haan bolo")
+    hint = h.turn_hint() or ""
+    assert "did NOT hear" in hint and "KYC pending" in hint, hint
+    assert "did NOT hear" not in (h.turn_hint() or ""), "the cut-off note is used once"
+    h = KycGuard()
+    h.note_caller("नहीं जरूरी है क्या क्या वैसे करना")
+    assert "khali" not in (h.turn_hint() or "").lower(), h.turn_hint()
 
     h = KycGuard()
     third = "Third party har gaadi ke liye zaroori hota hai sir, first party mein apni gaadi bhi cover hoti hai."

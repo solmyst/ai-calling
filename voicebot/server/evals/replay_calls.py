@@ -58,9 +58,13 @@ def main():
     ap.add_argument("--model", choices=["parkplus", "gemini"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--skip-last", type=int, default=0,
+                    help="leave out the newest N sessions (kept as the held-out test set)")
     args = ap.parse_args()
     ep = next(e for e in _endpoints() if e[0] == args.model)
     found = sessions(args.logs)
+    if args.skip_last:
+        found = found[:-args.skip_last]
     if args.limit:
         found = found[-args.limit:]
     results = []

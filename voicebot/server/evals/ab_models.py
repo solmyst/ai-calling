@@ -328,7 +328,8 @@ def run_scenario(label, url, model, headers, name, turns, card=None, verbose=Fal
         # Same per-turn intent hint bot.py attaches (FailoverLLMService.
         # _attach_hint): on this request only, never in the stored history.
         # HINTS=0 measures the model without it.
-        hint = guard.turn_hint() if os.getenv("HINTS", "1") != "0" and hasattr(guard, "turn_hint") else None
+        hint = (guard.turn_hint(examples=label == "parkplus" and os.getenv("EXAMPLES", "0") == "1")
+                if os.getenv("HINTS", "1") != "0" and hasattr(guard, "turn_hint") else None)
         request = messages[:-1] + [{"role": "user", "content": f"{caller}\n\n({hint})"}] if hint else messages
         payload = {
             "model": model,

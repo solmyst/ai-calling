@@ -1124,7 +1124,16 @@ class FailoverLLMService(GroqLLMService):
         Returns a callable that restores the message, so the stored history
         never contains the hint and the model never learns to quote it.
         """
-        hint = self.turn_hint() if self.turn_hint else None
+        # Park+'s small model also gets Gemini's replies to similar lines as
+        # examples (guard.gold_examples); Gemini does not need them.
+        provider = self._endpoints[self._index].provider if self._endpoints else ""
+        try:
+            # Off by default: on replayed real calls examples made Park+ WORSE
+            # (90.8 vs 94.4) — it copies an example even when the moment differs.
+            use_ex = provider == "parkplus" and os.getenv("LLM_EXAMPLES") == "1"
+            hint = self.turn_hint(examples=use_ex) if self.turn_hint else None
+        except TypeError:  # a guard whose turn_hint takes no arguments
+            hint = self.turn_hint() if self.turn_hint else None
         if not hint:
             return lambda: None
         for msg in reversed(context.get_messages()):
@@ -2146,23 +2155,20 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         logger.info(f"CUT OFF | heard: {redact(heard) or '(nothing)'!r} | "
                     f"not heard: {redact(unheard)!r}")
         # The assistant turn keeps only what was said, so the history is true.
-        # The note is a separate developer turn, never inside the assistant's
-        # own words, where the model could copy it out loud.
         if heard:
             last["content"] = heard + " —"
         else:
             messages.pop()
-        messages.append({
-            "role": "developer",
-            "content": (
-                "The caller interrupted you. "
-                + (f"They heard only up to: \"{heard[-80:]}\". " if heard else
-                   "They heard none of your last reply. ")
-                + f"They did NOT hear: \"{unheard}\". Answer what they just said first; "
-                "repeat an unheard point only if it still matters, briefly, in your own words."
-            ),
-        })
         context.set_messages(messages)
+        # The "they missed this" note rides on the NEXT request's turn hint
+        # (guard.turn_hint), appended to the caller's line. It used to be a
+        # separate "developer" message, which Park+'s Qwen template does not
+        # treat as an instruction — the model never brought the missed point back.
+        if hasattr(guard, "cut_off"):
+            guard.cut_off = (heard, unheard)
+        # What was never spoken must not be logged as spoken either (the 00:03
+        # call logged two replies glued into one MONIKA line).
+        call_observer._said.clear()
 
     runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
 
