@@ -302,7 +302,12 @@ _ROMAN_HINDI_RE = re.compile(
     r"lagta|lagti|lagega|sakta|sakti|sakte|gaadi|paas|liye|abhi|thoda|"
     # Added 2026-09-23 for REPLY_SCRIPT=hinglish: the sanctioned lines lean on
     # these, and "Theek hai sir" / "click kijiye" read as English without them.
-    r"hoon|kijiye|lijiye|theek|haan|dikkat|dijiyega|bataiyega)\b",
+    r"hoon|kijiye|lijiye|theek|haan|dikkat|dijiyega|bataiyega|"
+    # ...and the everyday words a short romanised line may carry alone —
+    # "Shaam ko karoon ya kal subah?" has none of the above, and the English
+    # length rule below was calling it English (A/B 2026-09-23).
+    r"ko|se|pe|par|phir|kab|karoon|karun|jaye|jayega|jaayegi|dekhenge|samajh|"
+    r"aayi|boliyega|bolenge|dhanyavaad|aapki|aapka|mujhe|kaam)\b",
     re.IGNORECASE,
 )
 

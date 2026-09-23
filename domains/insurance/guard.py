@@ -252,6 +252,9 @@ _INSTRUCTED_DONE = re.compile(
     # which is the exact thing this rule exists to catch. The Devanagari list
     # above leaves out कर दिया / कर लिया for the same reason.
     r"denge|dega|degi|dein|den|loon|lun|lete|rahe|rahi|raha)|"
+    # The customer's own future action, like करेंगे in the Devanagari branch:
+    # "jaise hi aap KYC complete karenge" (A/B 2026-09-23) is not a claim.
+    r"kar(?:enge|engi|ein|en|o)\b|"
     r"karv?a?\s*d(?:eti|ete|o|ijiye))"
     r"|(?:complete|poora|puri)\s*ho\s*(?:jaye|jaega|jayega|jayegi|jae|jata|jaata|jati|jaati)"
     r"|(?:complete|poora|puri)\s*(?:hone|hote)\s*(?:ke|par|tak|mein|hi)"
@@ -1880,6 +1883,18 @@ def _demo():
             assert getattr(h, counter), f"hinglish {counter} missed: {line!r} -> {out!r}"
             assert not re.search(r"[ऀ-ॿ]", out), \
                 f"hinglish {counter} answered in Devanagari: {out!r}"
+
+        # Both from the 2026-09-23 A/B: a correct romanised line must not be
+        # counted as drift, and the customer's future action is not a claim.
+        h = KycGuard()
+        h.note_caller("अच्छा ये बताओ पॉलिसी कब तक आ जाएगी")
+        line = "Sir, jaise hi aap KYC complete karenge, policy aapko mail pe aa jaayegi."
+        assert h.check(line) == line and not h.false_completions, line
+        for line in ("Shaam ko karoon ya kal subah?", "Dhanyavaad, thank you for choosing Park+.",
+                     "KYC complete ho jaye phir aaram se match dekhenge."):
+            h = KycGuard()
+            h.check(line)
+            assert not h.romanised, f"correct romanised line counted as drift: {line!r}"
 
         # Not engaged yet: the romanised app push is still a push.
         h = KycGuard()
