@@ -228,7 +228,16 @@ class NoiseGate(FrameProcessor):
             # Short vague room scraps ("देखने के लिए", "और भी") with no KYC
             # force. Real answers usually contain हाँ/नहीं/ठीक/कर/बता/… or are
             # longer turns.
+            #
+            # A caller STARTING to object or ask is short too. 2026-09-23: the
+            # caller said "लेकिन ये" ("but this…"), it was dropped as noise, and
+            # the bot sat silent until the 30s idle nudge. "But", question words,
+            # addressing the bot and "wait" are someone talking TO the bot, so
+            # they keep a short line. First-person words are left out: room
+            # chatter uses them too.
             if len(words) <= 3 and not re.search(
+                r"लेकिन|मगर|मतलब|क्या|कौन|क्यों|क्यूँ|कैसे|कहाँ|कहां|कब|कितन|"
+                r"आप|सर|मैडम|जी|सुनि|सुनो|रुकि|रुको|एक\s*मिनट|वेट|"
                 r"हाँ|हां|नहीं|नही|ठीक|हो\s*गया|कर|खोल|बता|हेलो|हैलो|बाय|"
                 r"ऐप|फॉर्म|केवाईसी|आधार|पैन|पॉलिसी|टाइम|कॉल|पेज|बटन|"
                 r"nominee|kyc|app|form|pan|aadhaar|aadhar|policy",
@@ -422,6 +431,12 @@ class CallLogObserver(BaseObserver):
                     logger.info(f"STT LAG | {now - self._vad_stop:.2f}s silence -> "
                                 f"{type(data.source).__name__} committed the transcript")
                     self._vad_stop = None
+                # The observer sees the transcript BEFORE NoiseGate drops it. A
+                # dropped line is not a turn: starting the clock on it logged
+                # "LATENCY 30.35s" for the idle nudge (2026-09-23), would fire a
+                # filler hum at nobody, and fed the guard words the model never saw.
+                if NoiseGate._is_noise(frame.text):
+                    return
                 self._turn_start = now
                 self._schedule_filler()
                 # Just hand it to the guard. This used to read

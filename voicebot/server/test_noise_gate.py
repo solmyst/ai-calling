@@ -29,7 +29,7 @@ NOISE = [
     "oh", "ohh", "achha", "acha", "arre", "umm", "oh achha",
     # 15:53 browser room-bleed / ASR hallucinations.
     "Marine Toy.", "marine toy", "music", "applause",
-    "It would be there.", "देखने के लिए",
+    "It would be there.", "देखने के लिए", "और भी",
 ]
 
 # Turns. Every one of these is a real reply and must reach the model.
@@ -45,6 +45,9 @@ TURNS = [
     # A backchannel word that starts a real sentence is a real turn.
     "अच्छा ये बताओ इसमें क्या क्या लगेगा",
     "ओह तो अब क्या करूँ",
+    # A caller starting to object or ask. "लेकिन ये" is verbatim from the
+    # 2026-09-23 call, where it was dropped and the bot went silent for 30s.
+    "लेकिन ये", "क्या मतलब", "आप कौन", "एक मिनट", "रुको",
     # Romanised one-word ANSWERS. Every one of these is a complete reply to
     # "page khul gaya?" and dropping one leaves the bot waiting for something
     # the caller has already said.
