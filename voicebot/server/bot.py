@@ -21,6 +21,7 @@ Run the bot using::
 """
 
 import asyncio
+import random
 import datetime
 import time
 import json
@@ -269,9 +270,64 @@ class CallLogObserver(BaseObserver):
     TTS — i.e. what the caller really heard, after the guardrails rewrote it.
     """
 
-    def __init__(self, guard: PriceGuard | None = None):
+    # Two tiers, not one list, and NOT the same kind of sound:
+    #
+    # TIER1 is a non-lexical hum — "hmm"/"umm", not a word — for the FIRST
+    # beat of dead air. Product ask 2026-09-22: "make sure there is someone
+    # replying" without it reading as a canned button-press. Verified by
+    # TTS -> STT round trip on 2026-09-22 before trusting Sarvam to pronounce
+    # it as a hum rather than a word: "हम्म," and "उम्म," both came back as
+    # short, genuine-sounding hums; "आहं," (an earlier candidate) came back
+    # sounding like a surprised "aha", not someone thinking, so it is not here.
+    #
+    # TIER2 is real words — a hum held for 3+ seconds stops sounding like
+    # someone thinking and starts sounding like the call is broken, so past
+    # the first beat this switches to an actual acknowledgement that carries
+    # meaning. TIER2 only fires if TIER1 already did and the reply is STILL
+    # not back, so it scales with how overdue the turn actually is.
+    FILLER_TIER1 = ("हम्म,", "उम्म,", "हम्म...")
+    FILLER_TIER2 = ("बस देख रही हूँ सर,", "एक सेकंड सर,", "अभी बताती हूँ,")
+
+    def __init__(
+        self,
+        guard: PriceGuard | None = None,
+        filler_delay_secs: float = 0.0,
+        filler_delay2_secs: float = 0.0,
+    ):
         super().__init__()
         self._said: list[str] = []
+        # Latency filler, 2026-09-22, product ask: Gemini's own turn is
+        # 1.5-2s, on top of ~1s of STT, so the caller sits in dead air for
+        # nearly 3s before ANY sound. A short "हाँ सर," fired only once that
+        # dead air has already run past filler_delay_secs — never before —
+        # tells them the line is alive without adding to the wait: it plays
+        # DURING time that was already going to be silent, not before it.
+        #
+        # 0 (default) = OFF. FILLER_DELAY_SECS in .env sets the tier-1
+        # threshold; unset or 0 leaves this exactly as it was. filler_delay2
+        # is ADDITIONAL seconds after tier 1 before tier 2 is even considered
+        # — 0/unset means tier 2 never fires, so turning tier 1 on alone
+        # keeps today's single-ack behaviour.
+        self._filler_delay = filler_delay_secs
+        self._filler_delay2 = filler_delay2_secs
+        self._filler_task: asyncio.Task | None = None
+        # Last phrase spoken, per tier, so back-to-back turns never repeat the
+        # same ack — the thing that would make it sound like a canned button
+        # rather than a person.
+        self._last_filler: dict[int, str] = {}
+        # A turn counter, not a boolean: if the caller barges in with a NEW
+        # turn while a filler is still waiting to fire, the filler must know
+        # it is now stale and stay silent for the turn that superseded it,
+        # not speak over whatever the caller just said.
+        self._turn_id = 0
+        # Set once, right after PipelineWorker exists — see run_bot(). Frames
+        # cannot be queued before that, and the filler task will not be
+        # scheduled until this is set (filler_delay_secs stays 0 until then
+        # would be wrong; instead _schedule_filler no-ops with no queue_frames).
+        self._queue_frames = None
+        # True from the moment the filler frame is actually queued until the
+        # BotStartedSpeakingFrame it causes has been consumed. See that branch.
+        self._filler_pending_frame = False
         # Wall-clock from the caller's final transcript to the bot's first
         # audio — the number that actually matters on a call, not a metrics
         # frame nobody reads. Set on every CALLER line, consumed and cleared
@@ -296,6 +352,59 @@ class CallLogObserver(BaseObserver):
         # the conversation are visible, so this is where that gets recorded.
         self._guard = guard
 
+    def attach_queue(self, queue_frames) -> None:
+        """Give the observer a way to speak. Called once, after worker exists."""
+        self._queue_frames = queue_frames
+
+    def _schedule_filler(self) -> None:
+        """Arm the filler for THIS caller turn, replacing any earlier one."""
+        self._turn_id += 1
+        if self._filler_task is not None:
+            self._filler_task.cancel()
+            self._filler_task = None
+        if self._filler_delay <= 0 or self._queue_frames is None:
+            return
+        self._filler_task = asyncio.create_task(self._fire_filler(self._turn_id))
+
+    def _pick_filler(self, tier: int, phrases: tuple[str, ...]) -> str:
+        """A phrase from this tier, never the one this tier said last time."""
+        choices = [p for p in phrases if p != self._last_filler.get(tier)] or list(phrases)
+        phrase = random.choice(choices)
+        self._last_filler[tier] = phrase
+        return phrase
+
+    async def _speak_filler(self, phrase: str) -> None:
+        # Sets the skip-flag right before queueing, not before sleeping — see
+        # the BotStartedSpeakingFrame branch. Each filler utterance owns
+        # exactly one BotStartedSpeakingFrame; this pairs the two correctly
+        # even when tier 2 fires after tier 1 already did.
+        self._filler_pending_frame = True
+        await self._queue_frames([TTSSpeakFrame(phrase, append_to_context=False)])
+
+    async def _fire_filler(self, turn_id: int) -> None:
+        try:
+            await asyncio.sleep(self._filler_delay)
+        except asyncio.CancelledError:
+            return
+        # The real reply may have started, or a newer caller turn may have
+        # superseded this one, in the time spent sleeping — both mean silence.
+        if turn_id != self._turn_id or self._turn_start is None:
+            return
+        await self._speak_filler(self._pick_filler(1, self.FILLER_TIER1))
+
+        if self._filler_delay2 <= 0:
+            return
+        try:
+            await asyncio.sleep(self._filler_delay2)
+        except asyncio.CancelledError:
+            return
+        # Same staleness check, run again: tier 2 only speaks if the reply is
+        # STILL not back after the extra wait — this is what makes it track
+        # how overdue the turn actually is, not just a second fixed timer.
+        if turn_id != self._turn_id or self._turn_start is None:
+            return
+        await self._speak_filler(self._pick_filler(2, self.FILLER_TIER2))
+
     async def on_push_frame(self, data: FramePushed):
         frame = data.frame
         if isinstance(frame, TranscriptionFrame) and isinstance(data.source, STTService):
@@ -312,6 +421,7 @@ class CallLogObserver(BaseObserver):
                                 f"{type(data.source).__name__} committed the transcript")
                     self._vad_stop = None
                 self._turn_start = now
+                self._schedule_filler()
                 # Just hand it to the guard. This used to read
                 # `self._guard.car_known` first — a car-spa-only attribute — and
                 # crashed every insurance call with
@@ -337,6 +447,14 @@ class CallLogObserver(BaseObserver):
             # the timestamp was from before a 7-second bot turn. Every STT LAG
             # over ~2s in that log is this, not the transcriber.
             self._vad_stop = None
+            # The filler itself makes the pipeline speak, which means THIS event
+            # fires once for "हाँ सर," starting and once more for the real reply
+            # starting. Skip exactly the filler's own one — set right when the
+            # filler frame is actually queued, in _fire_filler — so LATENCY still
+            # measures caller -> REAL first audio, not caller -> filler.
+            if self._filler_pending_frame:
+                self._filler_pending_frame = False
+                return
             if self._turn_start is not None:
                 logger.info(
                     f"LATENCY | {time.monotonic() - self._turn_start:.2f}s caller -> first audio"
@@ -355,9 +473,10 @@ _SPEAKABLE_RE = re.compile(r"[^\W_]", re.UNICODE)
 
 #: What a silent line hears before it is given up on. Spoken directly, never
 #: generated: it must not cost an LLM turn, and a nudge that varies is worse
-#: than one that does not — see on_idle_timeout(). Deliberately an offer of
-#: help rather than "are you there", because they are almost always mid-form.
-IDLE_NUDGE_LINE = "सर, आप वहीं हैं? आराम से भरिए — कोई दिक्कत हो तो बता दीजिए।"
+#: than one that does not — see on_idle_timeout(). "Hello sir" first, product
+#: ask 2026-09-22, so it reads as someone checking in rather than a canned
+#: system line — then the actual offer of help.
+IDLE_NUDGE_LINE = "Hello sir, मैं call पे हूँ। कुछ help चाहिए, तो बता दो क्या हुआ।"
 
 
 def _message_role(message) -> str | None:
@@ -1407,6 +1526,18 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # family that accepts voice_focus, vad_threshold and mode.
                 model=os.getenv("ASSEMBLYAI_MODEL") or "universal-3-5-pro",
                 language=stt_language,
+                # `language` above never reaches the streaming socket — Pipecat
+                # 1.10 only sends it on the Sync API path (_build_config), not in
+                # _build_ws_url. So until 2026-09-23 the model ran unsteered across
+                # all 19 of its languages. language_codes is the documented
+                # streaming parameter: it still code-switches, but biased to the
+                # list, Hindi first because order steers. Docs:
+                # https://www.assemblyai.com/docs/streaming/multilingual-transcription
+                language_codes=[
+                    Language(code.strip())
+                    for code in (os.getenv("ASSEMBLYAI_LANGUAGE_CODES") or "hi,en").split(",")
+                    if code.strip()
+                ],
                 keyterms_prompt=_stt_keyterms(),
                 # OFF unless ASSEMBLYAI_CONTEXT_PROMPT=1 — see _stt_prompt().
                 # Sending nothing keeps AssemblyAI's own voice-agent prompt,
@@ -1747,6 +1878,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         "twilio",
         "telnyx",
     )
+    # OFF (0) by default — see CallLogObserver.FILLER_TIER1/TIER2. Set
+    # FILLER_DELAY_SECS to arm the first ack once tested on a real call;
+    # sub-turn timing like this cannot be verified by the batch eval harness,
+    # only by ear. FILLER_DELAY2_SECS is EXTRA seconds after that before the
+    # second, "still working" phrase is even considered — unset/0 keeps the
+    # single-ack behaviour.
+    call_observer = CallLogObserver(
+        guard,
+        filler_delay_secs=float(os.getenv("FILLER_DELAY_SECS") or 0.0),
+        filler_delay2_secs=float(os.getenv("FILLER_DELAY2_SECS") or 0.0),
+    )
     worker = PipelineWorker(
         pipeline,
         params=PipelineParams(
@@ -1758,7 +1900,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 else {}
             ),
         ),
-        observers=[CallLogObserver(guard)],
+        observers=[call_observer],
         # CONTINUE left the line open and mute the day Bifrost hit its cap.
         processor_unusable_policy=ProcessorUnusablePolicy.END,
         idle_timeout_secs=call_idle_secs,
@@ -1766,6 +1908,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         # CancelFrame, so any in-flight TTS can finish before the carrier drops.
         cancel_on_idle_timeout=False,
     )
+    # Only wired up now that `worker` exists — nothing can queue a frame before
+    # this, so the filler literally cannot fire before the call is actually live.
+    call_observer.attach_queue(worker.queue_frames)
 
     runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
 

@@ -557,7 +557,11 @@ _NAME_IS_THE_ANSWER = re.compile(
 _ALTERNATES = (
     (re.compile(r"शाम\s*को\s*(?:call|कॉल)\s*करूँ\s*या\s*कल\s*सुबह", re.I),
      "बस बता दीजिए कब करना है, उसी time call कर लूँगी"),
-    (re.compile(r"बाद\s*में\s*आपको\s*कब\s*(?:call|कॉल)\s*करूँ", re.I),
+    # Widened 2026-09-22: 1b now just asks "कब call करूँ?" (open, so it can
+    # accept whatever time the caller names — see prompt.py row 1b), and that
+    # same tail question also closes row 1a. Narrower wording tied to the old
+    # "बाद में आपको कब call करूँ" phrasing stopped matching when 1b changed.
+    (re.compile(r"कब\s*(?:call|कॉल)\s*करूँ", re.I),
      "बस बता दीजिए कब करना है, उसी time call कर लूँगी"),
     (re.compile(r"अभी\s*2\s*(?:minute|मिनट)\s*में\s*करवा\s*देती\s*हूँ", re.I),
      "2 minute का ही काम है सर"),
