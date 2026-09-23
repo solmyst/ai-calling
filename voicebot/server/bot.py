@@ -56,6 +56,8 @@ from domain import (
 )
 from guardrails import HINGLISH_REPLIES, is_machine_output
 from redaction import redact
+import slack
+from voice_gate import PrimaryVoiceGate
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from loguru import logger
@@ -144,6 +146,11 @@ def _setup_logging() -> None:
     fmt = "{time:HH:mm:ss} | {level: <7} | {message}"
     logger.add(sys.stderr, level=level, format=fmt)
     logger.add(CALL_LOG, level=level, format=fmt, rotation="5 MB", retention=3)
+    # Breakage alerts to Slack (errors, and a call dropped by a dead service).
+    # enqueue=True: the sink runs on loguru's own thread, never in the call loop.
+    if slack.enabled():
+        logger.add(slack.alert_sink, level="WARNING", filter=slack.alert_filter,
+                   format="{message}", enqueue=True)
 
 
 # Silence is not silent on a phone line, and ASR models answer it with whatever
@@ -335,6 +342,11 @@ class CallLogObserver(BaseObserver):
     ):
         super().__init__()
         self._said: list[str] = []
+        # The whole call, redacted, for the Slack summary when it ends.
+        self.transcript: list[str] = []
+        # Awaited with each finished bot turn once it has been spoken — run_bot
+        # uses it to hang up after the closing line and to alert on a handover.
+        self.on_said = None
         # Latency filler, 2026-09-22, product ask: Gemini's own turn is
         # 1.5-2s, on top of ~1s of STT, so the caller sits in dead air for
         # nearly 3s before ANY sound. A short "हाँ सर," fired only once that
@@ -480,6 +492,7 @@ class CallLogObserver(BaseObserver):
                 # filler hum at nobody, and fed the guard words the model never saw.
                 if NoiseGate._is_noise(frame.text):
                     return
+                self.transcript.append(f"Caller: {redact(frame.text.strip())}")
                 self._turn_start = now
                 self._schedule_filler()
                 # Just hand it to the guard. This used to read
@@ -538,13 +551,35 @@ class CallLogObserver(BaseObserver):
             if self._said:
                 # Joined on flush: the LLM streams a turn as several sentences, and
                 # one log line per turn is what makes the transcript readable.
-                logger.info(f"MONIKA | {redact(' '.join(self._said).strip())}")
+                said = " ".join(self._said).strip()
                 self._said.clear()
+                logger.info(f"MONIKA | {redact(said)}")
+                self.transcript.append(f"Bot: {redact(said)}")
+                if self.on_said:
+                    await self.on_said(said)
 
 # Anything the TTS could actually pronounce. Sarvam rejects a chunk with none of
 # it ("400: Text must contain at least one character from the allowed languages"),
 # which is what a stray "." from the sentence splitter produces.
 _SPEAKABLE_RE = re.compile(r"[^\W_]", re.UNICODE)
+
+#: Spoken once the call reaches CALL_SOFT_LIMIT_SECS (product ask 2026-09-23):
+#: offer to stay if they still need help, otherwise end. Exact wording from the
+#: product owner; a developer note tells the model what to do with the answer.
+TIME_UP_LINE = (
+    "Sir, aapko help chahiye, toh main call pe reh leti hoon. Nahi toh main is "
+    "call ko end kar deti hoon. Mera time ho chuka hai."
+    if HINGLISH_REPLIES
+    else "Sir, आपको help चाहिए, तो मैं call पे रह लेती हूँ। नहीं तो मैं इस call को "
+    "end कर देती हूँ। मेरा time हो चुका है।"
+)
+# The sanctioned goodbye. With LLM_TOOLS=off there is no end_call tool, so
+# before this the line was said and the call then sat open until the idle
+# timer — 90s of dead air after "thank you for choosing Park+".
+_CLOSING_RE = re.compile(r"thank you for choosing park\+", re.IGNORECASE)
+# The bot telling the caller their case goes to the team (the technical/data
+# handover line). Slack is where the team actually hears about it.
+_HANDOVER_RE = re.compile(r"team\s*(?:को|ko)\s*(?:forward|भेज|bhej|assign)", re.IGNORECASE)
 
 #: What a silent line hears before it is given up on. Spoken directly, never
 #: generated: it must not cost an LLM turn, and a nudge that varies is worse
@@ -1895,7 +1930,11 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # the eval suite is not killed mid-run; set CALL_IDLE_SECS=90 for PSTN so a
     # mute line or off-hook handset stops billing sooner. Max-duration always
     # restarts on each new greeting.
-    call_max_secs = _call_limit_secs("CALL_MAX_SECS", 360.0)
+    # Soft limit: at 5 minutes the bot offers to stay or end (TIME_UP_LINE).
+    # Hard limit: the line is dropped regardless, so a caller who keeps it going
+    # cannot hold it forever. Soft is ignored if it is not below hard.
+    call_soft_secs = _call_limit_secs("CALL_SOFT_LIMIT_SECS", 300.0)
+    call_max_secs = _call_limit_secs("CALL_MAX_SECS", 600.0)
     call_idle_secs = _call_limit_secs("CALL_IDLE_SECS", 300.0)
     # How many times a silent line gets asked before it is dropped. Two, so a
     # customer filling the form has ~3x CALL_IDLE_SECS of quiet before the call
@@ -1943,6 +1982,21 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # Only wired up now that `worker` exists — nothing can queue a frame before
     # this, so the filler literally cannot fire before the call is actually live.
     call_observer.attach_queue(worker.queue_frames)
+
+    async def _on_bot_said(text: str) -> None:
+        nonlocal handed_over
+        if _HANDOVER_RE.search(text) and not handed_over:
+            handed_over = True
+            case = (card or {}).get("proposal_id", "no proposal")
+            slack.post(":raising_hand: *Team handover* — proposal "
+                       f"{case}. Bot told the caller the team will help.\n"
+                       + "\n".join(call_observer.transcript[-8:]))
+        # Spoken in full by now (this runs on BotStoppedSpeaking), so the
+        # hangup cuts nothing off.
+        if _CLOSING_RE.search(text):
+            await _hangup("closing line spoken")
+
+    call_observer.on_said = _on_bot_said
 
     # Barge-in: record only what the caller actually heard. Without this the
     # context kept the whole reply, so after "sir ek minute" cut the bot off in
@@ -2002,13 +2056,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     greeted = False
     duration_task: asyncio.Task | None = None
     ending = False
+    end_reason = "caller hung up"
+    handed_over = False
+    call_started = time.monotonic()
 
     async def _hangup(reason: str) -> None:
         """Graceful end once. Downstream EndWorkerFrame flushes queued TTS first."""
-        nonlocal ending
+        nonlocal ending, end_reason
         if ending:
             return
         ending = True
+        end_reason = reason
         logger.warning(f"Hanging up: {reason}")
         await worker.queue_frames([EndWorkerFrame(reason=reason)])
 
@@ -2021,7 +2079,22 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             duration_task = None
 
         async def _watch() -> None:
-            await asyncio.sleep(call_max_secs)
+            waited = 0.0
+            if call_soft_secs and call_soft_secs < call_max_secs:
+                await asyncio.sleep(call_soft_secs)
+                waited = call_soft_secs
+                logger.info(f"Soft limit {call_soft_secs}s — asking whether to stay on")
+                context.add_message({
+                    "role": "developer",
+                    "content": (
+                        "Your call time is up, and you have just asked the caller "
+                        "whether they still need help. If they want help, keep "
+                        "helping exactly as before. If they do not (नहीं / बस / "
+                        "nothing else / bye), reply with ONLY your closing line."
+                    ),
+                })
+                await worker.queue_frames([TTSSpeakFrame(TIME_UP_LINE)])
+            await asyncio.sleep(call_max_secs - waited)
             await _hangup(f"CALL_MAX_SECS={call_max_secs}")
 
         duration_task = asyncio.create_task(_watch())
@@ -2123,6 +2196,24 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
 
     await runner.run()
 
+    if call_observer.transcript:
+        mins, secs = divmod(int(time.monotonic() - call_started), 60)
+        case = (card or {}).get("proposal_id", "no proposal")
+        slack.post(f":telephone_receiver: *Call ended* — proposal {case}, {mins}m{secs:02d}s, "
+                   f"{end_reason}{', HANDED OVER' if handed_over else ''}\n"
+                   + "\n".join(call_observer.transcript))
+
+
+def _voice_gate():
+    """Mute everyone but the voice at the mic — see voice_gate.py.
+
+    PRIMARY_VOICE_GATE_DB is how far below the loudest recent voice still counts
+    as the caller: raise it if a soft caller gets cut, lower it if people nearby
+    still get through. 0 turns the gate off.
+    """
+    margin = float(os.getenv("PRIMARY_VOICE_GATE_DB") or 15)
+    return PrimaryVoiceGate(margin_db=margin) if margin > 0 else None
+
 
 async def bot(runner_args: RunnerArguments):
     """Main bot entry point."""
@@ -2135,12 +2226,14 @@ async def bot(runner_args: RunnerArguments):
         return FastAPIWebsocketParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
+            audio_in_filter=_voice_gate(),
         )
 
     transport_params = {
         "webrtc": lambda: TransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
+            audio_in_filter=_voice_gate(),
         ),
         # Headless testing: `python bot.py -t eval` runs the whole pipeline with
         # no browser, no microphone and no WebRTC, driven by the YAML scenarios

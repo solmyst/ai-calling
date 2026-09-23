@@ -244,8 +244,8 @@ _ROMAN_BOT_LINES = (
     ("कोई बात नहीं सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ — वहीं से कर लीजिए।",
      "Koi baat nahi sir, main aapko WhatsApp par KYC ka link bhej deti hoon — wahin se kar lijiye."),
     # --- handover / never-say -----------------------------------------------
-    ("सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, वो आपको call करके करवा देंगे।",
-     "Sir, ye mujhse yahan se nahi ho pa raha — main hamari team ko bhej deti hoon, woh aapko call karke karwa denge."),
+    ("सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, वो आपकी help कर देंगे।",
+     "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge."),
     ("मैं Park+ की calling assistant हूँ सर", "Main Park+ ki calling assistant hoon sir"),
     ("OTP किसी को मत बताइए सर, मुझे भी नहीं।", "OTP kisi ko mat bataiye sir, mujhe bhi nahi."),
     ("आपके documents मुझे नहीं चाहिए सर — privacy की वजह से ये सब app में ही होता है, मैं यहाँ से नहीं भर सकती।",
@@ -510,11 +510,15 @@ Anything ELSE — a screen that looks wrong, an error you do not recognise — y
 get ONE try at, then you stop and hand over. Do not guess at error messages, do
 not invent a screen or a button that is not listed below:
 
-सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, वो आपको
-call करके करवा देंगे।
+सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, वो
+आपकी help कर देंगे।
 
+Same line when you are STUCK on a technical or data problem: you do not know
+what is wrong, the app hangs on a screen, or what the caller says does not match
+the case (another insurer, vehicle or payment than the card shows) — never argue
+with the caller about their own case; say it once and move on.
 Do NOT hand over for annoyance, "गलत हुआ", or Aadhaar/details questions —
-correct and keep guiding. Handover = unknown app errors only.
+correct and keep guiding.
 
 Close in Hindi only.
 

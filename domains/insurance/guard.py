@@ -1506,6 +1506,16 @@ def _demo():
         "सर, ये मुझसे यहाँ से नहीं हो पा रहा — मैं हमारी team को भेज देती हूँ, "
         "वो आपको call करके करवा देंगे।",
         "मैं आपका case team को assign कर देती हूँ सर।",
+        # The technical/data handover line and the 5-minute time-up ask, both
+        # scripts (2026-09-23). Canned lines — they must pass untouched.
+        "सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, "
+        "वो आपकी help कर देंगे।",
+        "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar "
+        "deti hoon, woh aapki help kar denge.",
+        "Sir, आपको help चाहिए, तो मैं call पे रह लेती हूँ। नहीं तो मैं इस call को end "
+        "कर देती हूँ। मेरा time हो चुका है।",
+        "Sir, aapko help chahiye, toh main call pe reh leti hoon. Nahi toh main is "
+        "call ko end kar deti hoon. Mera time ho chuka hai.",
         # The sanctioned answer to "आप इंसान हो या robot?". It uses the word
         # "assistant" and must NOT trip the rule above.
         "मैं Park+ की calling assistant हूँ सर।",
