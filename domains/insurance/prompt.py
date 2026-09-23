@@ -61,7 +61,9 @@ _MATCH_ROWS_DEVANAGARI = """\
 13. loan पे ली थी / lender कौन सा डालूँ → जो भी loan details वो screen माँगे वही भर दीजिए सर — मुझे exact fields पता नहीं, जो form पर दिखे वो सही है।
 14. process क्या है / पूरा process बताओ / क्या करना होगा (the whole thing, not a specific field) → the ONE NEXT step only — never the full app→insurance→KYC→PAN/Aadhaar sequence in one turn. If app is not open yet, that is the next step: सर, पहले Park+ app खोलकर Insurance icon पर click कीजिए, फिर बताइए। One step, then stop; the rest comes turn by turn as they get there.
 15. policy नहीं चाहिए / cancel / refund / पैसे वापस → never "मुझे नहीं पता". Say where it is handled: {refund}
-16. मेरा भाई/दोस्त/employee कर रहा है, मैं नहीं → उन्हीं को करना है, registration number confirm करके छोड़ दीजिए — customer से app के step मत पूछिए। अगर वो व्यक्ति call पर आ जाए तो उन्हीं को guide कीजिए।"""
+16. मेरा भाई/दोस्त/employee कर रहा है, मैं नहीं → उन्हीं को करना है, registration number confirm करके छोड़ दीजिए — customer से app के step मत पूछिए। अगर वो व्यक्ति call पर आ जाए तो उन्हीं को guide कीजिए।
+17. claim कैसे होगा / accident हुआ तो / claim में दिक्कत → {claim}
+18. कोई reward / cashback / offer मिलेगा? → {reward} Never invent one."""
 
 # Same rows, bot side romanised. The TRIGGERS stay in Devanagari on purpose:
 # they are matched against Sarvam STT output, which is Devanagari whatever
@@ -92,7 +94,9 @@ _MATCH_ROWS_HINGLISH = """\
 13. loan पे ली थी / lender कौन सा डालूँ → jo bhi loan details wo screen maange wahi bhar dijiye sir — mujhe exact fields pata nahi, jo form par dikhe wo sahi hai.
 14. process क्या है / पूरा process बताओ / क्या करना होगा (the whole thing, not a specific field) → the ONE NEXT step only — never the full app→insurance→KYC→PAN/Aadhaar sequence in one turn. If app is not open yet, that is the next step: sir, pehle Park+ app kholkar Insurance icon par click kijiye, phir bataiye. One step, then stop; the rest comes turn by turn as they get there.
 15. policy नहीं चाहिए / cancel / refund / पैसे वापस → never "mujhe nahi pata". Say where it is handled: {refund}
-16. mera bhai/dost/employee kar raha hai, main nahi → unhi ko karna hai, registration number confirm karke chhod dijiye — customer se app ke step mat poochiye. Agar woh vyakti call par aa jaaye toh unhi ko guide kijiye."""
+16. mera bhai/dost/employee kar raha hai, main nahi → unhi ko karna hai, registration number confirm karke chhod dijiye — customer se app ke step mat poochiye. Agar woh vyakti call par aa jaaye toh unhi ko guide kijiye.
+17. claim कैसे होगा / accident हुआ तो / claim में दिक्कत → {claim}
+18. कोई reward / cashback / offer मिलेगा? → {reward} Never invent one."""
 
 _SCRIPT_RULE_DEVANAGARI = """\
   - English words in ENGLISH LETTERS — app, email, DOB, nominee, button.
@@ -253,6 +257,10 @@ _ROMAN_BOT_LINES = (
     ('"बस इतना बता दूँ" not "आपको करना ही पड़ेगा"', '"bas itna bata doon" not "aapko karna hi padega"'),
     ("सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।",
      "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."),
+    ("सर, policy issue होने के बाद अगर कभी claim में कोई दिक्कत आए, तो Park+ की तरफ़ से एक dedicated claim assistance मिलता है — वो पूरे claim में आपकी help करेंगे।",
+     "Sir, policy issue hone ke baad agar kabhi claim mein koi dikkat aaye, toh Park+ ki taraf se ek dedicated claim assistance milta hai — woh poore claim mein aapki help karenge."),
+    ("सर, KYC complete करने पर अभी कोई reward या cashback नहीं है — बस आपकी policy बन जाएगी।",
+     "Sir, KYC complete karne par abhi koi reward ya cashback nahi hai — bas aapki policy ban jaayegi."),
     # --- call card honorific (call_card.render) -------------------------------
     ('जी" wherever the scripts below say "सर", including in the opening line.',
      'ji" wherever the scripts below say "sir", including in the opening line.'),
@@ -541,6 +549,11 @@ Not style preferences — each one is a compliance breach or an unkeepable promi
 - Never decide or guess a customer's Politically Exposed Person (PEP) answer,
   from their name, job, or anything else. Only they can answer it — explain
   the term if asked, never the answer.
+- The insurer ISSUES the policy; the customer BOUGHT it on Park+. Say "Park+ se
+  li hui ICICI Lombard ki policy", never "aapne ICICI se liya" — a caller told
+  that says they never bought any insurance.
+- Never promise a reward, cashback, coupon, points or discount for KYC or the
+  insurance. There is none (row 18).
 - Never invent a date-of-birth workaround — not "use 1st January if only the
   year shows". DOB, address = jo Aadhaar par likha hai, wahi — not where they
   live now.
@@ -827,7 +840,9 @@ def _build_devanagari_prompt(mode: str = "outbound", card: dict | None = None) -
         # substituted by the outer .format().
         match_rows=(
             _MATCH_ROWS_HINGLISH if HINGLISH_REPLIES else _MATCH_ROWS_DEVANAGARI
-        ).format(refund=ctx["refund_or_cancel"]["sanctioned_line"]),
+        ).format(refund=ctx["refund_or_cancel"]["sanctioned_line"],
+                 claim=ctx["claim_support"]["sanctioned_line"],
+                 reward=ctx["rewards"]["sanctioned_line"]),
         script_rule=(
             _SCRIPT_RULE_HINGLISH if HINGLISH_REPLIES else _SCRIPT_RULE_DEVANAGARI
         ),
@@ -963,7 +978,11 @@ def _demo():
         # ceiling moved to match reality, NOT because the prompt grew — see
         # _est_tokens. Real headroom is now ~150 tokens, so this tripwire
         # finally means what it says.
-        assert tokens < 7600, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
+        # 7900 on 2026-09-23 (product owner, after a live call): the claim-support
+        # answer (row 17), "there is no reward" (row 18 + never-say), and the
+        # insurer-vs-Park+ framing — a caller told "aapne ICICI se liya" said they
+        # had never bought insurance at all. ~250 tokens, all sanctioned lines.
+        assert tokens < 7900, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
         # Every hard rule must actually be stated, not just implied.
         for rule in ("OTP", "WhatsApp", "complete", "refund"):
             assert rule in p, f"{mode}: missing the {rule} rule"
@@ -1121,7 +1140,7 @@ def _demo():
         wa_tokens = _est_tokens(p_wa)
         # 7400: the flag-on path carries the WhatsApp rule and its MATCH row on
         # top of everything the flag-off path has, so it sits ~150 above it.
-        assert wa_tokens < 7800, f"WHATSAPP_KYC_LINK=1: {wa_tokens:.0f} tokens over budget"
+        assert wa_tokens < 8100, f"WHATSAPP_KYC_LINK=1: {wa_tokens:.0f} tokens over budget"
     finally:
         WHATSAPP_KYC_LINK_ENABLED = was_enabled
 
@@ -1179,7 +1198,7 @@ def _demo():
                 runs = re.findall(r"[\u0900-\u097F][\u0900-\u097F\s,।?!—-]*", p)
                 long_runs = [r.strip() for r in runs if len(r.strip()) > 40]
                 assert not long_runs, f"bot line left in Devanagari: {long_runs[0]}"
-                assert _est_tokens(p) < 7800, f"hinglish: {_est_tokens(p):.0f} tokens"
+                assert _est_tokens(p) < 8100, f"hinglish: {_est_tokens(p):.0f} tokens"
         WHATSAPP_KYC_LINK_ENABLED = was_enabled
         p_h = build_system_prompt("outbound")
         for line in ctx["kyc_mandate"]["sanctioned_lines"].values():
