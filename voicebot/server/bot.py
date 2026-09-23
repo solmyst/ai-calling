@@ -207,6 +207,25 @@ _ROMAN_BACKCHANNELS = frozenset({
 })
 
 
+class FillerInjector(FrameProcessor):
+    """Sits between the LLM and the TTS so a filler reaches the voice at once.
+
+    FILLER BUG, 2026-09-23: the filler was queued at the head of the pipeline,
+    so it waited behind the LLM, which handles one frame at a time and was busy
+    generating the very reply the filler was meant to cover. The hum reached
+    the TTS after the reply and played at the END of the turn ("it ended with
+    hm"). Pushed from here, it skips the LLM and plays while the LLM thinks.
+    """
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        await self.push_frame(frame, direction)
+
+    async def inject(self, frames) -> None:
+        for frame in frames:
+            await self.push_frame(frame)
+
+
 class NoiseGate(FrameProcessor):
     """Drops transcripts that are the transcriber talking to itself.
 
@@ -332,7 +351,13 @@ class CallLogObserver(BaseObserver):
     # LLM context (append_to_context=False), and the hums were verified by TTS
     # round trip in THIS spelling only.
     FILLER_TIER1 = ("हम्म,", "उम्म,", "हम्म...")
-    FILLER_TIER2 = ("बस देख रही हूँ सर,", "एक सेकंड सर,", "अभी बताती हूँ,")
+    # Tier 2 is real words, so it follows REPLY_SCRIPT like every other line;
+    # in Devanagari under hinglish the guard flagged it as a wrong-script reply.
+    FILLER_TIER2 = (
+        ("Bas dekh rahi hoon sir,", "Ek second sir,", "Abhi batati hoon,")
+        if HINGLISH_REPLIES
+        else ("बस देख रही हूँ सर,", "एक सेकंड सर,", "अभी बताती हूँ,")
+    )
 
     def __init__(
         self,
@@ -1912,6 +1937,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         user_params=LLMUserAggregatorParams(vad_analyzer=vad),
     )
 
+    filler_injector = FillerInjector()
+
     # Pipeline - assembled from reusable components
     pipeline = Pipeline(
         [
@@ -1920,6 +1947,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             NoiseGate(),
             user_aggregator,
             llm,
+            filler_injector,
             tts,
             transport.output(),
             assistant_aggregator,
@@ -1981,7 +2009,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     )
     # Only wired up now that `worker` exists — nothing can queue a frame before
     # this, so the filler literally cannot fire before the call is actually live.
-    call_observer.attach_queue(worker.queue_frames)
+    call_observer.attach_queue(filler_injector.inject)
 
     async def _on_bot_said(text: str) -> None:
         nonlocal handed_over
