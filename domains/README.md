@@ -1,6 +1,7 @@
 # Domains
 
-One voice pipeline, one folder per business. `DOMAIN=<folder>` in
+One voice pipeline, one folder per business. This branch carries insurance
+only; the car spa lives on the `car-spa` branch with the same shared core. `DOMAIN=<folder>` in
 `voicebot/server/.env` picks which one a process runs.
 
 ```
@@ -12,7 +13,6 @@ guardrails.py            output rules every domain shares — model failures, no
                          out loud, speaker labels, wrong script)
 domain.py                the seam: loads the active domain's pieces below
 
-domains/car_spa/         Park+ car wash booking
 domains/insurance/       post-payment motor insurance KYC (Shreya)
 ```
 
@@ -35,7 +35,5 @@ There is no fallback guard: a new domain ships its own or does not start.
 ```bash
 DOMAIN=insurance ./venv/bin/python -m domains.insurance.guard
 DOMAIN=insurance ./venv/bin/python -m domains.insurance.prompt
-DOMAIN=car_spa   ./venv/bin/python -m domains.car_spa.guard
-DOMAIN=car_spa   ./venv/bin/python -m domains.car_spa.prompt
 ./venv/bin/python guardrails.py
 ```

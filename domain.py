@@ -5,8 +5,7 @@ One voice pipeline, several businesses. Everything that is specific to a busines
 that is not — the transport, the failover, the logging, the STT and TTS services —
 lives in `voicebot/`. This module is the seam between them.
 
-    DOMAIN=car_spa     (default)
-    DOMAIN=insurance
+    DOMAIN=insurance   (default, and the only domain on this branch)
 
 Adding a business means adding a folder, not editing the pipeline. See
 `domains/README.md` for exactly what a folder has to contain.
@@ -35,7 +34,7 @@ if _ENV_FILE.is_file():
         pass
 
 #: The business this process is running. Read once, at import.
-ACTIVE = os.getenv("DOMAIN") or "car_spa"
+ACTIVE = os.getenv("DOMAIN") or "insurance"
 
 DOMAIN_DIR = DOMAINS_DIR / ACTIVE
 
