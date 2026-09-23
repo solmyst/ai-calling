@@ -1,0 +1,6 @@
+# Installed by start.sh. Caddy gets and renews the TLS certificate itself and
+# serves the Playground page over HTTPS — browsers only give a page the
+# microphone on HTTPS. The audio itself is WebRTC over UDP, direct to the VM.
+__PUBLIC_HOST__ {
+	reverse_proxy 127.0.0.1:7860
+}

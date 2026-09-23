@@ -1,0 +1,18 @@
+# Installed by start.sh (placeholders filled in there).
+[Unit]
+Description=Park+ voice bot (Pipecat, browser WebRTC)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=/opt/ai-calling/voicebot/server
+# Localhost only: Caddy is the one public door, and it terminates TLS.
+# STUN lets the bot tell the browser its PUBLIC address; without it a cloud VM
+# advertises only its private IP and the audio never connects.
+ExecStart=__HOME__/.local/bin/uv run bot.py -t webrtc --host 127.0.0.1 --port 7860 --ice-servers stun:stun.l.google.com:19302
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
