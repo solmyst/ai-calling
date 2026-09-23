@@ -41,6 +41,7 @@ dialer can roll this out gradually.
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -274,11 +275,21 @@ def _clean_name(value) -> str | None:
     return " ".join(w.capitalize() if w.isascii() else w for w in words)
 
 
-def fetch(proposal_id) -> dict | None:
-    """The prefetch row for one proposal, straight from Metabase, or None.
+# Last good row per proposal. bi.parkplus.io answers in ~0.1s (the query itself
+# ~8ms) but measured from the VM on 2026-09-23 it also hung for 27-30s at random,
+# and one hang landed on a live test call: the bot greeted with no name and no
+# insurer. A stale row is far better than no row for a case that changes on the
+# scale of hours, so a failed fetch falls back to one fetched in the last 30 min.
+_CACHE: dict[int, tuple[float, dict]] = {}
+_CACHE_SECS = 30 * 60
+
+
+def fetch(proposal_id, timeout: float | None = None) -> dict | None:
+    """The prefetch row for one proposal, from Metabase, or None.
 
     Never raises: no key, a bad id, a timeout or an empty result all mean "no
     card", which is the supported degraded mode — the bot runs the generic call.
+    A failure returns the last good row for this proposal if it is recent.
     """
     # domain.py loads voicebot/server/.env. bot.py imports it anyway; this makes
     # a standalone `from_body({...})` check see the same key a call does.
@@ -310,12 +321,19 @@ def fetch(proposal_id) -> dict | None:
         url, data=json.dumps(payload).encode(), method="POST",
         headers={"Content-Type": "application/json", "x-api-key": key},
     )
+    limit = timeout or float(os.getenv("METABASE_TIMEOUT_SECS") or 4)
     try:
-        with urllib.request.urlopen(req, timeout=float(os.getenv("METABASE_TIMEOUT_SECS") or 4)) as r:
-            data = json.loads(r.read())
+        with urllib.request.urlopen(req, timeout=limit) as r:
+            row = _row_from_dataset(json.loads(r.read()))
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
-        return None
-    return _row_from_dataset(data)
+        row = None
+    if row:
+        _CACHE[pid] = (time.monotonic(), row)
+        return row
+    cached = _CACHE.get(pid)
+    if cached and time.monotonic() - cached[0] < _CACHE_SECS:
+        return dict(cached[1])
+    return None
 
 
 def _row_from_dataset(data) -> dict | None:
@@ -469,6 +487,22 @@ def _demo_fetch():
         if saved is not None:
             os.environ["METABASE_API_KEY"] = saved
     assert fetch("741688; DROP TABLE proposal") is None
+    # A failed fetch falls back to the last good row for that proposal.
+    _CACHE[741688] = (time.monotonic(), {"proposal_id": 741688, "insurer": "ICICI Lombard"})
+    saved = os.environ.pop("METABASE_API_KEY", None)
+    try:
+        os.environ["METABASE_API_KEY"] = "bad-key-forces-a-failure"
+        os.environ["METABASE_URL"] = "http://127.0.0.1:9"   # nothing listens: instant failure
+        assert fetch(741688)["insurer"] == "ICICI Lombard"
+        _CACHE[741688] = (time.monotonic() - _CACHE_SECS - 1, {"insurer": "stale"})
+        assert fetch(741688) is None, "a cache older than the window is not used"
+    finally:
+        os.environ.pop("METABASE_URL", None)
+        if saved is not None:
+            os.environ["METABASE_API_KEY"] = saved
+        else:
+            os.environ.pop("METABASE_API_KEY", None)
+        _CACHE.clear()
     # A full card from the dialer is used as is — no fetch.
     full = from_body({"proposal_id": 1, "customer_name": "Asha", "kyc_status": "PENDING"})
     assert full["customer_name"] == "Asha"

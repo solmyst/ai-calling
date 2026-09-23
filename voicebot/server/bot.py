@@ -2081,4 +2081,12 @@ if __name__ == "__main__":
     if proposal:
         os.environ["TEST_CALL_CARD"] = json.dumps({"proposal_id": proposal})
         print(f"TEST PROPOSAL {proposal} — every call in this run looks up this case", flush=True)
+        # Warm the lookup once, generously: bi.parkplus.io sometimes hangs for
+        # 25-30s, and a per-call timeout is only 4s. With the row cached, a
+        # hang during a call still gets this case instead of none.
+        if ACTIVE_DOMAIN == "insurance":
+            from domains.insurance.call_card import fetch as _fetch_case
+            row = _fetch_case(proposal, timeout=20)
+            print(f"  case lookup at startup: {'ok — ' + str(row.get('insurer')) if row else 'FAILED (calls retry per call)'}",
+                  flush=True)
     main()
