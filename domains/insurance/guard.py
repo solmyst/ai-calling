@@ -442,6 +442,19 @@ _SAFE_MONEY = (
     "उसका exact amount मैं यहाँ से confirm नहीं कर सकती सर — team बता देगी"
 )
 
+# --- promising a reward -------------------------------------------------------
+# Product owner, 2026-09-23: there is NO reward, cashback or coupon for finishing
+# KYC or buying the insurance. An invented one is a promise Park+ then has to
+# refuse on a recorded call. Saying there is none ("koi reward nahi hai") is the
+# sanctioned answer, so a sentence with a negation in it is left alone.
+_REWARD_RE = re.compile(
+    r"cash\s*back|reward|coupon|voucher|scratch\s*card|\bpoints?\b|\bgift|"
+    r"इनाम|कैशबैक|रिवॉर्ड|कूपन|वाउचर|गिफ्ट|पॉइंट",
+    re.IGNORECASE,
+)
+_NO_REWARD_RE = re.compile(r"कोई|\bkoi\b|\bno\b|\bnot\b|\bnahi+n?\b|नहीं|नही", re.IGNORECASE)
+_SAFE_REWARD = "KYC complete करने पर अभी कोई reward या cashback नहीं है सर — बस आपकी policy बन जाएगी"
+
 # --- English goodbye / English-only close (15:22 call) ------------------------
 # Ornith closed with "Thank you सर! Have a good day." Prompt says Hindi only;
 # this makes it stick. A sentence that is mostly Latin AND looks like a closing
@@ -800,6 +813,7 @@ def _roman_lines() -> dict[str, str]:
             "Agar haan toh kaam ho gaya, nahi toh woh form bhar dijiye"
         ),
         _SAFE_CLOSE: "Dhanyavaad, thank you for choosing Park+",
+        _SAFE_REWARD: "KYC complete karne par abhi koi reward ya cashback nahi hai sir — bas aapki policy ban jaayegi",
         _SAFE_NOT_AI: "Main Park+ ki calling assistant hoon sir",
         _SAFE_BY_TOPIC["time"]: "Sir, do minute hi lagenge, abhi karwa deti hoon.",
         _SAFE_BY_TOPIC["refund"]: (
@@ -873,6 +887,7 @@ class KycGuard:
         ("extra_name", "warning", "trimmed the customer's name off a later line"),
         ("repeated_line", "warning", "reworded a sanctioned line it had already said"),
         ("premature_done", "error", "rewrote 'you are done' said to someone mid-form"),
+        ("reward_promise", "error", "rewrote a reward/cashback the bot invented"),
     )
 
     def __init__(self, ctx: dict | None = None, card: dict | None = None):
@@ -917,6 +932,7 @@ class KycGuard:
         self.extra_name: list[str] = []
         self.repeated_line: list[str] = []
         self.premature_done: list[str] = []
+        self.reward_promise: list[str] = []
         # Caller clicked Complete KYC and did NOT say they submitted.
         self._caller_clicked_only = False
         self._said_after_button = False
@@ -1267,6 +1283,10 @@ class KycGuard:
         if _BOT_SENDS_RE.search(sentence) and not _SEND_EXEMPT.search(sentence):
             self.false_send_promise.append(sentence.strip())
             return safe(_SAFE_SEND)
+
+        if _REWARD_RE.search(sentence) and not _NO_REWARD_RE.search(sentence):
+            self.reward_promise.append(sentence.strip())
+            return safe(_SAFE_REWARD)
 
         if _PROMISE_RE.search(sentence) and _PROMISE_MARKER.search(sentence):
             self.promises.append(sentence.strip())
@@ -1848,6 +1868,18 @@ def _demo():
                    "धन्यवाद, thank you for choosing Park+।"):
         assert scaffold.check(speech) == speech, speech
 
+    # --- rewards, claim help (product owner, 2026-09-23) ------------------------
+    ctx_now = json.loads(CONTEXT_FILE.read_text())
+    for invented in ("KYC पूरा करने पर आपको reward मिलेगा।", "आपको एक coupon भी मिलेगा सर।",
+                     "Complete karte hi 500 points aa jayenge."):
+        h = KycGuard()
+        out = h.check(invented)
+        assert h.reward_promise and "कोई reward" in out, (invented, out)
+    for sanctioned in (ctx_now["rewards"]["sanctioned_line"], ctx_now["claim_support"]["sanctioned_line"],
+                       "नहीं सर, कोई cashback नहीं है।"):
+        h = KycGuard()
+        assert h.check(sanctioned) == sanctioned, sanctioned
+
     # --- REPLY_SCRIPT=hinglish ------------------------------------------------
     # The bot writes Latin letters, so every rule has to fire on the romanised
     # shape of the same violation — a rule that only reads Devanagari is dead
@@ -1876,6 +1908,7 @@ def _demo():
             ("coercion", "Aapko ye karna hi padega."),
             ("self_ai", "Main ek AI bot hoon."),
             ("english_close", "Thank you, have a good day!"),
+            ("reward_promise", "KYC karne par aapko cashback milega."),
         ):
             h = KycGuard()
             h.note_caller("हाँ बताइए क्या करना है")
@@ -1916,7 +1949,7 @@ def _demo():
         roman_lines = _roman_lines()
         for canned in (_SAFE_OTP, _SAFE_SENSITIVE_ID, _SAFE_DOC_CHANNEL, _SAFE_DONE,
                        _SAFE_PROMISE, _SAFE_AUTHORITY, _SAFE_SEND, _SAFE_DO_NOT_SAY,
-                       _SAFE_MONEY, _SAFE_SOFT_REQUIREMENT, _SAFE_CLOSE,
+                       _SAFE_MONEY, _SAFE_SOFT_REQUIREMENT, _SAFE_CLOSE, _SAFE_REWARD,
                        *_SAFE_BY_TOPIC.values()):
             assert canned in roman_lines, f"canned line has no romanised twin: {canned[:40]}"
             roman = roman_lines[canned]

@@ -1346,7 +1346,11 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # No card is a fully supported state. If the prefetch fails, times out, or
     # the dialer has not been updated yet, the bot falls back to exactly the
     # generic call it ran before any of this existed.
-    card = build_call_card(getattr(runner_args, "body", None))
+    #
+    # A body carrying only a proposal id makes the card fetch the case itself
+    # from Park+'s Metabase (domains/insurance/call_card.fetch) — a network
+    # call, so it runs in a thread and never blocks another session's audio.
+    card = await asyncio.to_thread(build_call_card, getattr(runner_args, "body", None))
     # Dev convenience, 2026-09-22: the browser test UI sends a fixed body with
     # no room for a call card, so there was no way to test against a REAL
     # case locally short of hand-crafting a runner body. TEST_CALL_CARD is a
@@ -1355,7 +1359,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # is for a specific local test, not something to leave on.
     if not card and os.getenv("TEST_CALL_CARD"):
         try:
-            card = build_call_card(json.loads(os.environ["TEST_CALL_CARD"]))
+            card = await asyncio.to_thread(
+                build_call_card, json.loads(os.environ["TEST_CALL_CARD"])
+            )
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning(f"TEST_CALL_CARD is not valid JSON, ignoring: {e}")
     if card:

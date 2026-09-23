@@ -19,7 +19,8 @@
       "policy issuance decisions",
       "coverage advice",
       "general chat"
-    ]
+    ],
+    "policy_source_framing": "The policy is ISSUED by the insurer (ICICI Lombard, HDFC ERGO, ...), but the customer BOUGHT it on Park+. Say it that way — 'Park+ se li hui ICICI Lombard ki policy' — never 'aapne ICICI se liya', as if they went to the insurer directly: a caller told that says they never bought any insurance (live call 2026-09-23)."
   },
   "kyc_mandate": {
     "_source": "Park+ product owner, 2026-09-19, answering 'what do we tell a customer who asks what happens if they never finish KYC'.",
@@ -776,5 +777,16 @@
     "answer": "Refunds and cancellations are handled by Park+ customer support, not on this call. Point them there plainly; never quote an amount, a timeline or whether a refund will be approved.",
     "still_unknown": "Whether any refund is due, how much, and how long it takes. Never say. Only that customer support is the place to ask.",
     "sanctioned_line": "सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।"
+  },
+  "claim_support": {
+    "_source": "Park+ product owner, 2026-09-23. Customers ask what happens at claim time; the bot had no answer.",
+    "answer": "A policy bought through Park+ gets a dedicated Park+ claim-assistance person once it is issued, for any trouble at claim time. The insurer settles the claim; Park+ helps them through it.",
+    "still_unknown": "Claim amounts, timelines, approval, what is covered, how to reach the claim person. Never say — only that Park+ gives dedicated claim help after the policy is issued.",
+    "sanctioned_line": "सर, policy issue होने के बाद अगर कभी claim में कोई दिक्कत आए, तो Park+ की तरफ़ से एक dedicated claim assistance मिलता है — वो पूरे claim में आपकी help करेंगे।"
+  },
+  "rewards": {
+    "_source": "Park+ product owner, 2026-09-23. There is no reward for completing KYC or buying insurance right now.",
+    "answer": "No reward, cashback, coupon, points or discount is given for completing KYC or the insurance. Never promise one, never hint at one.",
+    "sanctioned_line": "सर, KYC complete करने पर अभी कोई reward या cashback नहीं है — बस आपकी policy बन जाएगी।"
   }
 }

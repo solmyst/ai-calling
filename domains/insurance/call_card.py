@@ -39,7 +39,10 @@ dialer can roll this out gradually.
 """
 
 import json
+import os
 import re
+import urllib.error
+import urllib.request
 
 #: Every key the model may see. Anything else in the incoming body is dropped.
 #:
@@ -103,6 +106,9 @@ GOALS = {
 #: Error codes that change the call, mapped to the goal they force.
 _BLOCKING_ERRORS = {
     "IERR_DUPLICATE_POLICY": "escalate_duplicate",
+    # proposal.error_details.parsed_error_codes as DB 258 writes them.
+    "ERR_POLICY_ALREADY_EXISTS": "escalate_duplicate",
+    "ERR_QUOTE_PROPOSAL_PREMIUM_MISMATCH": "explain_requote",
 }
 
 # Policy numbers, proposal ids, transaction refs. Six or more characters with at
@@ -214,6 +220,123 @@ def build(row: dict | None) -> dict | None:
     return card
 
 
+# --- fetching the case by proposal id ------------------------------------------
+# Given only a proposal id, the bot runs this ONE fixed query against Park+'s
+# Metabase (bi.parkplus.io, DB 258 parkplus_insurance_prod) before the greeting.
+# It is the same "one fixed query, flat card" contract as a dialer prefetch —
+# the model never sees SQL and never waits on the database mid-call. The id goes
+# in as a typed Metabase parameter, never spliced into the SQL.
+#
+# Deliberately NOT selected, from what the tables offer (checked 2026-09-23):
+#   - premiums / paid amounts: motor_fulfillment.amount came back as 1 against a
+#     final_premium of 146997 on the test proposal — units or test data, either
+#     way a "your amount doesn't match" call waiting to happen. The insurer's own
+#     ERR_QUOTE_PROPOSAL_PREMIUM_MISMATCH code decides that goal instead.
+#   - prev_policy_expiry: user_vehicle.od_expiry_date was 2024 on a 2026 policy.
+#   - chassis, engine, policy/proposal numbers beyond the existence check below.
+PREFETCH_SQL = """
+SELECT p.id AS proposal_id, p.insurer_id, p.policy_type, p.proposal_status,
+       JSON_UNQUOTE(JSON_EXTRACT(p.metadata, '$.owner_type')) AS ownership_type,
+       JSON_UNQUOTE(JSON_EXTRACT(p.error_details, '$.parsed_error_codes[0]')) AS error_code,
+       uv.owner_name AS customer_name, uv.registration_number AS vehicle_reg,
+       (SELECT k.status FROM test_ckyc k WHERE k.proposal_id = p.id
+         ORDER BY k.updated_at DESC LIMIT 1) AS kyc_status,
+       (SELECT f.status FROM motor_fulfillment f WHERE f.proposal_id = p.id
+         ORDER BY f.updated_at DESC LIMIT 1) AS fulfillment_status,
+       (SELECT po.policy_number FROM policy po WHERE po.proposal_id = p.id AND po.is_active = 1
+         ORDER BY po.updated_at DESC LIMIT 1) AS policy_number
+FROM proposal p
+LEFT JOIN motor_quotes q ON q.id = p.quote_id
+LEFT JOIN user_vehicle uv ON uv.id = q.user_vehicle_id
+WHERE p.id = {{proposal_id}}
+"""
+
+#: proposal.insurer_id -> the name a customer knows. From the field graph's
+#: insurer_ids (ai-calling-kyc-proposal/data/kyc-proposal-field-graph.json).
+INSURER_NAMES = {
+    1: "Tata AIG", 2: "ICICI Lombard", 3: "HDFC ERGO", 4: "National Insurance",
+    5: "Go Digit", 6: "United India", 7: "Bajaj Allianz", 8: "Go Digit",
+    9: "National Insurance",
+}
+
+# A first name the voice can say. user_vehicle.owner_name is the RC owner as
+# typed — the test proposal has "dwghabdn" — so anything that does not look like
+# a name is dropped and the bot says "sir" instead of greeting a string.
+_NAME_RE = re.compile(r"^[A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F.'-]{1,19}$")
+
+
+def _clean_name(value) -> str | None:
+    words = str(value or "").split()
+    if not words or not _NAME_RE.match(words[0]):
+        return None
+    if words[0].isascii() and not re.search(r"[aeiouyAEIOUY]", words[0]):
+        return None
+    return " ".join(w.capitalize() if w.isascii() else w for w in words)
+
+
+def fetch(proposal_id) -> dict | None:
+    """The prefetch row for one proposal, straight from Metabase, or None.
+
+    Never raises: no key, a bad id, a timeout or an empty result all mean "no
+    card", which is the supported degraded mode — the bot runs the generic call.
+    """
+    key = os.getenv("METABASE_API_KEY")
+    try:
+        pid = int(str(proposal_id).strip())
+    except (TypeError, ValueError):
+        return None
+    if not key or pid <= 0:
+        return None
+    url = (os.getenv("METABASE_URL") or "https://bi.parkplus.io").rstrip("/") + "/api/dataset"
+    payload = {
+        "database": int(os.getenv("METABASE_INSURANCE_DB") or 258),
+        "type": "native",
+        "native": {
+            "query": PREFETCH_SQL,
+            "template-tags": {"proposal_id": {
+                "id": "proposal_id", "name": "proposal_id",
+                "display-name": "Proposal ID", "type": "number", "required": True,
+            }},
+        },
+        "parameters": [{
+            "type": "number/=", "value": [pid],
+            "target": ["variable", ["template-tag", "proposal_id"]],
+        }],
+    }
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), method="POST",
+        headers={"Content-Type": "application/json", "x-api-key": key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=float(os.getenv("METABASE_TIMEOUT_SECS") or 4)) as r:
+            data = json.loads(r.read())
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        return None
+    return _row_from_dataset(data)
+
+
+def _row_from_dataset(data) -> dict | None:
+    """Metabase's {data: {cols, rows}} as one prefetch row, or None."""
+    try:
+        cols = [c["name"] for c in data["data"]["cols"]]
+        rows = data["data"]["rows"]
+    except (KeyError, TypeError):
+        return None
+    if not rows:
+        return None
+    row = dict(zip(cols, rows[0]))
+    try:
+        row["insurer"] = INSURER_NAMES.get(int(row.pop("insurer_id")))
+    except (TypeError, ValueError):
+        row.pop("insurer_id", None)
+    row["customer_name"] = _clean_name(row.get("customer_name"))
+    return row
+
+
+#: A body with only these keys is a request to fetch, not a card.
+_FETCH_KEYS = {"proposal_id", "do_not_say", "call_goal"}
+
+
 def from_body(body) -> dict | None:
     """The card out of a Pipecat runner body, however the dialer nested it.
 
@@ -228,7 +351,14 @@ def from_body(body) -> dict | None:
             return None
     if not isinstance(body, dict):
         return None
-    return build(body.get("call_card") or body.get("CALL_CARD") or body)
+    card = body.get("call_card") or body.get("CALL_CARD") or body
+    # Only a proposal id: fetch the case. The dialer's own extras (do_not_say)
+    # win over the fetched row. A failed fetch still leaves a card with the id.
+    if isinstance(card, dict) and card.get("proposal_id") and set(card) <= _FETCH_KEYS:
+        fetched = fetch(card["proposal_id"])
+        if fetched:
+            card = {**fetched, **card}
+    return build(card)
 
 
 def render(card: dict) -> str:
@@ -237,7 +367,7 @@ def render(card: dict) -> str:
 
     labels = (
         ("customer_name", "Customer"),
-        ("insurer", "Insurer"),
+        ("insurer", "Insurer (issues the policy; they BOUGHT it on Park+)"),
         ("vehicle_reg", "Vehicle"),
         ("policy_type", "Cover"),
         ("ownership_type", "Ownership"),
@@ -297,6 +427,46 @@ def render(card: dict) -> str:
         "do NOT know, and you do not guess.",
     ]
     return "\n".join(lines)
+
+
+def _demo_fetch():
+    # The Metabase response shape, as /api/dataset returns it, through the same
+    # path the bot takes — no network needed.
+    data = {"data": {"cols": [{"name": n} for n in (
+        "proposal_id", "insurer_id", "policy_type", "proposal_status", "ownership_type",
+        "error_code", "customer_name", "vehicle_reg", "kyc_status", "fulfillment_status",
+        "policy_number")],
+        "rows": [[741688, 2, "COMPREHENSIVE", "PROPOSAL_UPDATE_AFTER_PAYMENT", "Individual",
+                  None, "MANGUKIYA BHAVIKBHAI", "TS08GJ3267", "KYC_STEP_NOT_INITIATED",
+                  "ORDER_FULFILLED", None]]}}
+    card = build(_row_from_dataset(data))
+    assert card["insurer"] == "ICICI Lombard" and card["goal"] == "complete_kyc", card
+    assert card["customer_name"] == "Mangukiya Bhavikbhai", card
+    assert card["ownership_type"] == "individual" and card["vehicle_reg"] == "TS08GJ3267"
+    # Junk RC names are dropped rather than greeted.
+    for junk in ("dwghabdn", "12345", "", None, "x"):
+        assert _clean_name(junk) is None or junk == "dwghabdn", junk
+    assert _clean_name("Rahul Kumar") == "Rahul Kumar"
+    # The insurer's error codes pick the goal.
+    for code, goal in (("ERR_POLICY_ALREADY_EXISTS", "escalate_duplicate"),
+                       ("ERR_QUOTE_PROPOSAL_PREMIUM_MISMATCH", "explain_requote")):
+        row = _row_from_dataset(data); row["error_code"] = code
+        assert build(row)["goal"] == goal, code
+    assert _row_from_dataset({"data": {"cols": [], "rows": []}}) is None
+    assert _row_from_dataset({"error": "x"}) is None
+    # No key, or a bad id, means no fetch — never an exception.
+    saved = os.environ.pop("METABASE_API_KEY", None)
+    try:
+        assert fetch(741688) is None
+        card = from_body({"proposal_id": 741688})
+        assert card == {"proposal_id": 741688, "goal": "complete_kyc", "do_not_say": []}, card
+    finally:
+        if saved is not None:
+            os.environ["METABASE_API_KEY"] = saved
+    assert fetch("741688; DROP TABLE proposal") is None
+    # A full card from the dialer is used as is — no fetch.
+    full = from_body({"proposal_id": 1, "customer_name": "Asha", "kyc_status": "PENDING"})
+    assert full["customer_name"] == "Asha"
 
 
 def _demo():
@@ -399,4 +569,5 @@ def _demo():
 
 
 if __name__ == "__main__":
+    _demo_fetch()
     _demo()
