@@ -61,7 +61,9 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimi
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.metrics.metrics import TTFBMetricsData
 from pipecat.frames.frames import (
+    MetricsFrame,
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
@@ -269,6 +271,32 @@ class NoiseGate(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+# How fast Sarvam actually talks, for turning "seconds of bot audio played" into
+# "how much of the reply the caller heard". Measured 2026-09-23 on bulbul:v3,
+# shreya, pace 1.0, romanised Hinglish: 12.9 / 15.8 / 15.8 chars/s over three
+# real bot lines. Retune if SARVAM_PACE or the voice changes.
+SPEECH_CHARS_PER_SEC = float(os.getenv("SPEECH_CHARS_PER_SEC") or 14.5)
+
+
+def split_heard(text: str, heard_secs: float) -> tuple[str, str]:
+    """Split a reply into what the caller heard before barging in, and the rest.
+
+    Sarvam sends no word timestamps, and its TTSTextFrames reach the context when
+    a sentence is SENT for synthesis, not when it is played — so on barge-in the
+    context held the whole reply, including sentences the caller never heard.
+    Seconds of audio actually played are known, so cut at that many characters.
+    ponytail: a speech-rate estimate, off by a word or two; word timestamps
+    from the TTS would make it exact.
+    """
+    cut = int(max(heard_secs, 0.0) * SPEECH_CHARS_PER_SEC)
+    if cut >= len(text):
+        return text, ""
+    # Back up to a word boundary so a half-word is not recorded as said.
+    space = text.rfind(" ", 0, cut + 1)
+    cut = space if space > 0 else 0
+    return text[:cut].rstrip(), text[cut:].strip()
+
+
 class CallLogObserver(BaseObserver):
     """Logs the call as a conversation: one CALLER line, one MONIKA line.
 
@@ -356,6 +384,11 @@ class CallLogObserver(BaseObserver):
         # before the transcript commits is what AssemblyAI was actually timed
         # against.
         self._vad_stop: float | None = None
+        # Seconds of bot audio actually played in the current assistant turn —
+        # what split_heard() needs on a barge-in. Summed across speaking spans,
+        # since Pipecat can emit stop/start between sentences.
+        self._speak_t0: float | None = None
+        self._spoken_secs = 0.0
         # The same domain guard the TTS filter uses. The filter only ever sees what
         # the BOT says, so on its own it cannot know whether the caller ever named
         # a car — and "₹499 (Hyundai Creta के लिए)" for a caller who never said
@@ -366,6 +399,16 @@ class CallLogObserver(BaseObserver):
     def attach_queue(self, queue_frames) -> None:
         """Give the observer a way to speak. Called once, after worker exists."""
         self._queue_frames = queue_frames
+
+    def reset_heard(self) -> None:
+        """A new assistant turn started: nothing of it has been heard yet."""
+        self._spoken_secs = 0.0
+        self._speak_t0 = time.monotonic() if self._speak_t0 is not None else None
+
+    def heard_secs(self) -> float:
+        """Seconds of the current assistant turn the caller has heard so far."""
+        live = time.monotonic() - self._speak_t0 if self._speak_t0 is not None else 0.0
+        return self._spoken_secs + live
 
     def _schedule_filler(self) -> None:
         """Arm the filler for THIS caller turn, replacing any earlier one."""
@@ -456,7 +499,18 @@ class CallLogObserver(BaseObserver):
             self._said.append(frame.text)
         elif isinstance(frame, VADUserStoppedSpeakingFrame):
             self._vad_stop = time.monotonic()
+        elif isinstance(frame, MetricsFrame):
+            # Where a slow LATENCY line went: LLM first token vs TTS first audio.
+            # Pipecat logs these at DEBUG, which call.log suppresses. Source
+            # check = log once, from the service that measured it, not per hop.
+            for d in frame.data:
+                if (isinstance(d, TTFBMetricsData) and d.value > 0
+                        and d.processor == getattr(data.source, "name", None)):
+                    logger.info(f"TTFB | {d.processor} {d.value:.2f}s")
         elif isinstance(frame, BotStartedSpeakingFrame):
+            # Fires once per processor hop; only the first hop starts the span.
+            if self._speak_t0 is None:
+                self._speak_t0 = time.monotonic()
             # A pending VAD stop belongs to the turn that just ended. Left set,
             # it goes stale across the bot's own speech and the NEXT transcript
             # is measured against it: the 13:19 call logged "STT LAG | 14.89s"
@@ -477,11 +531,15 @@ class CallLogObserver(BaseObserver):
                     f"LATENCY | {time.monotonic() - self._turn_start:.2f}s caller -> first audio"
                 )
                 self._turn_start = None
-        elif isinstance(frame, BotStoppedSpeakingFrame) and self._said:
-            # Joined on flush: the LLM streams a turn as several sentences, and
-            # one log line per turn is what makes the transcript readable.
-            logger.info(f"MONIKA | {redact(' '.join(self._said).strip())}")
-            self._said.clear()
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            if self._speak_t0 is not None:
+                self._spoken_secs += time.monotonic() - self._speak_t0
+                self._speak_t0 = None
+            if self._said:
+                # Joined on flush: the LLM streams a turn as several sentences, and
+                # one log line per turn is what makes the transcript readable.
+                logger.info(f"MONIKA | {redact(' '.join(self._said).strip())}")
+                self._said.clear()
 
 # Anything the TTS could actually pronounce. Sarvam rejects a chunk with none of
 # it ("400: Text must contain at least one character from the allowed languages"),
@@ -1512,12 +1570,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # interruption_delay set further down, only if overridden —
                 # see the note there.
                 voice_focus=os.getenv("ASSEMBLYAI_VOICE_FOCUS") or "near-field",
+                # 0.7 is AssemblyAI's own default. 1.0 (max) was set to kill room
+                # chatter and ate the CALLER instead: 2026-09-23 calls sat through
+                # 30s idle nudges while the caller was talking, and a colleague
+                # near the mic still got through at 1.0 anyway.
                 voice_focus_threshold=float(
-                    os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 1.0
+                    os.getenv("ASSEMBLYAI_VOICE_FOCUS_THRESHOLD") or 0.7
                 ),
                 # Docs: raise vad_threshold when background noise causes false
                 # speech. Keep ALIGNED with Silero VAD_CONFIDENCE.
-                vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.92),
+                vad_threshold=float(os.getenv("ASSEMBLYAI_VAD_THRESHOLD") or 0.6),
                 # SPEED, 2026-09-21: these three add up on the caller's side of
                 # EVERY turn, before Bifrost or Sarvam ever see the request —
                 # min_turn_silence + max_turn_silence + interruption_delay was as
@@ -1772,12 +1834,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # Every value here is a room-and-microphone number, not a universal one, so
     # all four are env-tunable: a laptop mic in an open office and a phone handset
     # need different thresholds and no amount of code can know which is in use.
-    # Aligned with ASSEMBLYAI_VAD_THRESHOLD (both 0.92). min_volume 0.55 rejects
+    # Was 0.92 for both this and ASSEMBLYAI_VAD_THRESHOLD; on the 2026-09-23 VM
+    # log Silero never fired for 30 of 83 caller lines at that setting, so
+    # barge-in and turn-end ran on the transcript alone. 0.75 / 0.6 now. min_volume 0.55 rejects
     # quiet distant room talk; if a soft caller at the mic is missed, lower
     # VAD_MIN_VOLUME / VAD_CONFIDENCE / ASSEMBLYAI_VAD_THRESHOLD together.
     vad = SileroVADAnalyzer(
         params=VADParams(
-            confidence=float(os.getenv("VAD_CONFIDENCE") or 0.92),
+            confidence=float(os.getenv("VAD_CONFIDENCE") or 0.75),
             start_secs=float(os.getenv("VAD_START_SECS") or 0.35),
             stop_secs=float(os.getenv("VAD_STOP_SECS") or 0.8),
             min_volume=float(os.getenv("VAD_MIN_VOLUME") or 0.55),
@@ -1879,6 +1943,47 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # Only wired up now that `worker` exists — nothing can queue a frame before
     # this, so the filler literally cannot fire before the call is actually live.
     call_observer.attach_queue(worker.queue_frames)
+
+    # Barge-in: record only what the caller actually heard. Without this the
+    # context kept the whole reply, so after "sir ek minute" cut the bot off in
+    # sentence one, the model believed it had already given sentences two and
+    # three and moved on from instructions nobody heard.
+    @assistant_aggregator.event_handler("on_assistant_turn_started")
+    async def on_assistant_turn_started(aggregator):
+        call_observer.reset_heard()
+
+    @assistant_aggregator.event_handler("on_assistant_turn_stopped")
+    async def on_assistant_turn_stopped(aggregator, message):
+        if not (message.interrupted and message.content):
+            return
+        messages = context.get_messages()
+        last = messages[-1] if messages else None
+        if not (isinstance(last, dict) and last.get("role") == "assistant"
+                and last.get("content") == message.content):
+            return
+        heard, unheard = split_heard(message.content, call_observer.heard_secs())
+        if not unheard:
+            return
+        logger.info(f"CUT OFF | heard: {redact(heard) or '(nothing)'!r} | "
+                    f"not heard: {redact(unheard)!r}")
+        # The assistant turn keeps only what was said, so the history is true.
+        # The note is a separate developer turn, never inside the assistant's
+        # own words, where the model could copy it out loud.
+        if heard:
+            last["content"] = heard + " —"
+        else:
+            messages.pop()
+        messages.append({
+            "role": "developer",
+            "content": (
+                "The caller interrupted you. "
+                + (f"They heard only up to: \"{heard[-80:]}\". " if heard else
+                   "They heard none of your last reply. ")
+                + f"They did NOT hear: \"{unheard}\". Answer what they just said first; "
+                "repeat an unheard point only if it still matters, briefly, in your own words."
+            ),
+        })
+        context.set_messages(messages)
 
     runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
 
