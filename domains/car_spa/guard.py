@@ -418,6 +418,11 @@ def _demo():
             f"  the insurance guard is:  DOMAIN=insurance python -m domains.insurance.guard"
         )
 
+    # The car spa speaks Devanagari; its drift checks below assume that, so
+    # REPLY_SCRIPT=hinglish in the shell must not flip them.
+    import guardrails
+    guardrails.HINGLISH_REPLIES = False
+
     ctx = json.loads(CONTEXT_FILE.read_text())
 
     def guard_mid_call():

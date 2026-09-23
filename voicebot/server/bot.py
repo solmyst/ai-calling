@@ -1602,16 +1602,24 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Liveagents uses 1.05; we were at 1.15 which can read as rushed
                 # / sharp on a KYC money call. 1.08 sits between phone-speed and
                 # calm. Past ~1.3 Hindi consonants smear.
-                pace=float(os.getenv("SARVAM_PACE") or 1.08),
+                # 1.0 since 2026-09-23: "sounds rude and angry" on live calls.
+                # Measured across all 14 female bulbul:v3 voices: shreya at 1.08 /
+                # temp 0.15 was the fastest and flattest of them (pitch movement
+                # +-35 Hz, the lowest), and flat + fast reads as curt on a phone.
+                pace=float(os.getenv("SARVAM_PACE") or 1.0),
                 # Prosody lever for bulbul:v3 (pitch/loudness are v2-only — Sarvam
                 # docs + Pipecat both confirm). Temperature is drawn PER CHUNK,
                 # and defaults buffer 50 / cap 150, so one reply is 2–3 independent
                 # draws — that is the "different voice every sentence" and the
                 # 12:31 "चिल्ला क्या रहे हो" call at 0.6.
                 #
-                # 0.15 keeps a little human variation without volume swings.
-                # Pair with larger chunks below so fewer draws per turn.
-                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.15),
+                # 0.35 since 2026-09-23. 0.15 over-corrected the 0.6 shouting into
+                # a monotone that callers heard as rude; 0.35 gave more pitch
+                # movement (+-45 Hz) with SOFTER peaks (0.79 vs 0.89) on the same
+                # lines. The 0.6 shouting came with 150-char chunks (2-3 draws per
+                # reply); at 500 below a normal reply is one draw, so the
+                # mid-reply volume swing that caused it is mostly gone anyway.
+                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.35),
                 # Match liveagents buffering (80 / 500). Was capped at 300 here
                 # for a faster first chunk, but live feedback 2026-09-22: the
                 # voice still audibly shifts mid-reply — the 300 cap was still
