@@ -1188,11 +1188,11 @@ ESCALATE_AFTER_ASKS = 3
 # only if ESCALATE_AFTER_ASKS is raised past the list.
 _DEFLECTIONS = [
     "Do NOT hand over. Apologise once in half a sentence, then solve it yourself: "
-    "answer what they actually need — price, what is included, a slot, the booking, "
-    "a policy — in one or two sentences, and ask the one question that moves it on.",
-    "Still do NOT hand over. Say plainly what you CAN do right now — note the "
-    "booking request, note a callback, take the area and the slot — and offer that. "
-    "You have no colleague's phone number to give out, so never promise one.",
+    "answer what they actually asked, in one or two sentences, and ask the one "
+    "question that moves the call on.",
+    "Still do NOT hand over. Say plainly what you CAN do right now — the next step "
+    "for them, or a callback at a time they choose — and offer that. You have no "
+    "colleague's phone number to give out, so never promise one.",
 ]
 
 
@@ -1352,7 +1352,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             f"fields={sorted(k for k in card if k != 'goal')}"
         )
     else:
-        logger.info("No call card — running the generic KYC call")
+        logger.info("No call card — running the generic call for this domain")
 
     groq_key = os.getenv("GROQ_API_KEY")
     # STT and the LLM can run on separate Groq keys so one key isn't carrying both
@@ -1602,16 +1602,24 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # Liveagents uses 1.05; we were at 1.15 which can read as rushed
                 # / sharp on a KYC money call. 1.08 sits between phone-speed and
                 # calm. Past ~1.3 Hindi consonants smear.
-                pace=float(os.getenv("SARVAM_PACE") or 1.08),
+                # 1.0 since 2026-09-23: "sounds rude and angry" on live calls.
+                # Measured across all 14 female bulbul:v3 voices: shreya at 1.08 /
+                # temp 0.15 was the fastest and flattest of them (pitch movement
+                # +-35 Hz, the lowest), and flat + fast reads as curt on a phone.
+                pace=float(os.getenv("SARVAM_PACE") or 1.0),
                 # Prosody lever for bulbul:v3 (pitch/loudness are v2-only — Sarvam
                 # docs + Pipecat both confirm). Temperature is drawn PER CHUNK,
                 # and defaults buffer 50 / cap 150, so one reply is 2–3 independent
                 # draws — that is the "different voice every sentence" and the
                 # 12:31 "चिल्ला क्या रहे हो" call at 0.6.
                 #
-                # 0.15 keeps a little human variation without volume swings.
-                # Pair with larger chunks below so fewer draws per turn.
-                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.15),
+                # 0.35 since 2026-09-23. 0.15 over-corrected the 0.6 shouting into
+                # a monotone that callers heard as rude; 0.35 gave more pitch
+                # movement (+-45 Hz) with SOFTER peaks (0.79 vs 0.89) on the same
+                # lines. The 0.6 shouting came with 150-char chunks (2-3 draws per
+                # reply); at 500 below a normal reply is one draw, so the
+                # mid-reply volume swing that caused it is mostly gone anyway.
+                temperature=float(os.getenv("SARVAM_TEMPERATURE") or 0.35),
                 # Match liveagents buffering (80 / 500). Was capped at 300 here
                 # for a faster first chunk, but live feedback 2026-09-22: the
                 # voice still audibly shifts mid-reply — the 300 cap was still
@@ -1997,7 +2005,7 @@ async def bot(runner_args: RunnerArguments):
 
     # Telephony serializers are injected by create_transport once the provider
     # handshake arrives. Pick Exotel or Plivo (Indian CLI / 1600-series), not
-    # Twilio — see HANDOVER.md. Run with `-t exotel` or `-t plivo`; needs a
+    # Twilio (no Indian CLI). Run with `-t exotel` or `-t plivo`; needs a
     # public HTTPS/WSS front (ngrok etc.) because run.py binds localhost:7860.
     def _phone_params() -> FastAPIWebsocketParams:
         return FastAPIWebsocketParams(
