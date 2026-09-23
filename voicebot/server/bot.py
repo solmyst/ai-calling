@@ -1188,11 +1188,11 @@ ESCALATE_AFTER_ASKS = 3
 # only if ESCALATE_AFTER_ASKS is raised past the list.
 _DEFLECTIONS = [
     "Do NOT hand over. Apologise once in half a sentence, then solve it yourself: "
-    "answer what they actually need — price, what is included, a slot, the booking, "
-    "a policy — in one or two sentences, and ask the one question that moves it on.",
-    "Still do NOT hand over. Say plainly what you CAN do right now — note the "
-    "booking request, note a callback, take the area and the slot — and offer that. "
-    "You have no colleague's phone number to give out, so never promise one.",
+    "answer what they actually asked, in one or two sentences, and ask the one "
+    "question that moves the call on.",
+    "Still do NOT hand over. Say plainly what you CAN do right now — the next step "
+    "for them, or a callback at a time they choose — and offer that. You have no "
+    "colleague's phone number to give out, so never promise one.",
 ]
 
 
@@ -1352,7 +1352,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             f"fields={sorted(k for k in card if k != 'goal')}"
         )
     else:
-        logger.info("No call card — running the generic KYC call")
+        logger.info("No call card — running the generic call for this domain")
 
     groq_key = os.getenv("GROQ_API_KEY")
     # STT and the LLM can run on separate Groq keys so one key isn't carrying both
@@ -2005,7 +2005,7 @@ async def bot(runner_args: RunnerArguments):
 
     # Telephony serializers are injected by create_transport once the provider
     # handshake arrives. Pick Exotel or Plivo (Indian CLI / 1600-series), not
-    # Twilio — see HANDOVER.md. Run with `-t exotel` or `-t plivo`; needs a
+    # Twilio (no Indian CLI). Run with `-t exotel` or `-t plivo`; needs a
     # public HTTPS/WSS front (ngrok etc.) because run.py binds localhost:7860.
     def _phone_params() -> FastAPIWebsocketParams:
         return FastAPIWebsocketParams(

@@ -107,15 +107,6 @@ line. Unset, the judge warns once per run. `JUDGE_BACKEND=parkplus` forces the
 judge off Bifrost entirely, which is how you tell "the key is spent" apart from
 "the bot is broken" — they look identical otherwise.
 
-`probe_cache.py` (repo root) answers the other half: 75% of that spend was one
-byte-identical prefix, the system prompt, re-sent every turn. It sends the real
-prompt several times and prints whatever the provider says about prefix caching.
-
-```bash
-python probe_cache.py                    # the bot's chain
-python probe_cache.py --provider parkplus
-```
-
 ## The judge
 
 Pipecat's default judge is a local Ollama (`gemma4:12b`); without one every
