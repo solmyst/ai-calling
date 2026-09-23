@@ -255,7 +255,7 @@ def _post(url, headers, payload, timeout=90, attempts=4):
 def _guarded(guard, reply):
     """What the caller would ACTUALLY hear, plus which rules fired.
 
-    Mirrors PriceGuardFilter: the guard runs per sentence, on the way to TTS.
+    Mirrors bot.py's GuardFilter: the guard runs per sentence, on the way to TTS.
     """
     before = {n: len(getattr(guard, n)) for n, _, _ in guard.COUNTERS}
     spoken = "".join(guard.check(s) for s in _SENTENCE.findall(reply) if s.strip())

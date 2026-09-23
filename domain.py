@@ -9,7 +9,7 @@ lives in `voicebot/`. This module is the seam between them.
     DOMAIN=insurance
 
 Adding a business means adding a folder, not editing the pipeline. See
-`domains/insurance/README.md` for exactly what a folder has to contain.
+`domains/README.md` for exactly what a folder has to contain.
 """
 
 import importlib
@@ -58,7 +58,7 @@ def _fail(reason: str) -> "NoReturn":  # noqa: F821
         f"DOMAIN={ACTIVE!r}: {reason}\n"
         f"  looked in: {DOMAIN_DIR}\n"
         f"  available: {', '.join(available) or 'none'}\n"
-        f"  a domain needs context.json and prompt.py — see domains/insurance/README.md"
+        f"  a domain needs context.json, prompt.py and guard.py — see domains/README.md"
     )
 
 
@@ -86,16 +86,17 @@ def build_call_card(body):
 def build_guard(card=None):
     """The active domain's deterministic output guard.
 
-    Falls back to the car spa's PriceGuard when a domain ships no guard.py, but
-    a domain that handles money or identity should NEVER rely on that fallback —
-    it checks car wash prices and slot times and will pass almost anything else.
-    domains/insurance/README.md spells out why.
+    Required. There used to be a fallback to the car spa's PriceGuard, which
+    checks car wash prices and slot times and passes almost anything else — a
+    new domain that forgot guard.py would have shipped effectively unguarded.
+    Every domain now ships its own, so a missing one fails at startup instead.
     """
     try:
         module = importlib.import_module(f"domains.{ACTIVE}.guard")
-    except ModuleNotFoundError:
-        from guardrails import PriceGuard
-        return PriceGuard()
+    except ModuleNotFoundError as e:
+        if e.name != f"domains.{ACTIVE}.guard":
+            raise
+        _fail("missing guard.py")
     if hasattr(module, "build_guard"):
         return module.build_guard(card)
     try:
@@ -103,6 +104,21 @@ def build_guard(card=None):
     except TypeError:
         # A domain whose guard predates call cards.
         return module.GUARD()
+
+
+def build_tools() -> list:
+    """The active domain's own LLM tools, if it has any (domains/<name>/tools.py).
+
+    bot.py adds the shared ones — escalate_to_human and end_call — beside these.
+    A domain with no tools.py simply has none of its own.
+    """
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.tools")
+    except ModuleNotFoundError as e:
+        if e.name != f"domains.{ACTIVE}.tools":
+            raise
+        return []
+    return list(module.TOOLS)
 
 
 def build_system_prompt(mode: str = "outbound", card=None) -> str:

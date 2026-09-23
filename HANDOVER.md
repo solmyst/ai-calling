@@ -46,7 +46,9 @@ DOMAIN=insurance ./venv/bin/python -m domains.insurance.guard
 DOMAIN=insurance ./venv/bin/python -m domains.insurance.prompt
 DOMAIN=insurance ./venv/bin/python -m domains.insurance.call_card
 cd voicebot/server && DOMAIN=insurance ../../venv/bin/python test_noise_gate.py
-DOMAIN=car_spa ./venv/bin/python guardrails.py     # needs its own DOMAIN
+DOMAIN=car_spa ./venv/bin/python -m domains.car_spa.guard
+DOMAIN=car_spa ./venv/bin/python -m domains.car_spa.prompt
+./venv/bin/python guardrails.py                    # shared rules only
 ./venv/bin/python redaction.py
 ```
 
@@ -259,8 +261,8 @@ keep taking production down with them.
 - **No deploy artifact of any kind** — no Dockerfile, no compose, no process
   manager, no restart-on-crash.
 - **`LLM_TOOLS=off` means zero lead capture and zero human handover.**
-  `record_booking_request` and `escalate_to_human` are the only structured
-  output and the only route to a person, and both are disabled.
+  `escalate_to_human` (and the car spa's `record_booking_request`) are the only
+  structured output and the only route to a person, and both are disabled.
 - **Observability is one text file.** `call.log`, no call id, rotation at 5 MB
   keeping 3 files. 500 calls interleave unattributably and the earliest are
   silently discarded. `runner_args.session_id` is available and unused.

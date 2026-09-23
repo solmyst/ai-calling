@@ -22,7 +22,6 @@ Run the bot using::
 
 import asyncio
 import random
-import datetime
 import time
 import json
 import os
@@ -53,8 +52,9 @@ from domain import (
     build_guard,
     build_opening_line,
     build_system_prompt,
+    build_tools,
 )
-from guardrails import HINGLISH_REPLIES, PriceGuard, is_machine_output
+from guardrails import HINGLISH_REPLIES, is_machine_output
 from redaction import redact
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
@@ -109,7 +109,6 @@ from pipecat.workers.runner import WorkerRunner
 
 load_dotenv(override=True)  # cwd .env too, for a run from another directory
 
-BOOKING_LOG = Path(__file__).parent / "booking_requests.jsonl"
 CALL_LOG = Path(__file__).parent / "call.log"
 
 
@@ -293,7 +292,7 @@ class CallLogObserver(BaseObserver):
 
     def __init__(
         self,
-        guard: PriceGuard | None = None,
+        guard=None,
         filler_delay_secs: float = 0.0,
         filler_delay2_secs: float = 0.0,
     ):
@@ -348,7 +347,7 @@ class CallLogObserver(BaseObserver):
         # before the transcript commits is what AssemblyAI was actually timed
         # against.
         self._vad_stop: float | None = None
-        # The same PriceGuard the TTS filter uses. The filter only ever sees what
+        # The same domain guard the TTS filter uses. The filter only ever sees what
         # the BOT says, so on its own it cannot know whether the caller ever named
         # a car — and "₹499 (Hyundai Creta के लिए)" for a caller who never said
         # Creta passes every content check. This is the only place both sides of
@@ -646,7 +645,7 @@ FALLBACK_MODELS = [
 ]
 
 # Gemini speaks OpenAI on this path, so it joins the rotation as a base_url swap
-# rather than a second service — the pipeline, the TTS and PriceGuardFilter are
+# rather than a second service — the pipeline, the TTS and GuardFilter are
 # untouched. (Gemini Live, the speech-to-speech service, is deliberately NOT used:
 # it pushes TTSAudioRawFrame straight out of the LLM, so there is no text
 # checkpoint where the price guard could run before the caller hears the number.)
@@ -1138,45 +1137,21 @@ class FailoverLLMService(GroqLLMService):
         return list(dict.fromkeys(e.api_key for e in self._endpoints))
 
 
-class PriceGuardFilter(BaseTextFilter):
-    """Runs the deterministic price check on every sentence before it is spoken.
+class GuardFilter(BaseTextFilter):
+    """Runs the active domain's guard on every sentence before it is spoken.
 
     Sits in the TTS service's text_filters, so it catches the text on its way to
     the voice regardless of which model produced it or what the prompt said.
     """
 
-    # Every list PriceGuard appends to, and what to say when it grows. Was six
-    # positional entries in a tuple indexed by hand; each new guard meant a new
-    # magic index, so it is a table now — adding a guard is one row.
-    # WARNING is for counters that only observe (nothing was changed); ERROR is
-    # for text that was actually rewritten or dropped before the caller heard it.
-    # Kept only as the car spa's table; a guard that declares its own COUNTERS
-    # (see domains/insurance/guard.py) overrides it, because which rules exist
-    # is a property of the domain, not of this filter.
-    _COUNTERS = (
-        ("blocked", logger.error, "blocked invented price(s)"),
-        ("odd_times", logger.warning, "saw a non-standard slot time"),
-        ("false_confirmations", logger.error, "rewrote a booking claimed as done"),
-        ("romanised", logger.warning, "SCRIPT DRIFT, romanised (not rewritten)"),
-        ("labels", logger.error, "stripped a leaked speaker label"),
-        ("availability_claims", logger.error, "rewrote a slot/area availability claim"),
-        ("damage_promises", logger.error, "rewrote a damage/liability promise"),
-        ("body_type_asks", logger.error, "rewrote a hatchback/sedan/SUV question"),
-        ("self_ai", logger.error, "rewrote the bot announcing it is an AI"),
-        ("machine_output", logger.error, "DROPPED non-speech output"),
-        ("priced_before_car", logger.error, "blocked a price before the caller named a car"),
-        ("self_narration", logger.error, "DROPPED the model thinking out loud"),
-    )
-
-    def __init__(self, guard=None):
-        self._guard = guard or PriceGuard()
-        counters = getattr(self._guard, "COUNTERS", None)
-        if counters:
-            levels = {"error": logger.error, "warning": logger.warning,
-                      "info": logger.info}
-            self._counters = tuple((n, levels[lvl], what) for n, lvl, what in counters)
-        else:
-            self._counters = self._COUNTERS
+    def __init__(self, guard):
+        self._guard = guard
+        # Which rules exist is a property of the domain, so each guard declares
+        # its own COUNTERS: (list attribute, log level, what to say when it grows).
+        levels = {"error": logger.error, "warning": logger.warning, "info": logger.info}
+        self._counters = tuple(
+            (n, levels[lvl], what) for n, lvl, what in guard.COUNTERS
+        )
 
     async def filter(self, text: str) -> str:
         # The sentence splitter can emit a chunk that is pure punctuation (a lone
@@ -1199,51 +1174,6 @@ class PriceGuardFilter(BaseTextFilter):
 
     async def reset_interruption(self):
         pass
-
-
-async def record_booking_request(
-    params: FunctionCallParams,
-    service: str,
-    car: str,
-    area: str,
-    slot_preference: str,
-    phone: str,
-):
-    """Note the booking request for the team to confirm. Call once you have all
-    five. Records only — it does NOT book or confirm.
-
-    Args:
-        service: Full Car Spa Premium, Full Car Spa Basic or Exterior Only.
-        car: Brand and model, e.g. "Hyundai Creta".
-        area: Area or pincode in Gurugram.
-        slot_preference: Day and time, in the customer's own words.
-        phone: Callback number as given.
-    """
-    # The docstring above IS the tool schema and is re-sent on every turn, so it
-    # carries only what the parameter names do not already say. Notes like this
-    # one belong here, in a comment, where the model is never charged for them.
-    request = {
-        "ts": datetime.datetime.now().isoformat(),
-        "service": service,
-        "car": car,
-        "area": area,
-        "slot_preference": slot_preference,
-        "phone": phone,
-    }
-    with BOOKING_LOG.open("a") as f:
-        f.write(json.dumps(request, ensure_ascii=False) + "\n")
-    logger.info(f"Booking request recorded: {request}")
-    # The only status this tool can ever return. There is deliberately no
-    # confirm_booking tool and no fee-waiver tool, so "your booking is confirmed"
-    # and "I've waived the fee" are not things the model is able to transact —
-    # the guardrail is the tool surface, not just the prompt.
-    await params.result_callback(
-        {
-            "status": "pending_confirmation",
-            "say": "Request noted. Tell the customer the team will confirm shortly. "
-            "Do NOT say it is confirmed or that the slot is available.",
-        }
-    )
 
 
 # How many times a caller has to ask before the call is really handed over.
@@ -1629,9 +1559,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     if sarvam_key:
         tts = SarvamTTSService(
             api_key=sarvam_key,
-            text_filters=[MarkdownTextFilter(), PriceGuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
             # REVERTED to SENTENCE on 2026-09-21 — TOKEN mode broke the safety
-            # guard, live, on the 18:35 call. text_filters (PriceGuardFilter,
+            # guard, live, on the 18:35 call. text_filters (GuardFilter,
             # which is KycGuard — OTP, Aadhaar, invented-regulator checks) run
             # AFTER aggregation, on whatever the aggregator hands them
             # (Pipecat's own docs: "text filters to apply after aggregation").
@@ -1699,7 +1629,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     elif elevenlabs_key:
         tts = ElevenLabsTTSService(
             api_key=elevenlabs_key,
-            text_filters=[MarkdownTextFilter(), PriceGuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
             settings=ElevenLabsTTSService.Settings(
                 voice=os.getenv("ELEVENLABS_VOICE_ID") or "21m00Tcm4TlvDq8ikWAM",  # Rachel
                 model=os.getenv("ELEVENLABS_MODEL") or "eleven_flash_v2_5",  # multilingual, low-latency
@@ -1709,7 +1639,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     else:
         tts = PiperTTSService(
             download_dir=Path(__file__).resolve().parents[2] / "piper_voices",
-            text_filters=[MarkdownTextFilter(), PriceGuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
             settings=PiperTTSService.Settings(
                 voice=os.getenv("PIPER_VOICE_ID") or "en_US-lessac-medium",
             ),
@@ -1832,7 +1762,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # carrying tools, so sending none is what lets that endpoint answer at all.
     #
     # The cost is not cosmetic and is worth re-reading before leaving it off:
-    # record_booking_request is the ONLY way a lead is captured,
+    # the car spa's record_booking_request is the ONLY way a lead is captured,
     # escalate_to_human the only way a caller reaches a person, and end_call the
     # only polite hangup. With tools off the bot holds a good conversation and
     # produces nothing — hangup then relies on CALL_MAX_SECS / CALL_IDLE_SECS.
@@ -1840,7 +1770,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     tools_on = (os.getenv("LLM_TOOLS") or "on").lower() not in ("off", "0", "false")
     context = LLMContext(
         tools=(
-            [record_booking_request, _make_escalate_tool(), end_call]
+            # The domain's own tools (the car spa's booking capture) plus the
+            # two every call needs.
+            [*build_tools(), _make_escalate_tool(), end_call]
             if tools_on
             else []
         )

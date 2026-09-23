@@ -382,8 +382,8 @@ _DONE_CLAIM = re.compile(
 )
 
 # --- promising to send something ----------------------------------------------
-# There is no SMS, WhatsApp or email path from this bot: `tools` holds only
-# record_booking_request and escalate, and LLM_TOOLS=off removes even those. A
+# There is no SMS, WhatsApp or email path from this bot: its tools are only
+# escalate_to_human and end_call, and LLM_TOOLS=off removes even those. A
 # customer told "मैं link भेज देती हूँ" waits for a message that never arrives,
 # and rings back. The app is already on their phone.
 #
