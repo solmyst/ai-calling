@@ -73,8 +73,14 @@ _OTP_ASK_VERB = re.compile(
 # them on the call. Requires a REQUEST shape, so the bot can still say "Aadhaar
 # app में upload करना होगा" — that is the handoff, which is the whole point.
 _SENSITIVE_ID = r"aadhaar|आधार|\bPAN\b|पैन|GSTIN|जीएसटी|\bCIN\b"
+# A bare "?" is NOT an ask on its own. 2026-09-23 VM call: "Agar aapke paas
+# Aadhaar ki photo abhi nahi hai, toh kya main aapko shaam ko call karoon?" —
+# a callback question — was blocked as asking for the Aadhaar number, and the
+# caller heard "Woh number mujhe phone par nahi chahiye…" out of nowhere. A
+# question mark counts only next to a number word (see _asks_for_id).
+_NUMBER_WORD = re.compile(r"number|नंबर|नम्बर|nambar|digit|अंक", re.IGNORECASE)
 _ASK_SHAPE = (
-    r"\?|बता\s*(?:दीजिए|दो|दें|इए)|बताइए|बोल\s*(?:दीजिए|दो)|"
+    r"बता\s*(?:दीजिए|दो|दें|इए)|बताइए|बोल\s*(?:दीजिए|दो)|"
     r"क्या\s+है|कितना\s+है|share\s+(?:kar|कर)|tell\s+me|what\s+is\s+your|"
     r"नंबर\s+(?:दे|बता)|number\s+(?:de|bata)|"
     r"bata\s*(?:dijiye|do|dein)|bataiye|bol\s*(?:dijiye|do)|kya\s+hai|kitna\s+hai"
@@ -86,7 +92,7 @@ _ASK_SHAPE = (
 _ASKED_IF_FILLED = re.compile(
     r"भर\s*(?:दिए|दी|दिया|लिए|ली)|डाल\s*(?:दिए|दी|दिया)|"
     r"fill\s*(?:ed|kiya|kar\s*(?:diya|di))|entered|"
-    r"(?:complete|पूरा|पूरी)\s*(?:कर|हो)|"
+    r"(?:complete|पूरा|पूरी)\s*(?:कर|हो)|submit|सबमिट|"
     r"bhar\s*(?:diye|di|diya|liye|li)\b|daal\s*(?:diye|di|diya)\b|"
     r"(?:poora|poori|puri)\s*(?:kar|ho)",
     re.IGNORECASE,
@@ -170,9 +176,10 @@ _DONE_MARKER = (
     r"successful|सफल|अप्रूव|approved|verified|वेरीफाई|"
     r"poor[aie]\s*ho\s*gay|safal"
 )
-_SAFE_DONE = (
-    "मैं system में check करके confirm करूँगी सर — अभी complete नहीं बोल सकती"
-)
+# Product owner, 2026-09-23: when "done" comes up, ASK — "main confirm nahi kar
+# sakti" was the line callers heard and it answered nothing. The question is
+# still no completion claim, and it is the first step of the done flow (row 9b).
+_SAFE_DONE = "सर, आपने पूरा form भर के PAN और Aadhaar के साथ submit कर दिया?"
 # The app has a button literally labelled "Complete KYC". Telling someone to
 # press it is an instruction, not a claim that their KYC is done. Caught live
 # 19:53: "...अपनी policy पर click करके Complete KYC दबा दीजिए।" was rewritten
@@ -293,9 +300,9 @@ _PROMISE_MARKER = re.compile(
     # itself. Reviving them turned that approved sentence into a false positive.
     re.IGNORECASE,
 )
-_SAFE_PROMISE = (
-    "वो मैं यहाँ से confirm नहीं कर सकती सर — team update कर देगी"
-)
+# No time, no certainty — what is true instead of what was promised. The old
+# "वो मैं यहाँ से confirm नहीं कर सकती" answered nothing the caller had asked.
+_SAFE_PROMISE = "KYC होते ही insurer की तरफ़ से आपकी policy बन जाएगी सर"
 
 # --- inventing an authority or a money consequence ----------------------------
 # Both verbatim from the 00:50 call, on the commonest objection of all ("अभी
@@ -794,8 +801,8 @@ def _roman_lines() -> dict[str, str]:
         _SAFE_DOC_CHANNEL: (
             "Documents app ke KYC section mein hi upload hote hain sir — wahin se kar dijiye"
         ),
-        _SAFE_DONE: "Main system mein check karke confirm karungi sir — abhi complete nahi bol sakti",
-        _SAFE_PROMISE: "Woh main yahan se confirm nahi kar sakti sir — team update kar degi",
+        _SAFE_DONE: "Sir, aapne poora form bhar ke PAN aur Aadhaar ke saath submit kar diya?",
+        _SAFE_PROMISE: "KYC hote hi insurer ki taraf se aapki policy ban jaayegi sir",
         _SAFE_AUTHORITY: (
             "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina policy issue nahi ho paati"
         ),
@@ -851,8 +858,11 @@ def _end(line: str, terminator: str) -> str:
     """Terminate a canned line once, with a danda only if the line is Devanagari."""
     if line[-1:] in ".।!?":
         return line
-    if terminator == "।" and not re.search(r"[\u0900-\u097F]", line):
-        terminator = "."
+    devanagari = bool(re.search(r"[\u0900-\u097F]", line))
+    # A canned STATEMENT replacing a question must not end in "?": the voice
+    # reads it with a rising tone ("...Complete KYC pe?", 2026-09-23 VM call).
+    if terminator == "?" or (terminator == "।" and not devanagari):
+        terminator = "।" if devanagari else "."
     return line + terminator
 
 
@@ -1235,7 +1245,8 @@ class KycGuard:
 
         if (
             re.search(_SENSITIVE_ID, sentence, re.IGNORECASE)
-            and re.search(_ASK_SHAPE, sentence, re.IGNORECASE)
+            and (re.search(_ASK_SHAPE, sentence, re.IGNORECASE)
+                 or ("?" in sentence and _NUMBER_WORD.search(sentence)))
             and not re.search(_APP_CONTEXT, sentence, re.IGNORECASE)
             and not _ASKED_IF_FILLED.search(sentence)
         ):
@@ -1290,6 +1301,10 @@ class KycGuard:
 
         if _PROMISE_RE.search(sentence) and _PROMISE_MARKER.search(sentence):
             self.promises.append(sentence.strip())
+            # A refund promise ("wahan se turant ho jayega") gets the refund
+            # answer, not the policy one — 2026-09-23 VM call.
+            if self.last_caller_topic == "refund":
+                return safe(_SAFE_BY_TOPIC["refund"])
             return safe(_SAFE_PROMISE)
 
         # Last of the rewrites. "सरकार के नियम के हिसाब से आपको ये करना ही होगा"
@@ -1929,6 +1944,23 @@ def _demo():
             h.check(line)
             assert not h.romanised, f"correct romanised line counted as drift: {line!r}"
 
+        # All three from the 2026-09-23 VM call.
+        h = KycGuard()
+        line = "Agar aapke paas Aadhaar ki photo abhi nahi hai, toh kya main aapko shaam ko call karoon?"
+        assert h.check(line) == line and not h.sensitive_id_asks, "a callback question is not an ID ask"
+        h = KycGuard()
+        assert h.check("Aapka Aadhaar number?") != "Aapka Aadhaar number?", "a number ask is still caught"
+        h = KycGuard()
+        h.note_caller("मुझे मेरा रिफंड दे दो, मुझे नहीं करना")
+        out = h.check("Refund ke liye support section mein request daaliye, wahan se turant ho jayega.")
+        assert "customer support" in out, out
+        h = KycGuard()
+        out = h.check("Aapki policy kal tak aa jayegi?")
+        assert out.endswith(".") and not out.endswith("?."), out
+        h = KycGuard()
+        out = h.check("Sir aapki KYC ho gayi hai.")
+        assert out.startswith("Sir, aapne poora form bhar ke") and out.endswith("?"), out
+
         # Not engaged yet: the romanised app push is still a push.
         h = KycGuard()
         assert h.check("Park+ app kholiye aur Insurance icon par click kijiye.") == ""
@@ -1963,7 +1995,7 @@ def _demo():
         # full stop, not a danda.
         h = KycGuard()
         out = h.check("Sir aapki KYC ho gayi hai।")
-        assert out == roman_lines[_SAFE_DONE] + ".", out
+        assert out == roman_lines[_SAFE_DONE], out   # a question: keeps its own "?"
 
         # Second use of a sanctioned line gets the romanised alternate.
         h = KycGuard()
