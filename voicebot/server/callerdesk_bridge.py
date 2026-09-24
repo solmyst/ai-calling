@@ -15,7 +15,11 @@ dialplan builds it as <phone 12 digits as 8-4>-4000-8000-<proposal id, 12 digits
 (zeros when unknown) — so no side channel is needed. The phone is where the
 bot sends the KYC link on WhatsApp.
 
-    python callerdesk_bridge.py            # BRIDGE_PORT=9092 BOT_WS_URL=ws://127.0.0.1:7860/ws
+    python callerdesk_bridge.py                          # the bridge (inbound + outbound audio)
+    python callerdesk_bridge.py dial 9876543210 859623   # outbound: ring a customer
+
+`dial` asks our Asterisk (AMI, 127.0.0.1:5038, deploy/callerdesk/manager.conf)
+to call the customer through CallerDesk and hand the answered call to the bot.
 """
 
 import asyncio
@@ -134,6 +138,32 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot
     logger.info(f"CALL {call_id} ended")
 
 
+async def dial(phone: str, proposal: int) -> str:
+    """Ring a customer via our Asterisk -> CallerDesk; the answered call reaches the bot.
+
+    Returns Asterisk's reply to the Originate. Needs AMI_USER / AMI_SECRET
+    (deploy/callerdesk/manager.conf). CALLERDESK_DIAL_PREFIX is whatever
+    CallerDesk wants in front of the number (e.g. "0") — ask them.
+    """
+    digits = "".join(c for c in phone if c.isdigit())[-10:]
+    full = "91" + digits
+    number = (os.getenv("CALLERDESK_DIAL_PREFIX") or "") + digits
+    reader, writer = await asyncio.open_connection(
+        os.getenv("AMI_HOST") or "127.0.0.1", int(os.getenv("AMI_PORT") or 5038))
+    writer.write((f"Action: Login\r\nUsername: {os.environ['AMI_USER']}\r\n"
+                  f"Secret: {os.environ['AMI_SECRET']}\r\n\r\n"
+                  f"Action: Originate\r\nChannel: PJSIP/{number}@callerdesk\r\n"
+                  "Context: ai-bot\r\nExten: s\r\nPriority: 1\r\nAsync: true\r\n"
+                  f"Variable: PROPOSAL_ID={int(proposal)},CUSTOMER_PHONE={full}\r\n\r\n"
+                  "Action: Logoff\r\n\r\n").encode())
+    await writer.drain()
+    reply = (await asyncio.wait_for(reader.read(4096), 5)).decode(errors="ignore")
+    writer.close()
+    logger.info(f"DIAL ...{digits[-4:]} proposal={proposal}: "
+                f"{'accepted' if 'Originate successfully queued' in reply else reply[-200:]!r}")
+    return reply
+
+
 async def main():
     port = int(os.getenv("BRIDGE_PORT") or 9092)
     bot_url = os.getenv("BOT_WS_URL") or "ws://127.0.0.1:7860/ws"
@@ -145,4 +175,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    if sys.argv[1:2] == ["dial"]:
+        asyncio.run(dial(sys.argv[2], int(sys.argv[3])))
+    else:
+        asyncio.run(main())
