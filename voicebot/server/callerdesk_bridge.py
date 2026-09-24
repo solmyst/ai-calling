@@ -61,7 +61,36 @@ def frame(kind: int, payload: bytes = b"") -> bytes:
     return bytes([kind]) + len(payload).to_bytes(2, "big") + payload
 
 
-async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot_url: str):
+# Live calls per bot process. One bot process is one Python core and carries
+# ~4-5 calls (measured on the 4-core VM 2026-09-24: 4 calls = 40-93% of a core),
+# so scale is many bot processes behind this one bridge: BOT_WS_URLS lists them
+# and each new call goes to the least busy. MAX_CALLS_PER_BOT caps each one.
+ACTIVE: dict[str, int] = {}
+
+
+def pick_bot(urls: list[str], cap: int) -> str | None:
+    """The least busy bot process with room for one more call, or None."""
+    free = [u for u in urls if ACTIVE.get(u, 0) < cap]
+    return min(free, key=lambda u: ACTIVE.get(u, 0)) if free else None
+
+
+async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot_urls: list[str]):
+    bot_url = pick_bot(bot_urls, int(os.getenv("MAX_CALLS_PER_BOT") or 5))
+    if bot_url is None:
+        # Every bot is full: hang up at once so Asterisk / the dialer can retry
+        # later, rather than put a customer on a bot that will stutter.
+        logger.warning(f"ALL BOTS FULL ({sum(ACTIVE.values())} calls) — rejecting call")
+        writer.write(frame(HANGUP))
+        writer.close()
+        return
+    ACTIVE[bot_url] = ACTIVE.get(bot_url, 0) + 1
+    try:
+        await _bridge(reader, writer, bot_url)
+    finally:
+        ACTIVE[bot_url] -= 1
+
+
+async def _bridge(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot_url: str):
     kind, payload = await read_frame(reader)
     if kind != UUID:
         logger.error(f"AudioSocket: first frame was {kind:#x}, not a UUID — dropping")
@@ -166,10 +195,11 @@ async def dial(phone: str, proposal: int) -> str:
 
 async def main():
     port = int(os.getenv("BRIDGE_PORT") or 9092)
-    bot_url = os.getenv("BOT_WS_URL") or "ws://127.0.0.1:7860/ws"
+    bot_urls = [u.strip() for u in (os.getenv("BOT_WS_URLS") or os.getenv("BOT_WS_URL")
+                                    or "ws://127.0.0.1:7860/ws").split(",") if u.strip()]
     server = await asyncio.start_server(
-        lambda r, w: handle(r, w, bot_url), os.getenv("BRIDGE_HOST") or "127.0.0.1", port)
-    logger.info(f"AudioSocket bridge on :{port} -> {bot_url}")
+        lambda r, w: handle(r, w, bot_urls), os.getenv("BRIDGE_HOST") or "127.0.0.1", port)
+    logger.info(f"AudioSocket bridge on :{port} -> {len(bot_urls)} bot process(es)")
     async with server:
         await server.serve_forever()
 

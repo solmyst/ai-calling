@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import os  # noqa: E402
 
-from callerdesk_bridge import AUDIO, UUID, dial, frame, phone_from_uuid, proposal_from_uuid, read_frame  # noqa: E402
+from callerdesk_bridge import ACTIVE, AUDIO, UUID, dial, frame, pick_bot, phone_from_uuid, proposal_from_uuid, read_frame  # noqa: E402
 
 assert proposal_from_uuid(str(uuid.UUID("00000000-0000-4000-8000-000000859623"))) == 859623
 assert proposal_from_uuid("00000000-0000-4000-8000-000000000000") is None
@@ -51,4 +51,11 @@ async def outbound():
     assert "Context: ai-bot" in sent and "Username: aibot" in sent
 
 asyncio.run(outbound())
+
+# Calls spread to the least busy bot; none at all once every bot is at the cap.
+ACTIVE.clear()
+ACTIVE.update({"a": 2, "b": 0, "c": 5})
+assert pick_bot(["a", "b", "c"], 5) == "b"
+ACTIVE.update({"a": 5, "b": 5})
+assert pick_bot(["a", "b", "c"], 5) is None
 print("callerdesk bridge ok")
