@@ -1,0 +1,19 @@
+# systemd unit for the CallerDesk AudioSocket bridge (voicebot/server/callerdesk_bridge.py).
+#   sudo cp deploy/callerdesk/callerdesk-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now callerdesk-bridge
+# More bot processes for more concurrent calls: add their /ws URLs to BOT_WS_URLS.
+[Unit]
+Description=CallerDesk AudioSocket bridge -> AI calling bot
+After=network.target asterisk.service
+
+[Service]
+User=anush
+WorkingDirectory=/home/anush/ai-calling/voicebot/server
+Environment=BOT_WS_URLS=ws://127.0.0.1:7860/ws
+Environment=MAX_CALLS_PER_BOT=5
+ExecStart=/home/anush/ai-calling/voicebot/server/.venv/bin/python callerdesk_bridge.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

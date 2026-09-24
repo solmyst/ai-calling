@@ -32,6 +32,35 @@ goes to the bot with that proposal and phone, the bot sends the KYC link on
 WhatsApp, and the call starts. The dialer or campaign script runs this once per
 customer.
 
+## Status on the VM (2026-09-24)
+
+Done on 134.195.138.223 with sudo:
+- **Asterisk 18.10:** installed with AudioSocket. `chan_sip` and IAX are
+  disabled, so PJSIP owns port 5060. The originals are backed up in
+  `/etc/asterisk.orig-20260924`.
+- **Configs:** `pjsip.conf`, `extensions.conf` and `manager.conf` are
+  installed. The AMI user is `aibot`, with its secret in `voicebot/server/.env`.
+- **Bridge:** `callerdesk-bridge` runs as a systemd service, enabled and
+  restarting on failure.
+- **strongSwan:** installed, with no tunnel configured yet.
+- **Firewall:** ufw allows only SSH. Asterisk is not reachable from the
+  internet.
+- **/dev/null:** was a plain file and has been recreated as the device.
+- **Real Asterisk call:**
+  `asterisk -rx "channel originate Local/s@ai-bot-test extension s@test-caller"`
+  goes Asterisk → AudioSocket → bridge → bot. The bot transcribed both played
+  caller lines and answered in 2.0s and 2.8s.
+  - Found while testing: Asterisk sends no frames during silence. The bridge
+    now fills those gaps, since the STT needs silence to end a turn.
+
+Waiting on CallerDesk. The registration keeps retrying
+`sip:AGENT_NUMBER@192.168.3.11` until both of these are done:
+1. **Tunnel:** put CallerDesk's parameters into strongSwan
+   (`/etc/swanctl/conf.d/callerdesk.conf`). Allow UDP 500/4500 from their
+   peer IP only, with `ufw allow from <peer> to any port 500,4500 proto udp`.
+2. **Agent number:** replace `AGENT_NUMBER` (3 places) in
+   `/etc/asterisk/pjsip.conf`, then run `asterisk -rx "core reload"`.
+
 ## Tested
 
 Tested on the VM on 2026-09-24:

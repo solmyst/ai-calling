@@ -110,17 +110,43 @@ async def _bridge(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bo
                                                     ("phone", phone or "")) if v},
             "media_format": {"encoding": "base64", "sample_rate": str(RATE), "bit_rate": "128kbps"}}}))
 
+        async def send_audio(pcm: bytes):
+            await ws.send(json.dumps({"event": "media", "stream_sid": sid,
+                                      "media": {"payload": base64.b64encode(pcm).decode()}}))
+
         async def caller_to_bot():
-            while True:
-                kind, payload = await read_frame(reader)
-                if kind == AUDIO:
-                    await ws.send(json.dumps({"event": "media", "stream_sid": sid,
-                                              "media": {"payload": base64.b64encode(payload).decode()}}))
-                elif kind == DTMF:
-                    await ws.send(json.dumps({"event": "dtmf", "stream_sid": sid,
-                                              "dtmf": {"digit": payload.decode(errors="ignore")}}))
-                elif kind in (HANGUP, ERROR):
-                    return
+            # Asterisk sends AudioSocket frames only while there IS sound — a
+            # silent or silence-suppressed leg sends nothing (tested on the VM,
+            # 2026-09-24: 193 frames over a 36s call). The STT ends a turn by
+            # hearing silence, so every gap is filled with silence here;
+            # otherwise the caller's last line is never transcribed.
+            frames: asyncio.Queue = asyncio.Queue()
+
+            async def read_all():
+                try:
+                    while True:
+                        frames.put_nowait(await read_frame(reader))
+                except (asyncio.IncompleteReadError, ConnectionError):
+                    frames.put_nowait((HANGUP, b""))
+
+            reading = asyncio.create_task(read_all())
+            silence = b"\0" * FRAME
+            try:
+                while True:
+                    try:
+                        kind, payload = await asyncio.wait_for(frames.get(), 0.03)
+                    except asyncio.TimeoutError:
+                        await send_audio(silence)
+                        continue
+                    if kind == AUDIO:
+                        await send_audio(payload)
+                    elif kind == DTMF:
+                        await ws.send(json.dumps({"event": "dtmf", "stream_sid": sid,
+                                                  "dtmf": {"digit": payload.decode(errors="ignore")}}))
+                    elif kind in (HANGUP, ERROR):
+                        return
+            finally:
+                reading.cancel()
 
         async def bot_to_queue():
             pending = b""
