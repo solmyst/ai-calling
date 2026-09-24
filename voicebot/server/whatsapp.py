@@ -6,9 +6,15 @@ app. The bot may only SAY that if the link really went out, so this returns
 True only when Meta accepted the message; anything else (not configured, no
 phone, API error) returns False and the call runs the app steps as before.
 
+The link is this customer's own KYC page,
+parkplus.io/app/car-insurance/verification?proposal_id=<their proposal>, made
+into a Park+ deeplink (prk.bz, opens the app when installed, the web page when
+not) for the user id on their proposal. No deeplink credentials, or the API
+failing, sends the plain page URL instead — it works either way.
+
 Config (.env): WHATSAPP_TOKEN, WHATSAPP_PHONE_ID (the sender), WHATSAPP_TEMPLATE
 (an approved template whose body {{1}} is the link), WHATSAPP_TEMPLATE_LANG,
-KYC_LINK_URL (with {proposal_id}).
+DEEPLINK_CLIENT_ID, DEEPLINK_CLIENT_SECRET, DEEPLINK_CAMPAIGN.
 """
 
 import json
@@ -20,6 +26,30 @@ import urllib.request
 from loguru import logger
 
 GRAPH = "https://graph.facebook.com/v25.0"
+KYC_PAGE = "https://parkplus.io/app/car-insurance/verification?proposal_id={proposal_id}"
+
+
+def kyc_link(proposal_id, user_id=None) -> str:
+    """This customer's KYC page as a Park+ deeplink, or the plain page URL."""
+    page = KYC_PAGE.format(proposal_id=int(proposal_id))
+    cid, secret = os.getenv("DEEPLINK_CLIENT_ID"), os.getenv("DEEPLINK_CLIENT_SECRET")
+    if not (cid and secret and user_id):
+        return page
+    body = {"user_id": str(user_id), "distribution_channel": "app", "destination_url": page,
+            "feature_name": "insurance_home",
+            "campaign_name": os.getenv("DEEPLINK_CAMPAIGN") or "INSURANCE_D0_D10",
+            "screen_id": 10, "custom_data": {}, "fallback_url": page,
+            "desktop_url": "https://parkplus.io/car-insurance"}
+    req = urllib.request.Request(
+        "https://prk.bz/api/deeplink", json.dumps(body).encode(), method="POST",
+        headers={"client-id": cid, "client-secret": secret, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=float(os.getenv("DEEPLINK_TIMEOUT_SECS") or 3)) as r:
+            url = (json.loads(r.read()).get("data") or {}).get("url")
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+        logger.warning(f"KYC LINK | deeplink failed for proposal {proposal_id} ({e}); plain URL")
+        return page
+    return url if isinstance(url, str) and url.startswith("https://") else page
 
 
 def normalise_phone(raw) -> str | None:
@@ -30,18 +60,18 @@ def normalise_phone(raw) -> str | None:
     return digits if len(digits) == 12 and digits.startswith("91") else None
 
 
-def send_kyc_link(phone, proposal_id) -> bool:
+def send_kyc_link(phone, proposal_id, user_id=None) -> bool:
     """True only if WhatsApp accepted the KYC-link message for this customer."""
     token, sender = os.getenv("WHATSAPP_TOKEN"), os.getenv("WHATSAPP_PHONE_ID")
-    template, link_url = os.getenv("WHATSAPP_TEMPLATE"), os.getenv("KYC_LINK_URL")
+    template = os.getenv("WHATSAPP_TEMPLATE")
     to = normalise_phone(phone)
-    if not (token and sender and template and link_url and to and proposal_id):
+    if not (token and sender and template and to and proposal_id):
         missing = [n for n, v in (("WHATSAPP_TOKEN", token), ("WHATSAPP_PHONE_ID", sender),
-                                  ("WHATSAPP_TEMPLATE", template), ("KYC_LINK_URL", link_url),
-                                  ("phone", to), ("proposal_id", proposal_id)) if not v]
+                                  ("WHATSAPP_TEMPLATE", template), ("phone", to),
+                                  ("proposal_id", proposal_id)) if not v]
         logger.info(f"KYC LINK | not sent — missing {', '.join(missing)}; app steps this call")
         return False
-    link = link_url.format(proposal_id=proposal_id)
+    link = kyc_link(proposal_id, user_id)
     body = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
         "name": template, "language": {"code": os.getenv("WHATSAPP_TEMPLATE_LANG") or "en"},
         "components": [{"type": "body", "parameters": [{"type": "text", "text": link}]}]}}
@@ -70,4 +100,8 @@ if __name__ == "__main__":
     assert normalise_phone("12345") is None and normalise_phone(None) is None
     os.environ.pop("WHATSAPP_TOKEN", None)
     assert send_kyc_link("9982920838", 859623) is False, "unconfigured must never claim sent"
+    for k in ("DEEPLINK_CLIENT_ID", "DEEPLINK_CLIENT_SECRET"):
+        os.environ.pop(k, None)
+    assert kyc_link(741688, 25393657) == \
+        "https://parkplus.io/app/car-insurance/verification?proposal_id=741688", kyc_link(741688)
     print("whatsapp ok")

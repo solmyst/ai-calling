@@ -1616,7 +1616,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # (card["kyc_link_sent"]); otherwise the call runs the app steps as before.
     phone = (body or {}).get("phone") if call_data is not None else os.getenv("TEST_CUSTOMER_PHONE")
     link_task = (
-        asyncio.create_task(asyncio.to_thread(send_kyc_link, phone, card.get("proposal_id")))
+        asyncio.create_task(asyncio.to_thread(
+            send_kyc_link, phone, card.get("proposal_id"), card.get("user_id")))
         if card and card.get("goal") == "complete_kyc" else None
     )
 

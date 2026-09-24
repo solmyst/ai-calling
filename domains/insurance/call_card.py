@@ -55,6 +55,9 @@ import urllib.request
 #: into a refund dispute.
 FIELDS = (
     "proposal_id",
+    # Park+ user id: only for the KYC deeplink (whatsapp.py). render() never
+    # shows it to the model.
+    "user_id",
     "customer_name",
     "insurer",
     "policy_type",
@@ -236,7 +239,7 @@ def build(row: dict | None) -> dict | None:
 #   - prev_policy_expiry: user_vehicle.od_expiry_date was 2024 on a 2026 policy.
 #   - chassis, engine, policy/proposal numbers beyond the existence check below.
 PREFETCH_SQL = """
-SELECT p.id AS proposal_id, p.insurer_id, p.policy_type, p.proposal_status,
+SELECT p.id AS proposal_id, p.user_id, p.insurer_id, p.policy_type, p.proposal_status,
        JSON_UNQUOTE(JSON_EXTRACT(p.metadata, '$.owner_type')) AS ownership_type,
        JSON_UNQUOTE(JSON_EXTRACT(p.error_details, '$.parsed_error_codes[0]')) AS error_code,
        uv.owner_name AS customer_name, uv.registration_number AS vehicle_reg,
