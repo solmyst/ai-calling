@@ -55,7 +55,7 @@ from domain import (
     build_system_prompt,
     build_tools,
 )
-from guardrails import HINGLISH_REPLIES, is_machine_output
+from guardrails import HINGLISH_REPLIES, is_machine_output, speakable
 from redaction import redact
 import slack
 from voice_gate import PrimaryVoiceGate
@@ -1356,6 +1356,19 @@ class FailoverLLMService(GroqLLMService):
         return list(dict.fromkeys(e.api_key for e in self._endpoints))
 
 
+class SpeakableFilter(BaseTextFilter):
+    """Last stop before the voice: words Sarvam mispronounces (guardrails.speakable)."""
+
+    async def filter(self, text: str) -> str:
+        return speakable(text)
+
+    async def handle_interruption(self):
+        pass
+
+    async def reset_interruption(self):
+        pass
+
+
 class GuardFilter(BaseTextFilter):
     """Runs the active domain's guard on every sentence before it is spoken.
 
@@ -1821,7 +1834,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             # its 24 kHz default, which Pipecat then resampled down every chunk.
             # Browser tests keep the pipeline's own rate.
             **({"sample_rate": 8000} if call_data is not None else {}),
-            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard), SpeakableFilter()],
             # REVERTED to SENTENCE on 2026-09-21 — TOKEN mode broke the safety
             # guard, live, on the 18:35 call. text_filters (GuardFilter,
             # which is KycGuard — OTP, Aadhaar, invented-regulator checks) run
@@ -1897,7 +1910,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     elif elevenlabs_key:
         tts = ElevenLabsTTSService(
             api_key=elevenlabs_key,
-            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard), SpeakableFilter()],
             settings=ElevenLabsTTSService.Settings(
                 voice=os.getenv("ELEVENLABS_VOICE_ID") or "21m00Tcm4TlvDq8ikWAM",  # Rachel
                 model=os.getenv("ELEVENLABS_MODEL") or "eleven_flash_v2_5",  # multilingual, low-latency
@@ -1907,7 +1920,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     else:
         tts = PiperTTSService(
             download_dir=Path(__file__).resolve().parents[2] / "piper_voices",
-            text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
+            text_filters=[MarkdownTextFilter(), GuardFilter(guard), SpeakableFilter()],
             settings=PiperTTSService.Settings(
                 voice=os.getenv("PIPER_VOICE_ID") or "en_US-lessac-medium",
             ),

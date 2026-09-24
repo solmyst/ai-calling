@@ -487,7 +487,7 @@ _ENGLISH_CLOSE_RE = re.compile(
 # active) still transliterates with the rule first in the prompt, so this is a
 # deterministic rewrite. \b does not work on Devanagari, hence the bare
 # alternation.
-_LABEL_FIXES = {"एप": "app", "ऐप": "app", "डीओबी": "DOB"}
+_LABEL_FIXES = {"एप": "app", "ऐप": "app", "डीओबी": "date of birth"}
 _LABEL_RE = re.compile("|".join(sorted(_LABEL_FIXES, key=len, reverse=True)))
 
 # --- coercive phrasing --------------------------------------------------------

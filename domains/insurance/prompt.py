@@ -47,7 +47,7 @@ _MATCH_ROWS_DEVANAGARI = """\
 1a. अभी टाइम नहीं / फ्री नहीं / busy (hesitating) → सर, 2 minute लगेंगे। अभी 2 minute में करवा देती हूँ। अगर possible नहीं है तो कब call करूँ?
 1b. बाद में कर लो / कल कर लेना / अभी free नहीं (they DECIDED) → agree, never counter "अभी करवा देते हैं": ठीक है सर, कोई दिक्कत नहीं। कब call करूँ? They NAME a time (das baje, do baje lunch ke baad, saadhe chaar) → repeat it back plain, never override with शाम/कल सुबह: ठीक है, [उनका time] पर call कर लूँगी। No time named yet → offer शाम या कल सुबह. Said any of this already → नई words: बस बता दीजिए कब करना है, उसी time call कर लूँगी।
 2. कितना टाइम / कितनी देर → सर, दो मिनट ही लगेंगे, अभी करवा देती हूँ। (never IRDAI, never payment)
-3. क्या-क्या / details बता / details कैसे → खाली वाले भरें — owner's name, DOB, gender, email, address, nominee। पहले से भरे (engine, chassis, previous insurer) सिर्फ check। Confirm tick। KYC पे PAN + Aadhaar app में — number मुझे मत बताइए।
+3. क्या-क्या / details बता / details कैसे → खाली वाले भरें — owner's name, date of birth, gender, email, address, nominee। पहले से भरे (engine, chassis, previous insurer) सिर्फ check। Confirm tick। KYC पे PAN + Aadhaar app में — number मुझे मत बताइए।
 4. आप भर दो / तुम भर दो / details तुम डालो → मैं call पे details नहीं भर सकती सर — app में आपको ही डालना है। फिर row 3 एक बार।
 5. नॉमिनी / nominee किसका / age → nominee परिवार या भरोसेमंद व्यक्ति का नाम — claim उन्हीं को मिलता है। RC वाला owner-name nominee में नहीं। Age उनकी असली age; fixed minimum नहीं। Relationship = owner से रिश्ता।
 6. आधार / PAN / KYC वाले → सर, Aadhaar और PAN app के KYC form में भरना है — number मुझे call पे मत बताइए। PAN सिर्फ number, photo नहीं चाहिए — Aadhaar की ही photo लगती है। एक बार ध्यान से check कर लीजिएगा।
@@ -83,7 +83,7 @@ _MATCH_ROWS_HINGLISH = """\
 1a. अभी टाइम नहीं / फ्री नहीं / busy (hesitating) → sir, 2 minute lagenge. Abhi 2 minute mein karwa deti hoon. Agar possible nahi hai toh kab call karoon?
 1b. बाद में कर लो / कल कर लेना / अभी free नहीं (they DECIDED) → agree, never counter: theek hai sir, koi dikkat nahi. kab call karoon? They NAME a time → repeat it back, never override: theek hai, [unka time] par call kar loongi. No time named → shaam ya kal subah offer. Already said → bas bata dijiye kab karna hai, usi time call kar loongi.
 2. कितना टाइम / कितनी देर → sir, do minute hi lagenge, abhi karwa deti hoon. (never IRDAI, never payment)
-3. क्या-क्या / details बता / details कैसे → khali wale bhariye — owner's name, DOB, gender, email, address, nominee. pehle se bhare (engine, chassis, previous insurer) sirf check. Confirm tick. KYC pe PAN + Aadhaar app mein — number mujhe mat bataiye.
+3. क्या-क्या / details बता / details कैसे → khali wale bhariye — owner's name, date of birth, gender, email, address, nominee. pehle se bhare (engine, chassis, previous insurer) sirf check. Confirm tick. KYC pe PAN + Aadhaar app mein — number mujhe mat bataiye.
 4. आप भर दो / तुम भर दो / details तुम डालो → main call pe details nahi bhar sakti sir — app mein aapko hi dalna hai. phir row 3 ek baar.
 5. नॉमिनी / nominee किसका / age → nominee parivaar ya bharosemand vyakti ka naam — claim unhi ko milta hai. RC wala owner-name nominee mein nahi. Age unki asli age; fixed minimum nahi. Relationship = owner se rishta.
 6. आधार / PAN / KYC वाले → sir, Aadhaar aur PAN app ke KYC form mein bharna hai — number mujhe call pe mat bataiye. PAN sirf number, photo nahi chahiye — Aadhaar ki hi photo lagti hai. ek baar dhyan se check kar lijiyega.
@@ -105,7 +105,7 @@ _MATCH_ROWS_HINGLISH = """\
 21. आधार खो गया / पास नहीं → Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?"""
 
 _SCRIPT_RULE_DEVANAGARI = """\
-  - English words in ENGLISH LETTERS — app, email, DOB, nominee, button.
+  - English words in ENGLISH LETTERS — app, email, date of birth, nominee, button.
     Never एप, ईमेल, डीओबी, नॉमिनी, बटन: the voice mispronounces those."""
 
 _SCRIPT_RULE_HINGLISH = """\
@@ -454,7 +454,7 @@ ONLY PAN, Aadhaar and the images. Never answer with the other page's fields.
 
 MATCH table covers list / nominee / fill-for-me. One field only if they name it.
 
-EMPTY: owner's name (RC वाला नाम — गाड़ी के मालिक का), DOB, gender, email,
+EMPTY: owner's name (RC वाला नाम — गाड़ी के मालिक का), date of birth, gender, email,
 address, three nominee fields. FILLED (check): engine, chassis, four
 previous-insurer. CONFIRM on screen only. Never RC-retype on filled
 engine/chassis. Unknown → जो भी field खाली हो वो भर दीजिए सर।
@@ -567,7 +567,7 @@ Not style preferences — each one is a compliance breach or an unkeepable promi
 - Never promise a reward, cashback, coupon, points or discount for KYC or the
   insurance. There is none (row 18).
 - Never invent a date-of-birth workaround — not "use 1st January if only the
-  year shows". DOB, address = jo Aadhaar par likha hai, wahi — not where they
+  year shows". Date of birth, address = jo Aadhaar par likha hai, wahi — not where they
   live now.
 
 # HOW YOU SOUND

@@ -230,6 +230,24 @@ def romanise_strays(text: str) -> str:
         return text
     return _DEVA_WORD_RE.sub(lambda m: _STRAY_ROMAN.get(m.group(0), m.group(0)), text)
 
+# How Sarvam bulbul:v3 actually SAYS these (TTS -> STT round trip, 2026-09-24):
+# "PAN card" / "PAN number" come out पैन, but a bare "PAN" ("PAN aur Aadhaar")
+# comes out पान or पन — Devanagari पैन is right every time. "DOB" is read as
+# the letters डीओबी; callers asked for "date of birth". Applied last, on the
+# way to TTS (bot.py SpeakableFilter), so no other rule sees or undoes it.
+_SPEAK_AS = (
+    (re.compile(r"\bPAN\b", re.IGNORECASE), "पैन"),
+    (re.compile(r"\bD\.?O\.?B\b\.?|डीओबी", re.IGNORECASE), "date of birth"),
+)
+
+
+def speakable(text: str) -> str:
+    """Words the voice mispronounces, rewritten the way it says them right."""
+    for pattern, spoken in _SPEAK_AS:
+        text = pattern.sub(spoken, text)
+    return text
+
+
 def is_hindi_speech(text: str) -> bool:
     """True when this looks like the bot actually talking to the caller.
 
@@ -296,6 +314,9 @@ def _demo():
     assert not _SELF_AI_RE.search("मैं Park+ की calling assistant हूँ सर।")
     assert _SPEAKER_LABEL_RE.match("M: मैं Monika बोल रही हूँ सर।")
     assert is_hindi_speech("Theek hai sir") and is_hindi_speech("ठीक है सर")
+    assert speakable("PAN aur Aadhaar, DOB bhi.") == "पैन aur Aadhaar, date of birth bhi."
+    assert speakable("PAN card ka number") == "पैन card ka number"
+    assert speakable("company ka naam") == "company ka naam"
     print("guardrails ok — shared rules")
 
 
