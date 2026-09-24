@@ -54,6 +54,7 @@ from domain import (
     build_opening_line,
     build_system_prompt,
     build_tools,
+    customer_phone,
 )
 from guardrails import HINGLISH_REPLIES, is_machine_output, speakable
 from redaction import redact
@@ -1614,10 +1615,20 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # in parallel with the STT/TTS setup below, and awaited before the guard and
     # prompt are built — they say "link aaya hoga" ONLY if it really went out
     # (card["kyc_link_sent"]); otherwise the call runs the app steps as before.
-    phone = (body or {}).get("phone") if call_data is not None else os.getenv("TEST_CUSTOMER_PHONE")
+    #
+    # Where the link goes: on a phone call, the number the dialer passed, else
+    # the Park+ account's own number (Metabase, by the proposal's user_id). A
+    # browser test only ever uses TEST_CUSTOMER_PHONE — it must never WhatsApp
+    # the real customer behind the test proposal.
+    async def _send_link():
+        phone = (body or {}).get("phone") if call_data is not None else os.getenv("TEST_CUSTOMER_PHONE")
+        if not phone and call_data is not None and card.get("user_id"):
+            phone = await asyncio.to_thread(customer_phone, card["user_id"])
+        return await asyncio.to_thread(send_kyc_link, phone, card.get("proposal_id"),
+                                       card.get("user_id"), card.get("customer_name"))
+
     link_task = (
-        asyncio.create_task(asyncio.to_thread(
-            send_kyc_link, phone, card.get("proposal_id"), card.get("user_id")))
+        asyncio.create_task(_send_link())
         if card and card.get("goal") == "complete_kyc" else None
     )
 

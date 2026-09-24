@@ -12,9 +12,15 @@ into a Park+ deeplink (prk.bz, opens the app when installed, the web page when
 not) for the user id on their proposal. No deeplink credentials, or the API
 failing, sends the plain page URL instead — it works either way.
 
-Config (.env): WHATSAPP_TOKEN, WHATSAPP_PHONE_ID (the sender), WHATSAPP_TEMPLATE
-(an approved template whose body {{1}} is the link), WHATSAPP_TEMPLATE_LANG,
-DEEPLINK_CLIENT_ID, DEEPLINK_CLIENT_SECRET, DEEPLINK_CAMPAIGN.
+The template is kyc_completion_insurance (UTILITY, en_US, approved 2026-09-24):
+    body   "Hi {{1}}, here is your link to complete the KYC ...: {{2}} ..."
+    button "Complete KYC" -> https://l.prk.bz/{{1}}
+so it needs the name, the link, and the deeplink's code for the button — which
+means the deeplink must work; a plain URL cannot fill the button, so without one
+nothing is sent and the call runs the app steps.
+
+Config (.env): WHATSAPP_TOKEN, WHATSAPP_PHONE_ID (the sender), WHATSAPP_TEMPLATE,
+WHATSAPP_TEMPLATE_LANG, DEEPLINK_CLIENT_ID, DEEPLINK_CLIENT_SECRET, DEEPLINK_CAMPAIGN.
 """
 
 import json
@@ -26,6 +32,7 @@ import urllib.request
 from loguru import logger
 
 GRAPH = "https://graph.facebook.com/v25.0"
+SHORT_LINK = "https://l.prk.bz/"
 KYC_PAGE = "https://parkplus.io/app/car-insurance/verification?proposal_id={proposal_id}"
 
 
@@ -60,21 +67,30 @@ def normalise_phone(raw) -> str | None:
     return digits if len(digits) == 12 and digits.startswith("91") else None
 
 
-def send_kyc_link(phone, proposal_id, user_id=None) -> bool:
+def send_kyc_link(phone, proposal_id, user_id=None, name=None) -> bool:
     """True only if WhatsApp accepted the KYC-link message for this customer."""
     token, sender = os.getenv("WHATSAPP_TOKEN"), os.getenv("WHATSAPP_PHONE_ID")
-    template = os.getenv("WHATSAPP_TEMPLATE")
+    template = os.getenv("WHATSAPP_TEMPLATE") or "kyc_completion_insurance"
     to = normalise_phone(phone)
-    if not (token and sender and template and to and proposal_id):
+    if not (token and sender and to and proposal_id):
         missing = [n for n, v in (("WHATSAPP_TOKEN", token), ("WHATSAPP_PHONE_ID", sender),
-                                  ("WHATSAPP_TEMPLATE", template), ("phone", to),
-                                  ("proposal_id", proposal_id)) if not v]
+                                  ("phone", to), ("proposal_id", proposal_id)) if not v]
         logger.info(f"KYC LINK | not sent — missing {', '.join(missing)}; app steps this call")
         return False
     link = kyc_link(proposal_id, user_id)
+    if not link.startswith(SHORT_LINK):
+        logger.warning(f"KYC LINK | no deeplink for proposal {proposal_id} — the template's "
+                       "button needs one; app steps this call")
+        return False
+    first = str(name or "").split()[0].title() if str(name or "").strip() else "there"
     body = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
-        "name": template, "language": {"code": os.getenv("WHATSAPP_TEMPLATE_LANG") or "en"},
-        "components": [{"type": "body", "parameters": [{"type": "text", "text": link}]}]}}
+        "name": template, "language": {"code": os.getenv("WHATSAPP_TEMPLATE_LANG") or "en_US"},
+        "components": [
+            {"type": "body", "parameters": [{"type": "text", "text": first},
+                                            {"type": "text", "text": link}]},
+            {"type": "button", "sub_type": "url", "index": "0",
+             "parameters": [{"type": "text", "text": link[len(SHORT_LINK):]}]},
+        ]}}
     req = urllib.request.Request(
         f"{GRAPH}/{sender}/messages", json.dumps(body).encode(), method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})

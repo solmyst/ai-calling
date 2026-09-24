@@ -82,6 +82,16 @@ def build_call_card(body):
     return module.from_body(body)
 
 
+def customer_phone(user_id):
+    """The customer's phone for the KYC link, from the domain's case source, or None."""
+    try:
+        module = importlib.import_module(f"domains.{ACTIVE}.call_card")
+    except ModuleNotFoundError:
+        return None
+    lookup = getattr(module, "customer_phone", None)
+    return lookup(user_id) if lookup else None
+
+
 def build_guard(card=None):
     """The active domain's deterministic output guard.
 

@@ -339,6 +339,50 @@ def fetch(proposal_id, timeout: float | None = None) -> dict | None:
     return None
 
 
+def customer_phone(user_id, timeout: float | None = None) -> str | None:
+    """The Park+ account's phone number (user_replica user.User), or None.
+
+    For the WhatsApp KYC link only — kept OUT of the card, so it never reaches
+    the prompt or the CALL CARD log line. Parameterised like fetch(); never
+    raises.
+    """
+    import domain  # noqa: F401  (loads .env for a standalone call)
+    key = os.getenv("METABASE_API_KEY")
+    try:
+        uid = int(str(user_id).strip())
+    except (TypeError, ValueError):
+        return None
+    if not key or uid <= 0:
+        return None
+    url = (os.getenv("METABASE_URL") or "https://bi.parkplus.io").rstrip("/") + "/api/dataset"
+    payload = {
+        "database": int(os.getenv("METABASE_USER_DB") or 264),
+        "type": "native",
+        "native": {
+            "query": "SELECT phone_number FROM user.User WHERE id = {{user_id}}",
+            "template-tags": {"user_id": {
+                "id": "user_id", "name": "user_id", "display-name": "User ID",
+                "type": "number", "required": True,
+            }},
+        },
+        "parameters": [{
+            "type": "number/=", "value": [uid],
+            "target": ["variable", ["template-tag", "user_id"]],
+        }],
+    }
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), method="POST",
+        headers={"Content-Type": "application/json", "x-api-key": key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout or float(os.getenv("METABASE_TIMEOUT_SECS") or 2)) as r:
+            rows = json.loads(r.read())["data"]["rows"]
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, TypeError):
+        return None
+    phone = str(rows[0][0]).strip() if rows and rows[0] and rows[0][0] else ""
+    return phone or None
+
+
 def _row_from_dataset(data) -> dict | None:
     """Metabase's {data: {cols, rows}} as one prefetch row, or None."""
     try:
