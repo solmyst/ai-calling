@@ -717,12 +717,12 @@ _SAFE_BY_TOPIC = {
     # leaves the customer nowhere (live call 2026-09-22, product owner).
     "refund": 'सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।',
     "details": (
-        "खाली वाले भरें — owner's name, email, address, nominee। पहले से भरे "
-        "सिर्फ check। KYC पे PAN + Aadhaar app में — number मुझे मत बताइए।"
+        "सर, पहले page पर जो खाली है वो भर दीजिए — email, address, nominee; बाकी पहले "
+        "से भरा है, बस check कर लीजिए। फिर KYC page पर PAN और Aadhaar app में ही डालना है।"
     ),
     "nominee": (
-        "नॉमिनी परिवार या भरोसेमंद व्यक्ति का नाम — claim उन्हीं को। "
-        "RC वाला owner-name nominee में नहीं। Age उनकी असली age।"
+        "सर, nominee में परिवार के किसी member या भरोसेमंद इंसान का नाम डालिए — claim उन्हीं को "
+        "मिलता है। RC वाले owner का नाम नहीं, और age उनकी असली age।"
     ),
     "aadhaar": (
         "सर, Aadhaar और PAN app के KYC form में भरना है — number मुझे call पे "
@@ -1227,12 +1227,12 @@ def _roman_lines() -> dict[str, str]:
             "sakte hain — woh log yahi handle karte hain."
         ),
         _SAFE_BY_TOPIC["details"]: (
-            "Khali wale bhariye — owner's name, email, address, nominee. Pehle se bhare "
-            "sirf check. KYC pe PAN + Aadhaar app mein — number mujhe mat bataiye."
+            "Sir, pehle page par jo khaali hai woh bhar dijiye — email, address, nominee; baaki pehle "
+            "se bhara hai, bas check kar lijiye. Phir KYC page par PAN aur Aadhaar app mein hi daalna hai."
         ),
         _SAFE_BY_TOPIC["nominee"]: (
-            "Nominee parivaar ya bharosemand vyakti ka naam — claim unhi ko. "
-            "RC wala owner-name nominee mein nahi. Age unki asli age."
+            "Sir, nominee mein parivaar ke kisi member ya bharosemand insaan ka naam daaliye — claim unhi ko "
+            "milta hai. RC waale owner ka naam nahi, aur age unki asli age."
         ),
         _SAFE_BY_TOPIC["aadhaar"]: (
             "Sir, Aadhaar aur PAN app ke KYC form mein bharna hai — number mujhe call pe "
@@ -1666,6 +1666,13 @@ class KycGuard:
             return "They are filling / asked you to wait. Say only that you are on the line — nothing else."
         if (self._caller_step_done and self._last_step in _NEXT_STEP
                 and not self._caller_first_page):
+            if _QWORD_RE.search(self._last_caller or ""):
+                # "haan page khul gaya, pehle ye batao kya-kya karna padega" —
+                # the step hint alone made the bot skip the question (Mac call
+                # 2026-09-24 10:29).
+                return (f"They did the step you asked ({self._last_step}) AND asked something: "
+                        f"answer their question first, in one short sentence, then: "
+                        f"{_NEXT_STEP[self._last_step]}")
             return f"They did the step you asked ({self._last_step}). {_NEXT_STEP[self._last_step]}"
         if self._caller_submitted and self._caller_explicit_done:
             return f"They say they filled and submitted everything. Reply only: {self._say(_DONE_ACK_LINE)}"
@@ -2048,6 +2055,7 @@ class KycGuard:
             topic in _SAFE_BY_TOPIC
             and topic not in ("busy", "bye")
             and _WAITING_LINE_RE.search(sentence)
+            and not self._turn_spoke
         ):
             self.wrong_script.append(sentence.strip())
             return safe(_SAFE_BY_TOPIC[topic])
@@ -3123,6 +3131,17 @@ def _demo():
     resay = "Ji sir, main Shreya bol rahi thi, Park+ se. Aapne jo car insurance liya tha, uski KYC pending hai."
     assert "KYC pending hai" in h.check(resay), h.check(resay)
     assert not h.repeated_line, h.repeated_line
+    # A step done AND a question: the hint must not drop the question.
+    h2 = KycGuard()
+    h2.note_caller("हाँ बताइए क्या करना है")
+    assert h2.check("Sir, Park+ app mein Insurance icon par click kijiye."), "push allowed once asked"
+    h2.note_caller("हाँ पेज खुल गया यार पहले एक चीज़ ये बता दो कि मेरे को क्या-क्या प्रोसेस करना पड़ेगा")
+    assert "answer their question first" in (h2.turn_hint() or ""), h2.turn_hint()
+    # A waiting line after a real answer stays; only one that dodges is rewritten.
+    h3 = KycGuard()
+    h3.note_caller("एक बार डिटेल्स बता दो ना क्या-क्या है।")
+    kept = h3.check("Sir, Complete KYC ka button dabaiye. Main line pe hoon.")
+    assert "line pe hoon" in kept, kept
     # Openers rotate: never the same filler on two replies in a row.
     h.note_caller("अच्छा क्या काम है")
     second = h.check("Ji sir, bas do minute ka kaam hai.")
