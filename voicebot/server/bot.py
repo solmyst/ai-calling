@@ -1575,6 +1575,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # A body carrying only a proposal id makes the card fetch the case itself
     # from Park+'s Metabase (domains/insurance/call_card.fetch) — a network
     # call, so it runs in a thread and never blocks another session's audio.
+    # AssemblyAI is the STT; checked in parallel with the case lookup so a
+    # refusal costs no extra wait. See _assemblyai_ok.
+    aai_probe = (
+        asyncio.create_task(_assemblyai_ok(os.environ["ASSEMBLYAI_API_KEY"]))
+        if os.getenv("ASSEMBLYAI_API_KEY") and not os.getenv("SARVAM_STT")
+        and not os.getenv("PARKPLUS_STT_URL") and os.getenv("SARVAM_API_KEY") else None
+    )
     body = getattr(runner_args, "body", None)
     call_data = getattr(runner_args, "call_data", None)
     if call_data is not None:
@@ -1688,6 +1695,11 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # If turns still get cut early after the threshold fix, silence_duration_ms
     # is the next knob (Sarvam default 1000ms), not stream_type.
     sarvam_stt_key = os.getenv("SARVAM_API_KEY") if os.getenv("SARVAM_STT") else None
+    if aai_probe and not await aai_probe:
+        # A refused AssemblyAI session is a call with no ears. Sarvam hears
+        # noisier rooms worse, but it hears.
+        logger.error("STT | AssemblyAI refused the session — Sarvam STT for this call")
+        sarvam_stt_key = os.getenv("SARVAM_API_KEY")
     if parkplus_stt_url:
         stt = ParkPlusSTTService(url=parkplus_stt_url)
     elif sarvam_stt_key:
@@ -2437,6 +2449,33 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         slack.post(f":telephone_receiver: *Call ended* — proposal {case}, {mins}m{secs:02d}s, "
                    f"{end_reason}{', HANDED OVER' if handed_over else ''}\n"
                    + "\n".join(call_observer.transcript))
+
+
+async def _assemblyai_ok(key: str) -> bool:
+    """Will AssemblyAI take a streaming session right now?
+
+    2026-09-24 it refused every session for hours with "Too many concurrent
+    sessions" while no bot of ours held one — the key's limit spent elsewhere.
+    One short probe per call (opened and closed before the real session) decides
+    between AssemblyAI and the Sarvam fallback. Unsure (timeout) counts as yes.
+    """
+    import websockets
+    url = ("wss://streaming.assemblyai.com/v3/ws?sample_rate=8000&encoding=pcm_s16le"
+           "&speech_model=universal-3-5-pro")
+    try:
+        async with websockets.connect(url, additional_headers={"Authorization": key},
+                                      open_timeout=3) as ws:
+            first = json.loads(await asyncio.wait_for(ws.recv(), 3))
+            await ws.send(json.dumps({"type": "Terminate"}))
+            if first.get("type") == "Error":
+                logger.warning(f"STT | AssemblyAI probe: {first.get('error')}")
+                return False
+            return True
+    except (asyncio.TimeoutError, OSError):
+        return True
+    except websockets.ConnectionClosed as e:
+        logger.warning(f"STT | AssemblyAI probe closed: {e}")
+        return False
 
 
 def _phone_body(call_data) -> dict:
