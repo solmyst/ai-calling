@@ -82,7 +82,8 @@ def send_kyc_link(phone, proposal_id, user_id=None, name=None) -> bool:
         logger.warning(f"KYC LINK | no deeplink for proposal {proposal_id} — the template's "
                        "button needs one; app steps this call")
         return False
-    first = str(name or "").split()[0].title() if str(name or "").strip() else "there"
+    # The proposal's owner name; none on the case -> "Hi sir/madam," (product owner).
+    first = str(name or "").split()[0].title() if str(name or "").strip() else "sir/madam"
     body = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
         "name": template, "language": {"code": os.getenv("WHATSAPP_TEMPLATE_LANG") or "en_US"},
         "components": [
