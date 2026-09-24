@@ -966,6 +966,19 @@ def _gold_index():
     return bank, grams, (idf, norms)
 
 
+# Natural reply openers, rotated so none repeats on consecutive replies.
+_OPENERS_ROMAN = ["Ji sir,", "Achha sir,", "Haan ji,", "Hmm, sir,"]
+_OPENERS = ["जी सर,", "अच्छा सर,", "हाँ जी,", "हम्म, सर,"]
+_OPENER_RE = re.compile(
+    r"^\s*(?:ji\s+sir|achha\s+sir|acha\s+sir|haan\s+ji|hmm,?\s+sir|"
+    r"जी\s+सर|अच्छा\s+सर|हाँ\s+जी|हम्म,?\s+सर)\s*[,—-]?", re.IGNORECASE)
+
+
+def _line_key(sentence: str) -> str:
+    """A sentence reduced to its words, for "was this already said"."""
+    return re.sub(r"[^\w\u0900-\u097F]+", " ", sentence.lower()).strip()
+
+
 def gold_examples(caller: str, card: dict | None, k: int = 3, min_sim: float = 0.22) -> list[tuple[str, str]]:
     """The k clean Gemini replies whose caller line is most like this one."""
     bank, grams, extra = _gold_index()
@@ -1468,6 +1481,49 @@ class KycGuard:
         self.last_caller_topic = None
         return False
 
+    def _vary_opener(self, sentence: str) -> str:
+        """No two replies in a row open with the same filler ("Ji sir," x3).
+
+        The prompt asks for a natural opener on most replies; Gemini picks
+        "Ji sir," every time, which is its own machine tell. Rotated here,
+        deterministically, rather than asked for harder.
+        """
+        import guardrails
+        openers = _OPENERS_ROMAN if guardrails.HINGLISH_REPLIES else _OPENERS
+        recent = self.__dict__.setdefault("_recent_openers", [])
+        m = _OPENER_RE.match(sentence)
+        if not m:
+            recent.append(None)
+            del recent[:-2]
+            return sentence
+        said = _line_key(m.group(0))
+        if said in recent:  # used on one of the last two replies
+            nxt = next(o for o in openers if _line_key(o) not in recent)
+            sentence = nxt + " " + sentence[m.end():].lstrip()
+            said = _line_key(nxt)
+        recent.append(said)
+        del recent[:-2]
+        return sentence
+
+    def note_cut_off(self, heard: str, unheard: str) -> None:
+        """The caller barged in: they heard `heard`, never `unheard`.
+
+        bot.py calls this on an interrupted reply. The next turn's hint says
+        what they missed (turn_hint), and every sentence they did not fully
+        hear stops counting as "already said" — otherwise bringing it back
+        ("Ji sir, main Shreya bol rahi thi, Park+ se…") is dropped as a repeat
+        or swapped for the re-anchor line.
+        """
+        self.cut_off = (heard, unheard)
+        whole = f"{heard} {unheard}".strip()
+        for part in _SENTENCE_RE.findall(whole):
+            if part.strip() and part.strip() not in heard:
+                self._spoken_keys.discard(_line_key(part))
+        if self._cur_bot_text:
+            self._cur_bot_text = heard
+        else:  # the caller's line already arrived and rotated it
+            self._prev_bot_text = heard
+
     def _record_line(self) -> str:
         """What our system shows, in the bot's script — for a caller who doubts it."""
         import guardrails
@@ -1503,9 +1559,11 @@ class KycGuard:
         if self.cut_off:
             heard, unheard = self.cut_off
             self.cut_off = None
-            extra.append(("They interrupted you" + (f" after \"{heard[-60:]}\"" if heard else " before hearing anything")
-                          + f" and did NOT hear: \"{unheard[:160]}\". Answer what they said first; then, if it "
-                          "still matters, bring the missed point back in one line (e.g. 'Sir, main ye bata rahi thi ki ...')."))
+            extra.append(("They cut you off" + (f" after \"{heard[-60:]}\"" if heard else " before hearing anything")
+                          + f" and did NOT hear: \"{unheard[:160]}\". Pick up like a person who was "
+                          "interrupted: a short 'Ji sir,' then answer what they said; if they asked who or "
+                          "what, say just that part again in your own words ('main Shreya bol rahi thi, Park+ "
+                          "se'); then, if it still matters, the missed point in one line ('main ye keh rahi thi ki ...')."))
         if extra:
             hint = " ".join(([hint] if hint else []) + extra)
         if examples:
@@ -1719,6 +1777,8 @@ class KycGuard:
                 continue
             fixed = self._label_fix(self._fix_sentence(self._feminine(sentence)))
             fixed = self._vary_repeat(fixed)
+            if not self._turn_spoke:
+                fixed = self._vary_opener(fixed)
             if _CONFIRM_Q_RE.search(fixed):
                 self._asked_confirm = True
             # Any sentence already said this call, word for word, is dropped —
@@ -1729,7 +1789,7 @@ class KycGuard:
             # turn is caught too (judge: "said the same sentence twice").
             kept = []
             for part in _SENTENCE_RE.findall(fixed):
-                key = re.sub(r"[^\w\u0900-\u097F]+", " ", part.lower()).strip()
+                key = _line_key(part)
                 if len(key) >= 25 and key in self._spoken_keys and self._turn_spoke:
                     self.repeated_line.append(part.strip())
                     continue
@@ -1737,8 +1797,7 @@ class KycGuard:
                 # the model parroting itself — how the 23:10 call looped.
                 # Re-anchor once. Short courtesy lines ("ठीक है सर, कोई दिक्कत
                 # नहीं") are how people talk and stay.
-                prev_keys = {re.sub(r"[^\w\u0900-\u097F]+", " ", q.lower()).strip()
-                             for q in _SENTENCE_RE.findall(self._prev_bot_text)}
+                prev_keys = {_line_key(q) for q in _SENTENCE_RE.findall(self._prev_bot_text)}
                 if len(key) >= 35 and key in prev_keys and not self._turn_spoke:
                     self.repeated_line.append(part.strip())
                     part = self._once("reanchor", _end(self._say(_SAFE_REANCHOR), "?"))
@@ -3053,6 +3112,23 @@ def _demo():
     hint = h.turn_hint() or ""
     assert "did NOT hear" in hint and "KYC pending" in hint, hint
     assert "did NOT hear" not in (h.turn_hint() or ""), "the cut-off note is used once"
+    # Cut off during the opening, caller asks "haan, kaun?": saying the unheard
+    # part again is the right answer, not a repeat to drop or re-anchor.
+    h = KycGuard()
+    opening = ("Namaste sir, Park+ se Shreya bol rahi hoon. "
+               "Aapne jo car insurance liya tha, uski KYC pending hai.")
+    h.check(opening)
+    h.note_cut_off("Namaste sir,", "Park+ se Shreya bol rahi hoon. Aapne jo car insurance liya tha, uski KYC pending hai.")
+    h.note_caller("हाँ, कौन?")
+    resay = "Ji sir, main Shreya bol rahi thi, Park+ se. Aapne jo car insurance liya tha, uski KYC pending hai."
+    assert "KYC pending hai" in h.check(resay), h.check(resay)
+    assert not h.repeated_line, h.repeated_line
+    # Openers rotate: never the same filler on two replies in a row.
+    h.note_caller("अच्छा क्या काम है")
+    second = h.check("Ji sir, bas do minute ka kaam hai.")
+    assert not second.lower().startswith("ji sir"), second
+    h.note_caller("ठीक है")
+    assert h.check("Sir, pehle Park+ app kholiye.").startswith("Sir, pehle"), "no opener: untouched"
     h = KycGuard()
     h.note_caller("नहीं जरूरी है क्या क्या वैसे करना")
     assert "khali" not in (h.turn_hint() or "").lower(), h.turn_hint()

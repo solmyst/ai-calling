@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 from collections.abc import Sequence
 from typing import NamedTuple
 from pathlib import Path
@@ -86,6 +87,8 @@ from pipecat.pipeline.worker import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.processors.aggregators.llm_context import LLMContext
+from pipecat.turns.user_stop.external_user_turn_stop_strategy import ExternalUserTurnStopStrategy
+from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
@@ -145,7 +148,7 @@ def _setup_logging() -> None:
     _LOGGING_READY = True
     level = os.getenv("LOG_LEVEL") or "INFO"
     logger.remove()
-    fmt = "{time:HH:mm:ss} | {level: <7} | {message}"
+    fmt = "{time:HH:mm:ss.SSS} | {level: <7} | {message}"
     logger.add(sys.stderr, level=level, format=fmt)
     logger.add(CALL_LOG, level=level, format=fmt, rotation="5 MB", retention=3)
     # Breakage alerts to Slack (errors, and a call dropped by a dead service).
@@ -228,6 +231,12 @@ class FillerInjector(FrameProcessor):
             await self.push_frame(frame)
 
 
+# How the STT hears "Park+" on 8 kHz calls (call.log 2026-09-21..23). Fixed
+# before the LLM so "पाकपस कैसी एप है?" is a question about Park+, not a word
+# the model has never seen. Every Park+ domain shares the brand.
+_STT_FIXES = re.compile(r"पाकपस|पाकपेस|पार्क\s*प्लेस|पाक\s*प्लस|\bpark\s*place\b", re.I)
+
+
 class NoiseGate(FrameProcessor):
     #: Awaited after a transcript is dropped — run_bot uses it to re-answer a
     #: turn the noise interrupted. See _on_noise_drop there.
@@ -302,6 +311,8 @@ class NoiseGate(FrameProcessor):
             if self.on_drop:
                 await self.on_drop()
             return
+        if isinstance(frame, TranscriptionFrame):
+            frame.text = _STT_FIXES.sub("पार्क प्लस", frame.text)
         await self.push_frame(frame, direction)
 
 
@@ -1549,14 +1560,25 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # A body carrying only a proposal id makes the card fetch the case itself
     # from Park+'s Metabase (domains/insurance/call_card.fetch) — a network
     # call, so it runs in a thread and never blocks another session's audio.
-    card = await asyncio.to_thread(build_call_card, getattr(runner_args, "body", None))
+    body = getattr(runner_args, "body", None)
+    call_data = getattr(runner_args, "call_data", None)
+    if call_data is not None:
+        # A phone call (Exotel/Plivo). The runner hands telephony bots NO body,
+        # so until 2026-09-24 every Exotel call fell through to TEST_CALL_CARD —
+        # the VM's `--proposal` test case — and would have greeted every real
+        # customer with someone else's insurer and car. The case comes from the
+        # provider handshake instead: the Voicebot URL's query string
+        # (wss://…/ws?proposal_id=123) arrives as start.custom_parameters.
+        body = _phone_body(call_data)
+        logger.info(f"PHONE CALL | proposal={body.get('proposal_id') or 'none'}")
+    card = await asyncio.to_thread(build_call_card, body)
     # Dev convenience, 2026-09-22: the browser test UI sends a fixed body with
     # no room for a call card, so there was no way to test against a REAL
     # case locally short of hand-crafting a runner body. TEST_CALL_CARD is a
     # raw JSON object, tried only when the request itself carried no card —
     # a real dialer body always wins. Unset in .env.example on purpose; this
     # is for a specific local test, not something to leave on.
-    if not card and os.getenv("TEST_CALL_CARD"):
+    if not card and call_data is None and os.getenv("TEST_CALL_CARD"):
         try:
             card = await asyncio.to_thread(
                 build_call_card, json.loads(os.environ["TEST_CALL_CARD"])
@@ -1651,6 +1673,12 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # that threshold cuts the bot off. Raised as a starting point;
                 # SARVAM_STT_THRESHOLD overrides for further live tuning.
                 threshold=float(os.getenv("SARVAM_STT_THRESHOLD") or 0.6),
+                # SPEED, 2026-09-24 (evals/stt_latency.py, same 8 kHz Hindi lines):
+                # end of speech -> final was 1.33s at Sarvam's default 1000ms
+                # silence, 0.85s at 500, 0.63s at 300 — against ~1.35s for
+                # AssemblyAI on live calls. 500 keeps a normal Hindi pause inside
+                # one turn; drop toward 300 only if callers are not being cut.
+                silence_duration_ms=int(os.getenv("SARVAM_STT_SILENCE_MS") or 500),
             ),
         )
     elif assemblyai_key:
@@ -1737,11 +1765,15 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 # pinned, so AssemblyAI's mode picks it — 500ms on balanced —
                 # instead of us silently overriding it again.
                 #
+                # 2026-09-24: max_turn_silence 1000 -> 640, AssemblyAI's own Pipecat
+                # guide value (min 128 / max 640); up to 360ms off every unpunctuated
+                # turn end. min stays 100 (their mode value, near 128).
+                #
                 # If callers start getting cut off mid-sentence again, raise
                 # ASSEMBLYAI_MAX_TURN_SILENCE first; that is the room-noise
                 # trade, not vad_threshold/voice_focus, which stay as they were.
                 min_turn_silence=int(os.getenv("ASSEMBLYAI_MIN_TURN_SILENCE") or 100),
-                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 1000),
+                max_turn_silence=int(os.getenv("ASSEMBLYAI_MAX_TURN_SILENCE") or 640),
                 mode=os.getenv("ASSEMBLYAI_MODE") or "balanced",
                 **(
                     {"interruption_delay": int(os.environ["ASSEMBLYAI_INTERRUPTION_DELAY"])}
@@ -1785,6 +1817,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     if sarvam_key:
         tts = SarvamTTSService(
             api_key=sarvam_key,
+            # Phone calls are 8 kHz end to end: ask Sarvam for 8 kHz instead of
+            # its 24 kHz default, which Pipecat then resampled down every chunk.
+            # Browser tests keep the pipeline's own rate.
+            **({"sample_rate": 8000} if call_data is not None else {}),
             text_filters=[MarkdownTextFilter(), GuardFilter(guard)],
             # REVERTED to SENTENCE on 2026-09-21 — TOKEN mode broke the safety
             # guard, live, on the 18:35 call. text_filters (GuardFilter,
@@ -2018,9 +2054,23 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         logger.warning(
             "LLM_TOOLS=off — no booking, no handover, no end_call tool this call"
         )
+    # SPEED, 2026-09-24: AssemblyAI and Sarvam both end turns themselves, and
+    # Pipecat's ExternalUserTurnStopStrategy then waits `timeout` (0.5s default)
+    # after the final transcript in case another one follows — measured on the
+    # VM as 0.50s between CALLER and the LLM request on every turn. A split
+    # line is already merged by the guard (note_caller) and by barge-in, so
+    # 0.15s is enough. Only for STTs that announce their own turn strategy.
+    turn_strategies = None
+    if isinstance(stt, (AssemblyAISTTService, SarvamRealtimeSTTService)):
+        turn_strategies = ExternalUserTurnStrategies(enable_interruptions=True)
+        turn_strategies.stop = [ExternalUserTurnStopStrategy(
+            timeout=float(os.getenv("TURN_MERGE_SECS") or 0.15))]
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
-        user_params=LLMUserAggregatorParams(vad_analyzer=vad),
+        user_params=LLMUserAggregatorParams(
+            vad_analyzer=vad,
+            **({"user_turn_strategies": turn_strategies} if turn_strategies else {}),
+        ),
     )
 
     filler_injector = FillerInjector()
@@ -2136,13 +2186,23 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # context kept the whole reply, so after "sir ek minute" cut the bot off in
     # sentence one, the model believed it had already given sentences two and
     # three and moved on from instructions nobody heard.
+    async def _stt_context(text: str):
+        # AssemblyAI context carryover: the line the caller just HEARD steers the
+        # transcription of their answer (short "haan", IDs, Park+ names). Their
+        # docs: -8.9% WER. Pipecat 1.10 does not feed it on its own.
+        if text and hasattr(stt, "update_agent_context"):
+            await stt.update_agent_context(text)
+
     @assistant_aggregator.event_handler("on_assistant_turn_started")
     async def on_assistant_turn_started(aggregator):
         call_observer.reset_heard()
 
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
     async def on_assistant_turn_stopped(aggregator, message):
-        if not (message.interrupted and message.content):
+        if not message.content:
+            return
+        if not message.interrupted:
+            await _stt_context(message.content)
             return
         messages = context.get_messages()
         last = messages[-1] if messages else None
@@ -2150,6 +2210,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
                 and last.get("content") == message.content):
             return
         heard, unheard = split_heard(message.content, call_observer.heard_secs())
+        await _stt_context(heard)
         if not unheard:
             return
         logger.info(f"CUT OFF | heard: {redact(heard) or '(nothing)'!r} | "
@@ -2164,8 +2225,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         # (guard.turn_hint), appended to the caller's line. It used to be a
         # separate "developer" message, which Park+'s Qwen template does not
         # treat as an instruction — the model never brought the missed point back.
-        if hasattr(guard, "cut_off"):
-            guard.cut_off = (heard, unheard)
+        if hasattr(guard, "note_cut_off"):
+            guard.note_cut_off(heard, unheard)
         # What was never spoken must not be logged as spoken either (the 00:03
         # call logged two replies glued into one MONIKA line).
         call_observer._said.clear()
@@ -2250,6 +2311,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         # repeat it" holds exactly as before.
         line = build_opening_line(call_mode, card)
         if line:
+            await _stt_context(line)
             await worker.queue_frames([TTSSpeakFrame(line)])
             return
         context.add_message(
@@ -2333,6 +2395,19 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         slack.post(f":telephone_receiver: *Call ended* — proposal {case}, {mins}m{secs:02d}s, "
                    f"{end_reason}{', HANDED OVER' if handed_over else ''}\n"
                    + "\n".join(call_observer.transcript))
+
+
+def _phone_body(call_data) -> dict:
+    """The dialer's per-call data out of a telephony handshake, as a runner body.
+
+    Exotel sends custom_parameters as a dict or as the raw query string; either
+    way only a proposal id is taken — the card fetch does the rest.
+    """
+    custom = call_data.get("custom_parameters") or {}
+    if isinstance(custom, str):
+        custom = {k: v[0] for k, v in urllib.parse.parse_qs(custom.lstrip("?")).items()}
+    pid = str(custom.get("proposal_id") or custom.get("proposal") or "").strip()
+    return {"proposal_id": int(pid)} if pid.isdigit() else {}
 
 
 def _voice_gate():

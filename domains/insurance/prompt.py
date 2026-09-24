@@ -303,9 +303,8 @@ you know what the customer already heard, never say it again as your own turn:
 If THIS CALL gives you their name, bot.py already said "नमस्ते <name> जी" in
 their place — same rule, nothing for you to redo.
 
-You say it ONCE, at the start of the call, and never again. Not when they ask
-you to guide them, not when they are confused, not after a silence — by then
-they know who you are, so pick up from wherever they actually are.
+You say it ONCE. Not when they are confused, not after a silence — they know
+who you are, so pick up from wherever they actually are.
 
 EXCEPTION — the caller barges in with a bare "Okay" / "हाँ" / "ठीक है" right on
 top of this line, before you finished it. That cuts you off mid-sentence, so
@@ -347,7 +346,11 @@ second, so a 600-character answer is fifty seconds of the customer waiting.
   - Never say a sentence you already said on this call. Reword it.
   - Woman: rahi/karti/karungi, never raha/karta/karunga. No life outside this call (match, food).
   - A number they read out: never repeat or judge it. You call back; never ask when they will.
-  - The opening was ALREADY SPOKEN. Never greet or reintroduce yourself again.
+  - The opening was ALREADY SPOKEN: never greet again. Your name again only if they ask who is calling.
+  - Sound like a person on a phone, not a script: start most replies with a short natural word —
+    "Ji sir,", "Achha,", "Haan ji,", "Hmm, sir," — never the same one twice in a row.
+  - Cut off mid-line ("haan, kaun?", "kya?") → pick up like a person: "Ji sir, main Shreya bol
+    rahi thi, Park+ se —" then only the part they missed, short.
   - Their NAME at most twice per call. On every line it is a machine tell.
   - A question ABOUT insurance/app/money → answer it and STOP, no "app खोल
     लीजिए" after it. The app instruction comes ONLY once they say they are
@@ -991,7 +994,12 @@ def _demo():
         # answer (row 17), "there is no reward" (row 18 + never-say), and the
         # insurer-vs-Park+ framing — a caller told "aapne ICICI se liya" said they
         # had never bought insurance at all. ~250 tokens, all sanctioned lines.
-        assert tokens < 7900, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
+        # 8100 on 2026-09-24: sound-human rules (natural openers, self-repair
+        # after a barge-in, name again only when asked) — product owner ask.
+        # Gemini is primary now and its first-token time did not move between
+        # a quarter of this prompt and all of it (implicit cache), so the cost
+        # is billing, not latency.
+        assert tokens < 8100, f"{mode}: {tokens:.0f} tokens is too expensive per turn"
         # Every hard rule must actually be stated, not just implied.
         for rule in ("OTP", "WhatsApp", "complete", "refund"):
             assert rule in p, f"{mode}: missing the {rule} rule"
@@ -1149,7 +1157,7 @@ def _demo():
         wa_tokens = _est_tokens(p_wa)
         # 7400: the flag-on path carries the WhatsApp rule and its MATCH row on
         # top of everything the flag-off path has, so it sits ~150 above it.
-        assert wa_tokens < 8100, f"WHATSAPP_KYC_LINK=1: {wa_tokens:.0f} tokens over budget"
+        assert wa_tokens < 8300, f"WHATSAPP_KYC_LINK=1: {wa_tokens:.0f} tokens over budget"
     finally:
         WHATSAPP_KYC_LINK_ENABLED = was_enabled
 
@@ -1207,7 +1215,7 @@ def _demo():
                 runs = re.findall(r"[\u0900-\u097F][\u0900-\u097F\s,।?!—-]*", p)
                 long_runs = [r.strip() for r in runs if len(r.strip()) > 40]
                 assert not long_runs, f"bot line left in Devanagari: {long_runs[0]}"
-                assert _est_tokens(p) < 8100, f"hinglish: {_est_tokens(p):.0f} tokens"
+                assert _est_tokens(p) < 8300, f"hinglish: {_est_tokens(p):.0f} tokens"
         WHATSAPP_KYC_LINK_ENABLED = was_enabled
         p_h = build_system_prompt("outbound")
         for line in ctx["kyc_mandate"]["sanctioned_lines"].values():
