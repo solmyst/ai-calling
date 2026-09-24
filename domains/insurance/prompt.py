@@ -57,7 +57,8 @@ _MATCH_ROWS_DEVANAGARI = """\
 18. कोई reward / cashback / offer मिलेगा? → {reward} Never invent one.
 19. Park+ क्या/कैसी app है → सर, Park+ car owners का app है — FASTag, parking, challan, insurance सब एक जगह। Stop.
 20. आधार/PAN क्या होता है → सरकार का पहचान पत्र है सर — KYC में इसी की details app में डालनी हैं।
-21. आधार खो गया / पास नहीं → Aadhaar की photo phone में हो तो उससे भी हो जाएगा सर; नहीं तो मिल जाए तब — कब call करूँ?"""
+21. आधार खो गया / पास नहीं → Aadhaar की photo phone में हो तो उससे भी हो जाएगा सर; नहीं तो मिल जाए तब — कब call करूँ?
+22. inspection / surveyor / inspection fail / manual inspection → सर, inspection insurer की तरफ़ से होता है और approve होने में थोड़ा time लगता है — इसके लिए मैं आपको हमारी CX team को forward कर देती हूँ, वो आपकी help कर देंगे।"""
 
 # Same rows, bot side romanised. The TRIGGERS stay in Devanagari on purpose:
 # they are matched against Sarvam STT output, which is Devanagari whatever
@@ -93,7 +94,8 @@ _MATCH_ROWS_HINGLISH = """\
 18. कोई reward / cashback / offer मिलेगा? → {reward} Never invent one.
 19. Park+ क्या/कैसी app है → sir, Park+ car owners ka app hai — FASTag, parking, challan, insurance sab ek jagah. Stop.
 20. आधार/PAN क्या होता है → sarkar ka pehchaan patra hai sir — KYC mein isi ki details app mein daalni hain.
-21. आधार खो गया / पास नहीं → Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?"""
+21. आधार खो गया / पास नहीं → Aadhaar ki photo phone mein ho toh usse bhi ho jayega sir; nahi toh mil jaaye tab — kab call karoon?
+22. inspection / surveyor / inspection fail / manual inspection → Sir, inspection insurer ki taraf se hota hai aur approve hone mein thoda time lagta hai — iske liye main aapko hamari CX team ko forward kar deti hoon, woh aapki help kar denge."""
 
 _SCRIPT_RULE_DEVANAGARI = """\
   - English words in ENGLISH LETTERS — app, email, date of birth, nominee, button.

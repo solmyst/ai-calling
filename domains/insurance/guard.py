@@ -910,6 +910,24 @@ _SAFE_FORWARD = (
     "सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, "
     "वो आपकी help कर देंगे"
 )
+# Vehicle inspection (product owner, 2026-09-24): after KYC some policies need
+# an inspection. The INSURER runs it and approves it — it takes time — and a
+# failed self-inspection is approved manually by our CX team. The bot does none
+# of it: an inspection question gets this line, which also hands the call over
+# ("team को forward" fires bot.py's Slack handover).
+_INSPECTION_RE = re.compile(
+    r"inspection|इंस्पेक्शन|इन्स्पेक्शन|इंस्पेक्सन|इंसपेक्शन|सर्वे|survey|सर्वेयर", re.IGNORECASE)
+_SAFE_INSPECTION = (
+    "सर, inspection insurer की तरफ़ से होता है और approve होने में थोड़ा time लगता है — "
+    "इसके लिए मैं आपको हमारी CX team को forward कर देती हूँ, वो आपकी help कर देंगे"
+)
+# The bot approving, doing or timing an inspection itself.
+_INSPECTION_PROMISE_RE = re.compile(
+    r"(?:inspection|इंस्पेक्शन)[^.।!?]{0,40}(?:approve\s*(?:kar|कर)\s*(?:d|द)|"
+    r"(?:kar|कर)\s*(?:deti|देती|dungi|दूँगी|doongi)|"
+    r"\d+\s*(?:ghant|घंट|din\b|दिन|minute|मिनट|hour|day))",
+    re.IGNORECASE,
+)
 # Shreya is a woman. First-person masculine verb forms ("kaam kar raha hoon",
 # "call kar dunga") are a voice slip the caller hears at once — flash-lite made
 # it on the A/B. "hoon"/"-unga" are first person, so the speaker is the bot.
@@ -1279,6 +1297,11 @@ def _roman_lines() -> dict[str, str]:
             "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar "
             "deti hoon, woh aapki help kar denge"
         ),
+        _SAFE_INSPECTION: (
+            "Sir, inspection insurer ki taraf se hota hai aur approve hone mein thoda time "
+            "lagta hai — iske liye main aapko hamari CX team ko forward kar deti hoon, woh "
+            "aapki help kar denge"
+        ),
         _ALTERNATES[0][1]: "Bas bata dijiye kab karna hai, usi time call kar loongi",
         _ALTERNATES[2][1]: "2 minute ka hi kaam hai sir",
     }
@@ -1619,6 +1642,9 @@ class KycGuard:
         if t == "denial":
             return ("They doubt this policy is theirs. Never say 'technical issue' yet. "
                     f"Reply only: {self._record_line()}")
+        if _INSPECTION_RE.search(self._last_caller or ""):
+            return (f"Vehicle inspection: the insurer does it, not us. Reply only: "
+                    f"{self._say(_SAFE_INSPECTION)}")
         if t == "refund":
             return f"Refund/cancel question. Reply only: {self._say(_SAFE_BY_TOPIC['refund'])}"
         if t == "policy_when":
@@ -2014,6 +2040,10 @@ class KycGuard:
         if _ROW0_RE.search(sentence) and _ROW0_RE.search(self._prev_bot_text):
             self.repeated_line.append(sentence.strip())
             return self._once("reanchor", safe(_SAFE_REANCHOR))
+
+        if _INSPECTION_PROMISE_RE.search(sentence):
+            self.wrong_fact.append(sentence.strip())
+            return self._once("inspection", safe(_SAFE_INSPECTION))
 
         if _MINUTES_PROMISE_RE.search(sentence):
             self.promises.append(sentence.strip())
@@ -3180,6 +3210,14 @@ def _demo():
     assert "app steps" in (miss.turn_hint() or ""), miss.turn_hint()
     promise = "Haan ji sir, main aapko KYC ka link WhatsApp par bhej deti hoon."
     assert KycGuard().check(promise) != promise, "unsent link promised"
+    # Inspection: the insurer's job; the bot hands over to CX, never approves or times it.
+    ins = KycGuard()
+    ins.note_caller("मेरा इंस्पेक्शन फेल हो गया, मैनुअल इंस्पेक्शन करवाना है")
+    assert "CX team" in (ins.turn_hint() or ""), ins.turn_hint()
+    for promise in ("Main aapka inspection approve kar deti hoon.",
+                    "Sir, inspection 2 ghante mein ho jayega."):
+        out = KycGuard().check(promise)
+        assert "CX team" in out and "approve kar deti" not in out, out
     # A step done AND a question: the hint must not drop the question.
     h2 = KycGuard()
     h2.note_caller("हाँ बताइए क्या करना है")
