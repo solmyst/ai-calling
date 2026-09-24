@@ -77,6 +77,14 @@ def send_kyc_link(phone, proposal_id, user_id=None, name=None) -> bool:
                                   ("phone", to), ("proposal_id", proposal_id)) if not v]
         logger.info(f"KYC LINK | not sent — missing {', '.join(missing)}; app steps this call")
         return False
+    # Testing safety: with WHATSAPP_ONLY_TO set, nothing goes anywhere else. On
+    # 2026-09-24 a simulated call on a real customer's proposal (859623) looked
+    # up their phone and tried to send; only the sandbox allowed-list stopped
+    # it. Unset it only when real customers should get the link.
+    only = {normalise_phone(n) for n in (os.getenv("WHATSAPP_ONLY_TO") or "").split(",") if n.strip()}
+    if only and to not in only:
+        logger.warning(f"KYC LINK | not sent — ...{to[-4:]} is not in WHATSAPP_ONLY_TO (test mode)")
+        return False
     link = kyc_link(proposal_id, user_id)
     if not link.startswith(SHORT_LINK):
         logger.warning(f"KYC LINK | no deeplink for proposal {proposal_id} — the template's "
@@ -117,6 +125,9 @@ if __name__ == "__main__":
     assert normalise_phone("12345") is None and normalise_phone(None) is None
     os.environ.pop("WHATSAPP_TOKEN", None)
     assert send_kyc_link("9982920838", 859623) is False, "unconfigured must never claim sent"
+    os.environ.update(WHATSAPP_TOKEN="t", WHATSAPP_PHONE_ID="p", WHATSAPP_ONLY_TO="9982920838")
+    assert send_kyc_link("6397644000", 859623) is False, "test mode sent outside WHATSAPP_ONLY_TO"
+    os.environ.pop("WHATSAPP_TOKEN"); os.environ.pop("WHATSAPP_ONLY_TO")
     for k in ("DEEPLINK_CLIENT_ID", "DEEPLINK_CLIENT_SECRET"):
         os.environ.pop(k, None)
     assert kyc_link(741688, 25393657) == \
