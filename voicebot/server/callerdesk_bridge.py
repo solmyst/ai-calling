@@ -10,8 +10,10 @@ barge-in) is exactly the one CallerDesk calls take.
 
     Asterisk --AudioSocket(tcp :9092)--> callerdesk_bridge --Exotel ws--> bot.py /ws
 
-The proposal id rides in the AudioSocket UUID — the dialplan builds it as
-00000000-0000-4000-8000-<proposal id, 12 digits> — so no side channel is needed.
+The proposal id and the customer's phone ride in the AudioSocket UUID — the
+dialplan builds it as <phone 12 digits as 8-4>-4000-8000-<proposal id, 12 digits>
+(zeros when unknown) — so no side channel is needed. The phone is where the
+bot sends the KYC link on WhatsApp.
 
     python callerdesk_bridge.py            # BRIDGE_PORT=9092 BOT_WS_URL=ws://127.0.0.1:7860/ws
 """
@@ -33,8 +35,17 @@ FRAME = RATE * 2 // 50  # 20 ms of 8 kHz s16le: what Asterisk sends and expects
 
 def proposal_from_uuid(call_id: str) -> int | None:
     """The proposal id the dialplan packed into the call UUID, if any."""
-    tail = call_id.rsplit("-", 1)[-1]
-    return int(tail) if call_id.startswith("00000000-0000-4000-8000-") and tail.isdigit() and int(tail) else None
+    parts = call_id.split("-")
+    if len(parts) != 5 or parts[2:4] != ["4000", "8000"] or not parts[4].isdigit():
+        return None
+    return int(parts[4]) or None
+
+
+def phone_from_uuid(call_id: str) -> str | None:
+    """The customer's 12-digit phone (91XXXXXXXXXX) packed into the call UUID, if any."""
+    parts = call_id.split("-")
+    digits = "".join(parts[:2]) if len(parts) == 5 and parts[2:4] == ["4000", "8000"] else ""
+    return digits if digits.isdigit() and digits.startswith("91") else None
 
 
 async def read_frame(reader: asyncio.StreamReader) -> tuple[int, bytes]:
@@ -53,8 +64,8 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot
         writer.close()
         return
     call_id = str(uuid.UUID(bytes=payload))
-    proposal = proposal_from_uuid(call_id)
-    logger.info(f"CALL {call_id} proposal={proposal or 'none'}")
+    proposal, phone = proposal_from_uuid(call_id), phone_from_uuid(call_id)
+    logger.info(f"CALL proposal={proposal or 'none'} phone={'...' + phone[-4:] if phone else 'none'}")
     sid = call_id.replace("-", "")
     out: asyncio.Queue[bytes] = asyncio.Queue()
 
@@ -62,7 +73,8 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, bot
         await ws.send(json.dumps({"event": "connected"}))
         await ws.send(json.dumps({"event": "start", "stream_sid": sid, "start": {
             "stream_sid": sid, "call_sid": sid, "account_sid": "callerdesk", "from": "", "to": "",
-            "custom_parameters": {"proposal_id": str(proposal)} if proposal else {},
+            "custom_parameters": {k: v for k, v in (("proposal_id", str(proposal or "")),
+                                                    ("phone", phone or "")) if v},
             "media_format": {"encoding": "base64", "sample_rate": str(RATE), "bit_rate": "128kbps"}}}))
 
         async def caller_to_bot():

@@ -58,6 +58,7 @@ from domain import (
 from guardrails import HINGLISH_REPLIES, is_machine_output, speakable
 from redaction import redact
 import slack
+from whatsapp import normalise_phone, send_kyc_link
 from voice_gate import PrimaryVoiceGate
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
@@ -1609,6 +1610,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     else:
         logger.info("No call card — running the generic call for this domain")
 
+    # The KYC link is the call's main path: sent on WhatsApp as the call starts,
+    # in parallel with the STT/TTS setup below, and awaited before the guard and
+    # prompt are built — they say "link aaya hoga" ONLY if it really went out
+    # (card["kyc_link_sent"]); otherwise the call runs the app steps as before.
+    phone = (body or {}).get("phone") if call_data is not None else os.getenv("TEST_CUSTOMER_PHONE")
+    link_task = (
+        asyncio.create_task(asyncio.to_thread(send_kyc_link, phone, card.get("proposal_id")))
+        if card and card.get("goal") == "complete_kyc" else None
+    )
+
     groq_key = os.getenv("GROQ_API_KEY")
     # STT and the LLM can run on separate Groq keys so one key isn't carrying both
     # call legs. Note this only spreads real load if the keys belong to DIFFERENT
@@ -1821,6 +1832,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # ONE guard for the whole call, shared by the TTS filter (what the bot says)
     # and the observer (what the caller says). Two instances would mean the filter
     # never learns that a car was named, and every price would be blocked.
+    if link_task:
+        card["kyc_link_sent"] = await link_task
     guard = build_guard(card)
     # The guard's per-turn intent hint rides on the LLM request (see
     # FailoverLLMService._attach_hint). Guards without one simply return None.
@@ -2401,6 +2414,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             await _hangup(f"processor_unusable:{processor}")
 
     await runner.run()
+    # The call is over: its duration timer must not fire into a dead pipeline
+    # (VM 2026-09-24: "Soft limit 300s" logged 3 minutes after an idle hang-up).
+    if duration_task is not None:
+        duration_task.cancel()
 
     if call_observer.transcript:
         mins, secs = divmod(int(time.monotonic() - call_started), 60)
@@ -2420,7 +2437,14 @@ def _phone_body(call_data) -> dict:
     if isinstance(custom, str):
         custom = {k: v[0] for k, v in urllib.parse.parse_qs(custom.lstrip("?")).items()}
     pid = str(custom.get("proposal_id") or custom.get("proposal") or "").strip()
-    return {"proposal_id": int(pid)} if pid.isdigit() else {}
+    body = {"proposal_id": int(pid)} if pid.isdigit() else {}
+    # Only a phone the dialer passed explicitly — never the provider's from/to,
+    # which on an outbound call can be our own number: the KYC link must not
+    # go to the wrong person.
+    phone = normalise_phone(custom.get("phone"))
+    if phone:
+        body["phone"] = phone
+    return body
 
 
 def _voice_gate():

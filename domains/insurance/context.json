@@ -46,14 +46,14 @@
   },
   "button_not_found": {
     "_source": "Park+ product owner, 2026-09-20. The 14:55 call spent four turns on 'Complete KYC नहीं दिख रहा' with no ladder to climb.",
-    "_warning": "NOTHING IN THIS REPO SENDS THE WHATSAPP LINK. LLM_TOOLS=off and there is no messaging tool, so step 4 is a promise a human keeps afterwards. Wire a real sender before dialling at scale.",
+    "_note": "2026-09-24: the WhatsApp KYC link is now the call's MAIN path, sent by bot.py at call start (voicebot/server/whatsapp.py). This app ladder is the fallback for a link that never arrived, so its last step forwards to the team instead of promising the link again.",
     "ladder": [
       "Insurance page पे देखिए सर, वहीं मिल जाएगा।",
       "हाँ सर, insurance वाले page पे ही देखिए — 'Complete KYC' का button वहीं होता है।",
       "एक काम कीजिए सर — app बंद करके दोबारा खोलिए, फिर insurance page पे देखिए।",
-      "कोई बात नहीं सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ — वहीं से कर लीजिए।"
+      "सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, वो आपकी help कर देंगे।"
     ],
-    "rule": "Work down the ladder one step per turn. Offer the WhatsApp link only after the app has been reopened and it is still not there."
+    "rule": "Work down the ladder one step per turn. Forward to the team only after the app has been reopened and it is still not there."
   },
   "insurers": {
     "aig": {

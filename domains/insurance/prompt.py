@@ -23,15 +23,6 @@ from . import call_card
 
 CONTEXT_FILE = Path(__file__).parent / "context.json"
 
-# WhatsApp KYC-link option, 2026-09-22 — OFF by default. Product ask: two
-# parallel paths, app KYC (existing, unchanged) and — only if the customer
-# wants it — a WhatsApp message containing ONLY the KYC link, never a
-# document/photo request or any other link. The actual sending mechanism does
-# not exist in this repo yet (the product owner is wiring it up separately);
-# this flag exists so the prompt/guard side is ready without the bot
-# promising something it cannot yet do. Flip WHATSAPP_KYC_LINK=1 once the
-# real send path is live — until then this changes nothing.
-WHATSAPP_KYC_LINK_ENABLED = bool(os.getenv("WHATSAPP_KYC_LINK"))
 
 # REPLY_SCRIPT=hinglish writes Hindi in Latin letters instead of Devanagari.
 # Measured 2026-09-22: the same sentence is 87 prompt tokens in Devanagari and
@@ -118,20 +109,21 @@ _SEND_RULE_DEFAULT = """\
   have no way to send a message, so it is a promise that breaks on every call.
   The app is already on their phone. The handover is a person ringing them."""
 
-_SEND_RULE_WHATSAPP_KYC_LINK = """\
-- The ONE exception: if the customer wants it, you may offer to send ONLY the
-  KYC link on WhatsApp — say so plainly, never a document, photo, SMS or
-  email, and never anything besides that one link: मैं आपको सिर्फ KYC का link
-  WhatsApp पर भेज देती हूँ — बाकी सब उसी link से हो जाएगा। Offer this only
-  when they ask for WhatsApp/a link, or clearly do not want to use the app —
-  the app stays the default path. Still never ask for or accept a document,
-  photo, PAN or Aadhaar over WhatsApp; the link is the only thing that moves."""
-
-_WHATSAPP_MATCH_ROW = (
-    "15. app नहीं चलता / WhatsApp पे भेज दो / link दे दो → सिर्फ KYC link "
-    "WhatsApp पर भेजने की पेशकश करें — कोई document नहीं, सिर्फ वो link। App "
-    "अब भी default रास्ता है, ये सिर्फ़ उनके माँगने पर।"
-)
+# The KYC link is the call's MAIN path (product owner, 2026-09-24): bot.py sends
+# it on WhatsApp as the call starts (voicebot/server/whatsapp.py) and sets
+# card["kyc_link_sent"] only when Meta accepted it. The app steps stay as the
+# fallback for a link that never arrives. Card-driven, not an env flag: the bot
+# must only say "link aaya hoga" on a call where it really went out. (The old
+# WHATSAPP_KYC_LINK flag offered a link nothing sent — retired.)
+_SEND_RULE_LINK_SENT = """\
+- THIS CALL'S PATH IS THE KYC LINK. As this call started, Park+ sent them a KYC
+  link on WhatsApp; it opens the same pages as the app (THE SCREENS below). Once
+  they are ready, step 1 is the link, not the app: सर, आपके WhatsApp पर Park+ से
+  KYC का link आया होगा — उस पर click कीजिए, page खुल जाएगा। Then THE SCREENS as usual.
+- Link not there → once: WhatsApp में Park+ का message देखिए सर, अभी भेजा है। Still
+  not there → the app steps instead (Park+ app → Insurance icon → Complete KYC).
+  Never promise to send it again, and never send anything else — no document,
+  photo, SMS or email."""
 
 # The opening is the one line every single call starts with, and its LENGTH is
 # a product decision, not a style one. Sarvam speaks about 12 characters of
@@ -204,6 +196,10 @@ _ROMAN_BOT_LINES = (
     ("Park+ Insurance, Shreya बोल रही हूँ। बताइए, किस बारे में call किया आपने?",
      "Park+ Insurance, Shreya bol rahi hoon. Bataiye, kis baare mein call kiya aapne?"),
     ('"app खोल लीजिए"', '"app khol lijiye"'),
+    ("सर, आपके WhatsApp पर Park+ से KYC का link आया होगा — उस पर click कीजिए, page खुल जाएगा।",
+     "Sir, aapke WhatsApp par Park+ se KYC ka link aaya hoga — us par click kijiye, page khul jayega."),
+    ("WhatsApp में Park+ का message देखिए सर, अभी भेजा है।",
+     "WhatsApp mein Park+ ka message dekhiye sir, abhi bheja hai."),
     # --- refusals / mandate -------------------------------------------------
     ("सर, IRDAI के rules के हिसाब से KYC complete हुए बिना insurance company policy issue नहीं कर सकती। बस दो मिनट का काम है।",
      "Sir, IRDAI ke rules ke hisaab se KYC complete hue bina insurance company policy issue nahi kar sakti. Bas do minute ka kaam hai."),
@@ -247,8 +243,6 @@ _ROMAN_BOT_LINES = (
      "Haan sir, insurance wale page pe hi dekhiye — 'Complete KYC' ka button wahin hota hai."),
     ("एक काम कीजिए सर — app बंद करके दोबारा खोलिए, फिर insurance page पे देखिए।",
      "Ek kaam kijiye sir — app band karke dobara kholiye, phir insurance page pe dekhiye."),
-    ("कोई बात नहीं सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ — वहीं से कर लीजिए।",
-     "Koi baat nahi sir, main aapko WhatsApp par KYC ka link bhej deti hoon — wahin se kar lijiye."),
     # --- handover / never-say -----------------------------------------------
     ("सर, ये technical issue लग रहा है — मैं एक बार team को forward कर देती हूँ, वो आपकी help कर देंगे।",
      "Sir, ye technical issue lag raha hai — main ek baar team ko forward kar deti hoon, woh aapki help kar denge."),
@@ -256,10 +250,6 @@ _ROMAN_BOT_LINES = (
     ("OTP किसी को मत बताइए सर, मुझे भी नहीं।", "OTP kisi ko mat bataiye sir, mujhe bhi nahi."),
     ("आपके documents मुझे नहीं चाहिए सर — privacy की वजह से ये सब app में ही होता है, मैं यहाँ से नहीं भर सकती।",
      "Aapke documents mujhe nahi chahiye sir — privacy ki wajah se ye sab app mein hi hota hai, main yahan se nahi bhar sakti."),
-    ("मैं आपको सिर्फ KYC का link WhatsApp पर भेज देती हूँ — बाकी सब उसी link से हो जाएगा।",
-     "Main aapko sirf KYC ka link WhatsApp par bhej deti hoon — baaki sab usi link se ho jayega."),
-    ("→ सिर्फ KYC link WhatsApp पर भेजने की पेशकश करें — कोई document नहीं, सिर्फ वो link। App अब भी default रास्ता है, ये सिर्फ़ उनके माँगने पर।",
-     "→ sirf KYC link WhatsApp par bhejne ki offer karein — koi document nahi, sirf woh link. App ab bhi default raasta hai, ye sirf unke maangne par."),
     ('"बस इतना बता दूँ" not "आपको करना ही पड़ेगा"', '"bas itna bata doon" not "aapko karna hi padega"'),
     ("सर, policy cancel या refund की request आप Park+ customer support पर कर सकते हैं — वो लोग यही handle करते हैं।",
      "Sir, policy cancel ya refund ki request aap Park+ customer support par kar sakte hain — woh log yahi handle karte hain."),
@@ -361,7 +351,8 @@ second, so a 600-character answer is fifty seconds of the customer waiting.
 
 # WHAT THIS CALL IS FOR
 
-Get the customer to finish KYC in the Park+ app. That is the whole job.
+Get the customer to finish KYC — on the KYC link's page or in the Park+ app.
+That is the whole job.
 
 You do NOT collect identity on this call. Not PAN, not Aadhaar, not GSTIN, not
 photos, and never an OTP. Everything sensitive happens in the app, where it is
@@ -585,7 +576,6 @@ twice. They ask a new question → new answer, never the last script.
 One row only. Hindi near word-for-word — no paraphrase into the waiting line.
 
 {match_rows}
-{whatsapp_row}
 
 # WHAT YOU KNOW
 
@@ -843,10 +833,9 @@ def _build_devanagari_prompt(mode: str = "outbound", card: dict | None = None) -
                                 (card or {}).get("insurer")),
         call_card=block,
         send_rule=(
-            _SEND_RULE_WHATSAPP_KYC_LINK if WHATSAPP_KYC_LINK_ENABLED
+            _SEND_RULE_LINK_SENT if (card or {}).get("kyc_link_sent")
             else _SEND_RULE_DEFAULT
         ),
-        whatsapp_row=_WHATSAPP_MATCH_ROW if WHATSAPP_KYC_LINK_ENABLED else "",
         # The rows carry their own {refund} placeholder, so they are formatted
         # before being dropped into the template — a nested field is not
         # substituted by the outer .format().
@@ -876,7 +865,7 @@ def _est_tokens(text: str) -> float:
 def _demo():
     # Every content check below is written against the Devanagari copy, which
     # is the source; the romanised build is checked on its own at the end.
-    global HINGLISH_REPLIES, WHATSAPP_KYC_LINK_ENABLED
+    global HINGLISH_REPLIES
     env_hinglish = HINGLISH_REPLIES
     HINGLISH_REPLIES = False
     ctx = json.loads(CONTEXT_FILE.read_text())
@@ -1099,7 +1088,7 @@ def _demo():
     # --- 2026-09-20: facts added after the 14:55 call --------------------------
     for fact, why in (
         ("app बंद करके दोबारा खोलिए", "the button-not-found ladder"),
-        ("WhatsApp पर KYC का link", "the ladder's last step"),
+        ("team को forward कर देती हूँ", "the ladder's last step"),
         ("notification", "the policy-delivery answer"),
         ("special characters are rejected", "the address field rule"),
         ("NEVER tell a customer to cut", "the 14:55 call told someone to cut their Aadhaar in half"),
@@ -1142,25 +1131,6 @@ def _demo():
     except ValueError:
         pass
 
-    # WHATSAPP_KYC_LINK=1 path — reads a module-level constant set at import,
-    # so flip it directly rather than re-importing. Nothing exercised this
-    # before it shipped; a token-budget or content regression here would have
-    # gone live invisibly the same way the 4873-vs-4450 overrun did.
-    was_enabled = WHATSAPP_KYC_LINK_ENABLED
-    WHATSAPP_KYC_LINK_ENABLED = True
-    try:
-        p_wa = build_system_prompt("outbound")
-        assert "ONE exception" in p_wa, "flag-on prompt lost the WhatsApp exception rule"
-        assert "Never offer to SEND anything" not in p_wa, \
-            "flag-on prompt should not carry the blanket no-send rule too"
-        assert "15. app नहीं चलता" in p_wa, "flag-on prompt lost the MATCH row"
-        wa_tokens = _est_tokens(p_wa)
-        # 7400: the flag-on path carries the WhatsApp rule and its MATCH row on
-        # top of everything the flag-off path has, so it sits ~150 above it.
-        assert wa_tokens < 8300, f"WHATSAPP_KYC_LINK=1: {wa_tokens:.0f} tokens over budget"
-    finally:
-        WHATSAPP_KYC_LINK_ENABLED = was_enabled
-
     # PREFIX CACHING. The call card is the only per-call content here, so where
     # it sits decides how much of the prompt a prefix cache can reuse between
     # two different customers. At 14% depth it was 4% (~300 tokens); at the end
@@ -1192,12 +1162,9 @@ def _demo():
     # 1. No dead keys: every Devanagari line in _ROMAN_BOT_LINES still exists
     #    somewhere in a real build. A sanctioned line edited without its twin
     #    would otherwise silently ship in Devanagari to a Hinglish bot.
-    WHATSAPP_KYC_LINK_ENABLED = True
-    try:
-        sources = [_build_devanagari_prompt(m) for m in OPENINGS]
-        sources += [_build_devanagari_prompt("outbound", c) for c in (kyc, dup, company)]
-    finally:
-        WHATSAPP_KYC_LINK_ENABLED = was_enabled
+    sources = [_build_devanagari_prompt(m) for m in OPENINGS]
+    sources += [_build_devanagari_prompt("outbound", c)
+                for c in (kyc, dup, company, {**kyc, "kyc_link_sent": True})]
     every_build = "\n".join(sources)
     dead = [d for (d, _), (pat, _) in zip(_ROMAN_BOT_LINES, _ROMAN_BOT_PATTERNS)
             if not pat.search(every_build)]
@@ -1207,16 +1174,14 @@ def _demo():
     #    that was added without a romanised twin.
     HINGLISH_REPLIES = True
     try:
-        for flag in (False, True):
-            WHATSAPP_KYC_LINK_ENABLED = flag
-            builds = [build_system_prompt(m) for m in OPENINGS]
-            builds += [build_system_prompt("outbound", c) for c in (kyc, dup, company)]
-            for p in builds:
-                runs = re.findall(r"[\u0900-\u097F][\u0900-\u097F\s,।?!—-]*", p)
-                long_runs = [r.strip() for r in runs if len(r.strip()) > 40]
-                assert not long_runs, f"bot line left in Devanagari: {long_runs[0]}"
-                assert _est_tokens(p) < 8300, f"hinglish: {_est_tokens(p):.0f} tokens"
-        WHATSAPP_KYC_LINK_ENABLED = was_enabled
+        builds = [build_system_prompt(m) for m in OPENINGS]
+        builds += [build_system_prompt("outbound", c)
+                   for c in (kyc, dup, company, {**kyc, "kyc_link_sent": True})]
+        for p in builds:
+            runs = re.findall(r"[\u0900-\u097F][\u0900-\u097F\s,।?!—-]*", p)
+            long_runs = [r.strip() for r in runs if len(r.strip()) > 40]
+            assert not long_runs, f"bot line left in Devanagari: {long_runs[0]}"
+            assert _est_tokens(p) < 8300, f"hinglish: {_est_tokens(p):.0f} tokens"
         p_h = build_system_prompt("outbound")
         for line in ctx["kyc_mandate"]["sanctioned_lines"].values():
             assert _romanise(line) in p_h and line not in p_h, line[:40]
@@ -1228,8 +1193,11 @@ def _demo():
         assert 'Say "Neha ji"' in build_system_prompt("outbound", company)
     finally:
         HINGLISH_REPLIES = env_hinglish
-        WHATSAPP_KYC_LINK_ENABLED = was_enabled
 
+    # The link path appears only on a call where the link really went out.
+    linked = build_system_prompt("outbound", {**kyc, "kyc_link_sent": True})
+    assert "PATH IS THE KYC LINK" in linked and "Never offer to SEND anything" not in linked
+    assert "PATH IS THE KYC LINK" not in build_system_prompt("outbound", kyc)
     sizes = {m: int(_est_tokens(build_system_prompt(m))) for m in OPENINGS}
     print("insurance prompt ok — " + ", ".join(f"{m} ~{t} tokens" for m, t in sizes.items()))
 

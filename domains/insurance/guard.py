@@ -406,15 +406,22 @@ _BOT_SENDS_RE = re.compile(
     r"(?:भेज\s*(?:दूँ|दूं|दूंगी|दूँगी|देती|देता|दे\s*दूँ)|"
     r"bhej\s*(?:deti|dunga|dungi|doon|dun|de\s*deti))"
     r"|(?:link|लिंक|sms|एसएमएस|message|मैसेज)\s*(?:भेज|bhej|send|कर\s*देती)"
+    # "main aapko KYC ka link WhatsApp par bhej deti hoon" — too many words
+    # between main and bhej for the first shape (Gemini, 2026-09-24).
+    r"|(?:link|लिंक)[^.।!?]{0,40}(?:भेज\s*(?:दूँ|दूं|दूंगी|दूँगी|देती|रही)|"
+    r"bhej\s*(?:deti|dungi|doon|dun|rahi))"
     r"|(?:I\s*(?:'?ll|will)?\s*send|sending\s+you)",
     re.IGNORECASE,
 )
-# Sending a case to our own team, and the sanctioned WhatsApp KYC link, are the
-# two "भेज" sentences that are real. Everything else is still a promise of a
-# message that never arrives.
+# Sending a case to our own team is always real. The WhatsApp KYC link is real
+# only on a call where bot.py actually sent it (card["kyc_link_sent"]) — on any
+# other call it is a promise of a message that never arrives.
 _SEND_EXEMPT = re.compile(
     r"team\s*(?:को|ko)\s*(?:भेज|bhej|assign|forward)|"
-    r"(?:भेज|bhej)[^.।!?]{0,12}(?:team|टीम)|"
+    r"(?:भेज|bhej)[^.।!?]{0,12}(?:team|टीम)",
+    re.IGNORECASE,
+)
+_SEND_LINK = re.compile(
     r"(?:WhatsApp|व्हाट्सएप|वॉट्सऐप)[^.।!?]{0,40}(?:KYC|link|लिंक)|"
     r"(?:KYC|link|लिंक)[^.।!?]{0,40}(?:WhatsApp|व्हाट्सएप|वॉट्सऐप)",
     re.IGNORECASE,
@@ -539,7 +546,8 @@ _APP_PUSH_RE = re.compile(
     r"open\s*the\s*Park\+\s*app|Park\+\s*app\s*(?:में|पर)\s*(?:जा|आ)|"
     r"app\s*(?:ko\s*)?khol|app\s*open\s*(?:kar|kijiye)|"
     r"Insurance\s*(?:wale|wala)\s*icon|icon\s*(?:par|pe)\s*click|"
-    r"Park\+\s*app\s*(?:mein|par)\s*(?:ja|aa)",
+    r"Park\+\s*app\s*(?:mein|par)\s*(?:ja|aa)|"
+    r"link\s*(?:par|pe|पर|पे)\s*(?:click|क्लिक)",
     re.IGNORECASE,
 )
 # Topics where "put it in the app" IS the answer, not a push. Someone reading
@@ -1105,6 +1113,13 @@ _QWORD_RE = re.compile(
     re.IGNORECASE,
 )
 _ABUSE_RE = re.compile(r"गाली|gaali|galli|\bgali\b", re.IGNORECASE)
+# "लिंक नहीं आया" / "कोई मैसेज नहीं आया" / "link nahi mila".
+_LINK_MISSING_RE = re.compile(
+    r"(?:लिंक|link|मैसेज|message|व्हाट्सएप|whatsapp)[^.।!?]{0,25}(?:नहीं|नही|nahi|nahin)\s*"
+    r"(?:आया|आई|मिला|मिली|aaya|aayi|mila|mili|dikh|दिख)|"
+    r"(?:नहीं|नही|nahi)\s*(?:आया|मिला)[^.।!?]{0,15}(?:लिंक|link|मैसेज|message)",
+    re.IGNORECASE,
+)
 _ASK_NAME_RE = re.compile(r"(?:मेरा|mera)\s*(?:नाम|naam)", re.IGNORECASE)
 _FOUND_BUTTON_RE = re.compile(
     r"(?:मिल|दिख)\s*गया[^.।!?]{0,30}(?:बटन|button)|(?:बटन|button)[^.।!?]{0,20}(?:मिल|दिख)\s*गया",
@@ -1115,7 +1130,7 @@ _FIRST_PAGE_RE = re.compile(r"पहला|pehla|first|proposal|प्रपो�
 # Row 0 ("aawaaz theek se nahi aayi") said again right after itself is a loop,
 # not a clarification — live call 2026-09-23 said it twelve times running.
 _ROW0_RE = re.compile(r"aawaaz\s*theek\s*se\s*nahi|आवाज़?\s*ठीक\s*से\s*नहीं", re.IGNORECASE)
-_SAFE_REANCHOR = "सर, मैं आपकी KYC में मदद के लिए हूँ — आप app में अभी किस page पर हैं?"
+_SAFE_REANCHOR = "सर, मैं आपकी KYC में मदद के लिए हूँ — आप अभी किस page पर हैं?"
 # "do minute mein aapki policy ban jaayegi" — the KYC's two minutes turned into
 # an issuance promise (live call 2026-09-23).
 _MINUTES_PROMISE_RE = re.compile(
@@ -1137,6 +1152,7 @@ _FAKE_TRANSFER_RE = re.compile(
 # read as DONE. The bot's own last instruction says which step "kar diya"
 # finished, so the guard tracks it and the hint gives the NEXT step.
 _STEP_MARKERS = (
+    ("link", re.compile(r"link\s*(?:par|pe|पर|पे)\s*(?:click|क्लिक)|link\s*(?:aaya|आया)", re.I)),
     ("app", re.compile(r"app\s*(?:khol|खोल)|ऐप\s*खोल|एप\s*खोल", re.I)),
     ("insurance", re.compile(r"insurance\s*(?:icon|wal[ae]|page)|इंश्योरेंस\s*(?:icon|वाले)", re.I)),
     ("kyc_button", re.compile(r"complete\s*kyc[^.।!?]{0,30}(?:click|dab|दब|tap|क्लिक)|"
@@ -1146,6 +1162,8 @@ _STEP_MARKERS = (
     ("kyc_page", re.compile(r"kyc\s*wal[ae]\s*page|kyc\s*वाले\s*page|pan\s*(?:aur|और)\s*aadhaar\s*wal", re.I)),
 )
 _NEXT_STEP = {
+    "link": ("The link page opened ('Confirm policy details') — say ONCE: khali details "
+             "bhariye, main line pe hoon. Not PAN/Aadhaar yet."),
     "app": "Next step only: Insurance icon par click karein.",
     "insurance": "Next step only: 'Complete KYC' button dabayein.",
     "kyc_button": ("Form khul gaya hoga — say ONCE: khali details bhariye, main line pe hoon. "
@@ -1252,7 +1270,7 @@ def _roman_lines() -> dict[str, str]:
             "WhatsApp aur mail dono pe aa jaayegi. Aur kuch help chahiye?"
         ),
         _SAFE_REDIRECT: "Bas aapka hi kaam kar rahi hoon sir! KYC ho jaye phir aaram se",
-        _SAFE_REANCHOR: "Sir, main aapki KYC mein madad ke liye hoon — aap app mein abhi kis page par hain?",
+        _SAFE_REANCHOR: "Sir, main aapki KYC mein madad ke liye hoon — aap abhi kis page par hain?",
         _DELIVERY_LINE: (
             "Sir, insurer ki side se saari details verify ho jaayengi, phir policy aapko "
             "WhatsApp aur mail dono pe aa jaayegi — app mein bhi notification aa jaayega"
@@ -1627,15 +1645,28 @@ class KycGuard:
             return (f"They want the team / a person. There is no live transfer. Reply only: "
                     f"{self._say(_SAFE_FORWARD)}")
         if self._confused_turns >= 3 and _CONFUSED_RE.search(self._last_caller or ""):
-            return ("Still stuck after two explanations: do not repeat the steps. Offer once "
-                    "to send the KYC link on WhatsApp.")
+            if self.card.get("kyc_link_sent"):
+                return ("Still stuck after two explanations: do not repeat the steps. Point them "
+                        "once to the KYC link Park+ sent on WhatsApp — the page opens there.")
+            return ("Still stuck after two explanations: do not repeat the steps. Ask exactly "
+                    "which screen they see right now.")
         if _DOCS_RE.search(self._last_caller or "") and t not in ("refund", "policy_when"):
             return ("Documents question. ONE short sentence: bas PAN number aur Aadhaar card "
-                    "chahiye — Aadhaar ki front aur back photo; baaki details app mein pehle se hain. "
+                    "chahiye — Aadhaar ki front aur back photo; baaki details pehle se bhari hain. "
                     "Not the list of form fields.")
+        if self.card.get("kyc_link_sent") and _LINK_MISSING_RE.search(self._last_caller or ""):
+            self._link_missing = getattr(self, "_link_missing", 0) + 1
+            if self._link_missing == 1:
+                return ("The link has not reached them. Once: ask them to check WhatsApp for "
+                        "Park+'s message, sent just now. Do not promise to send it again.")
+            return ("Still no link. Switch to the app steps: Park+ app kholiye, Insurance icon par "
+                    "click kijiye. Never promise to send the link again.")
         if _WANTS_WHATSAPP_RE.search(self._last_caller or ""):
-            return ("They asked for WhatsApp. Offer to send ONLY the KYC link on WhatsApp — "
-                    "never documents, details or a quote.")
+            if self.card.get("kyc_link_sent"):
+                return ("They asked for WhatsApp. The KYC link was already sent there as this call "
+                        "started — tell them to check Park+'s message. Nothing else is ever sent.")
+            return ("They asked for WhatsApp. Nothing can be sent from this call: say warmly it is "
+                    "all in the Park+ app and give only the next app step. Give no reason.")
         if _PRICE_COMPLAINT_RE.search(self._last_caller or ""):
             return ("Price complaint. Never defend, explain or discount the price. Say warmly "
                     "their payment is already done and only KYC is left; any price or refund "
@@ -2141,7 +2172,8 @@ class KycGuard:
             self.money_amounts.append(sentence.strip())
             return safe(_SAFE_MONEY)
 
-        if _BOT_SENDS_RE.search(sentence) and not _SEND_EXEMPT.search(sentence):
+        if (_BOT_SENDS_RE.search(sentence) and not _SEND_EXEMPT.search(sentence)
+                and not (self.card.get("kyc_link_sent") and _SEND_LINK.search(sentence))):
             self.false_send_promise.append(sentence.strip())
             return safe(_SAFE_SEND)
 
@@ -2379,8 +2411,6 @@ def _demo():
         # WARNING: nothing in this repo actually sends it. LLM_TOOLS=off and
         # there is no messaging tool, so today this is a promise kept by a human
         # afterwards, not by the bot. Wire a real sender before dialling at scale.
-        "सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ, वहीं से कर लीजिए।",
-        "Main aapko WhatsApp pe KYC ka link bhej deti hoon sir.",
         # The policy-delivery answer. It names WhatsApp and a policy in one
         # sentence, which is one word away from three different rules, so it is
         # asserted verbatim.
@@ -3051,7 +3081,7 @@ def _demo():
     h = KycGuard()
     h.note_caller("आज सेवेंटी का वाला सप्ला सा होता है तो वाटे का लगा है।")
     assert "repeat" not in (h.turn_hint() or "")
-    h = KycGuard()
+    h = KycGuard(card={"kyc_link_sent": True})
     h.note_caller("ठीक है ये सब details WhatsApp पे भेज दो")
     assert "KYC link" in (h.turn_hint() or "")
 
@@ -3131,6 +3161,25 @@ def _demo():
     resay = "Ji sir, main Shreya bol rahi thi, Park+ se. Aapne jo car insurance liya tha, uski KYC pending hai."
     assert "KYC pending hai" in h.check(resay), h.check(resay)
     assert not h.repeated_line, h.repeated_line
+    # The WhatsApp KYC link is sayable only on a call where it really went out.
+    for said in ("सर, मैं आपको WhatsApp पर KYC का link भेज देती हूँ, वहीं से कर लीजिए।",
+                 "Main aapko WhatsApp pe KYC ka link bhej deti hoon sir."):
+        assert KycGuard(card={"kyc_link_sent": True}).check(said) == said, said
+        assert KycGuard().check(said) != said, f"promised a link that was never sent: {said}"
+    sent = KycGuard(card={"kyc_link_sent": True})
+    sent.note_caller("WhatsApp पे भेज दो")
+    assert "already sent" in (sent.turn_hint() or ""), sent.turn_hint()
+    unsent = KycGuard()
+    unsent.note_caller("WhatsApp पे भेज दो")
+    assert "Nothing can be sent" in (unsent.turn_hint() or ""), unsent.turn_hint()
+    # The link did not arrive: check WhatsApp once, then the app — never "I'll resend".
+    miss = KycGuard(card={"kyc_link_sent": True})
+    miss.note_caller("कोई लिंक नहीं आया")
+    assert "check WhatsApp" in (miss.turn_hint() or ""), miss.turn_hint()
+    miss.note_caller("नहीं अभी भी लिंक नहीं आया")
+    assert "app steps" in (miss.turn_hint() or ""), miss.turn_hint()
+    promise = "Haan ji sir, main aapko KYC ka link WhatsApp par bhej deti hoon."
+    assert KycGuard().check(promise) != promise, "unsent link promised"
     # A step done AND a question: the hint must not drop the question.
     h2 = KycGuard()
     h2.note_caller("हाँ बताइए क्या करना है")

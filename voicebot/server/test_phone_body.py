@@ -14,4 +14,8 @@ assert _phone_body({"custom_parameters": "?proposal=42"}) == {"proposal_id": 42}
 assert _phone_body({"custom_parameters": ""}) == {}
 assert _phone_body({"custom_parameters": {"proposal_id": "abc"}}) == {}
 assert _phone_body({}) == {}
+assert _phone_body({"custom_parameters": "proposal_id=859623&phone=9982920838"}) == \
+    {"proposal_id": 859623, "phone": "919982920838"}
+assert "phone" not in _phone_body({"custom_parameters": {"proposal_id": "1"}, "from": "9982920838"}), \
+    "the provider's from/to is never used as the customer's phone"
 print("phone body ok")

@@ -29,13 +29,14 @@ CHUNK = RATE * 2 // 50  # 20 ms
 
 
 class Exotel:
-    async def open(self, url, proposal):
+    async def open(self, url, proposal, phone=None):
         self.ws = await websockets.connect(url, max_size=None)
         self.sid = f"sim{int(time.time())}"
         await self.ws.send(json.dumps({"event": "connected"}))
         await self.ws.send(json.dumps({"event": "start", "stream_sid": self.sid, "start": {
             "stream_sid": self.sid, "call_sid": self.sid, "account_sid": "sim", "from": "sim", "to": "sim",
-            "custom_parameters": {"proposal_id": str(proposal)} if proposal else {},
+            "custom_parameters": {k: v for k, v in (("proposal_id", str(proposal or "")),
+                                                    ("phone", phone or "")) if v},
             "media_format": {"encoding": "base64", "sample_rate": str(RATE), "bit_rate": "128kbps"}}}))
 
     async def send(self, pcm):
@@ -56,10 +57,11 @@ class Exotel:
 class AudioSocket:
     """What Asterisk's AudioSocket() does: UUID frame, then 20 ms audio frames."""
 
-    async def open(self, url, proposal):
+    async def open(self, url, proposal, phone=None):
         host, port = url.removeprefix("tcp://").split(":")
         self.reader, self.writer = await asyncio.open_connection(host, int(port))
-        call_id = uuid.UUID(f"00000000-0000-4000-8000-{proposal or 0:012d}")
+        ph = f"{int(phone or 0):012d}"
+        call_id = uuid.UUID(f"{ph[:8]}-{ph[8:]}-4000-8000-{proposal or 0:012d}")
         self.writer.write(frame(UUID, call_id.bytes))
 
     async def send(self, pcm):
@@ -79,9 +81,9 @@ class AudioSocket:
         self.writer.close()
 
 
-async def call(url: str, proposal: int | None):
+async def call(url: str, proposal: int | None, phone: str | None = None):
     line = AudioSocket() if url.startswith("tcp://") else Exotel()
-    await line.open(url, proposal)
+    await line.open(url, proposal, phone)
     heard = {"last": 0.0, "bytes": 0}
 
     async def listen():
@@ -131,5 +133,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--proposal", type=int)
+    ap.add_argument("--phone", help="91XXXXXXXXXX — where the bot sends the KYC link")
     args = ap.parse_args()
-    asyncio.run(call(args.url, args.proposal))
+    asyncio.run(call(args.url, args.proposal, args.phone))
