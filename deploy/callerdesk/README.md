@@ -24,7 +24,7 @@ KYC link.
 **Bot → customer (outbound).** Start the call with:
 
 ```bash
-python callerdesk_bridge.py dial 9876543210 859623
+python callerdesk_bridge.py dial 9876543210 741688
 ```
 
 Our Asterisk dials the customer through CallerDesk. When they answer, the call
@@ -100,7 +100,7 @@ These run as the `anush` user.
    leading `0`.
 6. Start the bridge:
    `cd ~/ai-calling/voicebot/server && .venv/bin/python callerdesk_bridge.py`.
-7. Test outbound: `.venv/bin/python callerdesk_bridge.py dial <your number> 859623`.
+7. Test outbound: `.venv/bin/python callerdesk_bridge.py dial <your number> 741688`.
 8. Test inbound: call the CallerDesk DID and have it routed to our agent.
 
 ## Ask the CallerDesk team

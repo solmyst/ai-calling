@@ -2550,7 +2550,7 @@ async def bot(runner_args: RunnerArguments):
 def _take_proposal_flag(argv: list[str]) -> int | None:
     """Pull `--proposal N` / `--proposal=N` out of argv, for local testing.
 
-    `python bot.py --proposal 859623` makes every call this process takes look up
+    `python bot.py --proposal 741688` makes every call this process takes look up
     that case, instead of editing TEST_CALL_CARD in .env between tests. Removed
     from argv because the Pipecat runner rejects flags it does not know. Set
     after .env has loaded (line ~110 loads it with override=True), so the flag

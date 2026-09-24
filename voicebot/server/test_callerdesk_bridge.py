@@ -11,12 +11,12 @@ import os  # noqa: E402
 
 from callerdesk_bridge import ACTIVE, AUDIO, UUID, dial, frame, pick_bot, phone_from_uuid, proposal_from_uuid, read_frame  # noqa: E402
 
-assert proposal_from_uuid(str(uuid.UUID("00000000-0000-4000-8000-000000859623"))) == 859623
+assert proposal_from_uuid(str(uuid.UUID("00000000-0000-4000-8000-000000741688"))) == 741688
 assert proposal_from_uuid("00000000-0000-4000-8000-000000000000") is None
 assert proposal_from_uuid(str(uuid.uuid4())) is None  # a plain call: no card, never a guess
-both = str(uuid.UUID("91998292-0838-4000-8000-000000859623"))
-assert proposal_from_uuid(both) == 859623 and phone_from_uuid(both) == "919982920838"
-assert phone_from_uuid("00000000-0000-4000-8000-000000859623") is None
+both = str(uuid.UUID("91998292-0838-4000-8000-000000741688"))
+assert proposal_from_uuid(both) == 741688 and phone_from_uuid(both) == "919982920838"
+assert phone_from_uuid("00000000-0000-4000-8000-000000741688") is None
 
 
 async def roundtrip():
@@ -43,11 +43,11 @@ async def outbound():
     os.environ.update(AMI_PORT=str(server.sockets[0].getsockname()[1]),
                       AMI_USER="aibot", AMI_SECRET="x", CALLERDESK_DIAL_PREFIX="0")
     async with server:
-        reply = await dial("+91 98765 43210", 859623)
+        reply = await dial("+91 98765 43210", 741688)
     assert "successfully queued" in reply
     sent = got[0]
     assert "Channel: PJSIP/09876543210@callerdesk" in sent, sent
-    assert "Variable: PROPOSAL_ID=859623,CUSTOMER_PHONE=919876543210" in sent, sent
+    assert "Variable: PROPOSAL_ID=741688,CUSTOMER_PHONE=919876543210" in sent, sent
     assert "Context: ai-bot" in sent and "Username: aibot" in sent
 
 asyncio.run(outbound())

@@ -16,7 +16,7 @@ dialplan builds it as <phone 12 digits as 8-4>-4000-8000-<proposal id, 12 digits
 bot sends the KYC link on WhatsApp.
 
     python callerdesk_bridge.py                          # the bridge (inbound + outbound audio)
-    python callerdesk_bridge.py dial 9876543210 859623   # outbound: ring a customer
+    python callerdesk_bridge.py dial 9876543210 741688   # outbound: ring a customer
 
 `dial` asks our Asterisk (AMI, 127.0.0.1:5038, deploy/callerdesk/manager.conf)
 to call the customer through CallerDesk and hand the answered call to the bot.

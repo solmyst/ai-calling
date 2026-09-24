@@ -4,9 +4,9 @@ Two ways in, both end to end (proposal id in the handshake -> card, STT, LLM,
 TTS, audio back):
 
     # as Exotel's Voicebot applet, straight to the bot
-    python -m evals.phone_sim ws://127.0.0.1:7860/ws --proposal 859623
+    python -m evals.phone_sim ws://127.0.0.1:7860/ws --proposal 741688
     # as CallerDesk's Asterisk, through callerdesk_bridge.py
-    python -m evals.phone_sim tcp://127.0.0.1:9092 --proposal 859623
+    python -m evals.phone_sim tcp://127.0.0.1:9092 --proposal 741688
 
 Caller audio: the cached lines from evals/stt_latency.py. Prints, per caller
 line, how long after the caller stopped the first bot audio came back — the
